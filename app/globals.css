@@ -1,26 +1,68 @@
 @import "tailwindcss";
 
+@theme {
+  --color-background: #FAF9F6;
+  --color-surface: #FFFFFF;
+  --color-border: #E4E1DA;
+  --color-text-main: #1C1F23;
+  --color-text-muted: #5F6670;
+  --color-accent: #1F5C4D;
+  --color-accent-hover: #17473B;
+  --color-accent-soft: #E6F0EC;
+  --color-accent-soft-hover: #D8E8E1;
+  --color-warning-text: #9A5B00;
+  --color-warning-bg: #FBF1DE;
+  --color-warning-border: #F3DCB1;
+  --color-danger-text: #A32A2A;
+  --color-danger-bg: #FBE9E7;
+  --color-danger-border: #F5C7C3;
+
+  --font-sans: var(--font-ibm-plex-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: var(--font-newsreader), Georgia, serif;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-app: #FAF9F6;
+  --surface: #FFFFFF;
+  --border: #E4E1DA;
+  --text-main: #1C1F23;
+  --text-muted: #5F6670;
+  --accent: #1F5C4D;
+  --accent-hover: #17473B;
+  --accent-soft: #E6F0EC;
+  --warning-text: #9A5B00;
+  --warning-bg: #FBF1DE;
+  --danger-text: #A32A2A;
+  --danger-bg: #FBE9E7;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #FAF9F6;
+  color: #1C1F23;
+  font-family: var(--font-ibm-plex-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tabular numbers for all financial, time, and numeric tables */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ensure accessible tap target sizes */
+.tap-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Flat design without gratuitous shadows or animations */
+button, input, select, textarea {
+  font-family: inherit;
 }
