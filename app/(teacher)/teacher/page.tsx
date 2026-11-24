@@ -309,45 +309,16 @@ export default function TeacherTodayPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Urgent & Today's Sessions */}
+          {/* Left Column: Today's Scheduled Sessions & Upcoming */}
           <div className="lg:col-span-7 flex flex-col gap-5">
-            {/* SECTION 1: UNMARKED URGENT SESSIONS FROM LAST 3 DAYS (APPEARS FIRST) */}
-            {unmarkedUrgent.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[#9A5B00] uppercase tracking-wider">
-                    <AlertTriangle className="w-4 h-4 text-[#9A5B00]" strokeWidth={2} />
-                    <span>Unmarked Sessions (Action Required)</span>
-                  </div>
-                  <span className="text-[11px] font-semibold text-[#9A5B00] bg-[#FBF1DE] px-2 py-0.5 rounded">
-                    {unmarkedUrgent.length} pending
-                  </span>
-                </div>
-
-                <div className="flex flex-col gap-2.5">
-                  {unmarkedUrgent.map((session) => (
-                    <SessionMarkCard
-                      key={session.id}
-                      session={session}
-                      isUrgent
-                      isMarking={markingSessionId === session.id}
-                      onMarkHeld={() => handleMarkSession(session.id, "held")}
-                      onMarkMissed={() => handleMarkSession(session.id, "missed")}
-                      onRequestCorrection={() => handleOpenCorrection(session)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* SECTION 2: TODAY'S SESSIONS */}
+            {/* SECTION 1: TODAY'S SESSIONS */}
             <div>
               <div className="flex items-center justify-between mb-2 px-1">
                 <span className="text-xs font-semibold text-[#5F6670] uppercase tracking-wider">
                   Today ({todayDateStr ? formatDateDisplay(todayDateStr) : "Today"})
                 </span>
                 <span className="text-[11px] text-[#5F6670]">
-                  {todaySessions.length} classes scheduled
+                  {todaySessions.length} class(es) scheduled
                 </span>
               </div>
 
@@ -370,11 +341,8 @@ export default function TeacherTodayPage() {
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Right Column: Upcoming Sessions & Guidelines */}
-          <div className="lg:col-span-5 flex flex-col gap-5">
-            {/* SECTION 3: UPCOMING SESSIONS */}
+            {/* SECTION 2: UPCOMING SESSIONS */}
             {upcomingSessions.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2 px-1">
@@ -382,7 +350,7 @@ export default function TeacherTodayPage() {
                     Upcoming Classes
                   </span>
                   <span className="text-[11px] text-[#5F6670]">
-                    Next {upcomingSessions.length} sessions
+                    Next {upcomingSessions.length} session(s)
                   </span>
                 </div>
 
@@ -415,6 +383,46 @@ export default function TeacherTodayPage() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Right Column: Sessions Still to Mark & Rules */}
+          <div className="lg:col-span-5 flex flex-col gap-5">
+            {/* SESSIONS STILL TO MARK */}
+            <div>
+              <div className="flex items-center justify-between mb-2 px-1">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#9A5B00] uppercase tracking-wider">
+                  <AlertTriangle className="w-4 h-4 text-[#9A5B00]" strokeWidth={2} />
+                  <span>Sessions Still to Mark</span>
+                </div>
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
+                  unmarkedUrgent.length > 0 ? "text-[#9A5B00] bg-[#FBF1DE]" : "text-[#1F5C4D] bg-[#E6F0EC]"
+                }`}>
+                  {unmarkedUrgent.length} pending
+                </span>
+              </div>
+
+              {unmarkedUrgent.length === 0 ? (
+                <Card className="p-6 text-center text-xs text-[#5F6670] bg-white border border-[#E4E1DA]">
+                  <Check className="w-6 h-6 text-[#1F5C4D] mx-auto mb-2" strokeWidth={2.5} />
+                  <p className="font-semibold text-[#1C1F23]">All Caught Up!</p>
+                  <p className="mt-0.5">No unmarked sessions pending your attendance action.</p>
+                </Card>
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  {unmarkedUrgent.map((session) => (
+                    <SessionMarkCard
+                      key={session.id}
+                      session={session}
+                      isUrgent
+                      isMarking={markingSessionId === session.id}
+                      onMarkHeld={() => handleMarkSession(session.id, "held")}
+                      onMarkMissed={() => handleMarkSession(session.id, "missed")}
+                      onRequestCorrection={() => handleOpenCorrection(session)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Attendance & Salary Guidelines Card */}
             <Card className="p-4 bg-[#FAF9F6] border border-[#E4E1DA]">
