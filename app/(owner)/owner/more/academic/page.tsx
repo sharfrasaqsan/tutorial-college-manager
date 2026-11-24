@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { OwnerShell } from "@/components/layout/OwnerShell";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Field } from "@/components/ui/Field";
@@ -94,7 +95,8 @@ export default function AcademicSettingsPage() {
 
   return (
     <OwnerShell pageTitle="Grades & Subjects">
-      <div className="mb-2">
+      <PageContainer variant="narrow">
+        <div className="mb-2">
         <Link
           href="/owner/more"
           className="inline-flex items-center text-xs font-medium text-[#1F5C4D] hover:underline min-h-[36px]"
@@ -436,6 +438,7 @@ export default function AcademicSettingsPage() {
           </Button>
         </form>
       </BottomSheet>
+      </PageContainer>
     </OwnerShell>
   );
 }

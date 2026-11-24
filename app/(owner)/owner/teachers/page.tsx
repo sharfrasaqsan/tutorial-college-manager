@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { OwnerShell } from "@/components/layout/OwnerShell";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -14,6 +15,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Toast, type ToastVariant } from "@/components/ui/Toast";
+import { DataTable, type ColumnDef } from "@/components/ui/DataTable";
 import {
   Users,
   Plus,
@@ -289,18 +291,129 @@ export default function OwnerTeachersPage() {
     return nameMatch || emailMatch || phoneMatch || subjMatch;
   });
 
+  const columns: ColumnDef<Teacher>[] = [
+    {
+      key: "name",
+      header: "Teacher",
+      sortable: true,
+      render: (t) => (
+        <div className="flex items-center gap-3">
+          {t.photoUrl ? (
+            <img
+              src={t.photoUrl}
+              alt={t.name}
+              className="w-9 h-9 rounded-full object-cover border border-[#E4E1DA] shrink-0"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-[#E6F0EC] text-[#1F5C4D] flex items-center justify-center font-semibold text-xs border border-[#E4E1DA] shrink-0">
+              {t.name.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div>
+            <div className="font-semibold text-sm text-[#1C1F23]">{t.name}</div>
+            <div className="text-[11px] text-[#5F6670] flex items-center gap-1">
+              <Mail className="w-3 h-3 text-[#5F6670]" />
+              <span>{t.email}</span>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "phone",
+      header: "Phone",
+      render: (t) => (
+        <span className="text-xs text-[#5F6670] tabular-nums">{t.phone || "—"}</span>
+      ),
+    },
+    {
+      key: "subjects",
+      header: "Assigned Subjects",
+      render: (t) => (
+        <div className="flex flex-wrap gap-1">
+          {t.subjects && t.subjects.length > 0 ? (
+            t.subjects.map((s) => (
+              <span
+                key={s}
+                className="px-2 py-0.5 text-[11px] rounded bg-[#FAF9F6] border border-[#E4E1DA] text-[#1C1F23]"
+              >
+                {s}
+              </span>
+            ))
+          ) : (
+            <span className="text-xs text-[#5F6670] italic">No subjects</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "showOnPublicSite",
+      header: "Public Site",
+      render: (t) =>
+        t.showOnPublicSite ? (
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#1F5C4D] bg-[#E6F0EC] px-2 py-0.5 rounded">
+            <Globe className="w-3 h-3" />
+            <span>Public</span>
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[11px] text-[#5F6670]">
+            <EyeOff className="w-3 h-3" />
+            <span>Hidden</span>
+          </span>
+        ),
+    },
+    {
+      key: "active",
+      header: "Status",
+      sortable: true,
+      render: (t) => (
+        <StatusChip
+          status={t.active ? "success" : "danger"}
+          label={t.active ? "Active" : "Deactivated"}
+        />
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      align: "right",
+      render: (t) => (
+        <div className="flex items-center justify-end gap-1.5">
+          <Button
+            variant="secondary"
+            className="text-xs h-7 px-2"
+            onClick={() => openEditSheet(t)}
+          >
+            <Edit className="w-3.5 h-3.5" />
+            <span>Edit</span>
+          </Button>
+          <Button
+            variant={t.active ? "secondary" : "primary"}
+            className={`text-xs h-7 px-2 ${
+              t.active ? "text-[#A32A2A] hover:bg-[#FBE9E7]" : ""
+            }`}
+            onClick={() => setStatusDialogTeacher(t)}
+          >
+            {t.active ? "Deactivate" : "Activate"}
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <OwnerShell pageTitle="Teachers">
-      <PageHeader
-        title="College Faculty"
-        subtitle="Manage permanent teacher records, subject assignments and login accounts"
-        action={
-          <Button variant="primary" onClick={openAddSheet} className="gap-1.5">
-            <Plus className="w-4 h-4" strokeWidth={2} />
-            <span>Add Teacher</span>
-          </Button>
-        }
-      />
+      <PageContainer variant="default">
+        <PageHeader
+          title="College Faculty"
+          subtitle="Manage permanent teacher records, subject assignments and login accounts"
+          action={
+            <Button variant="primary" onClick={openAddSheet} className="gap-1.5">
+              <Plus className="w-4 h-4" strokeWidth={2} />
+              <span>Add Teacher</span>
+            </Button>
+          }
+        />
 
       {/* Search Bar */}
       <div className="mb-4">
@@ -313,146 +426,143 @@ export default function OwnerTeachersPage() {
       </div>
 
       {/* Teachers List */}
-      {loading ? (
-        <div className="flex flex-col gap-3">
-          <Skeleton height="88px" />
-          <Skeleton height="88px" />
-          <Skeleton height="88px" />
-        </div>
-      ) : filteredTeachers.length === 0 ? (
-        <EmptyState
-          title={search ? "No matching teachers found" : "No teachers registered yet"}
-          description={
-            search
-              ? "Try adjusting your search query."
-              : "Add your first teacher account to begin assigning classes and schedules."
-          }
-          icon={<Users className="w-8 h-8" strokeWidth={1.75} />}
-          action={
-            !search ? (
-              <Button variant="primary" onClick={openAddSheet}>
-                Add Teacher
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : (
-        <div className="flex flex-col gap-3">
-          {filteredTeachers.map((teacher) => (
-            <Card key={teacher.id} className="p-4 flex flex-col gap-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  {teacher.photoUrl ? (
-                    <img
-                      src={teacher.photoUrl}
-                      alt={teacher.name}
-                      className="w-11 h-11 rounded-full object-cover border border-[#E4E1DA] shrink-0"
-                    />
-                  ) : (
-                    <div className="w-11 h-11 rounded-full bg-[#E6F0EC] text-[#1F5C4D] flex items-center justify-center font-semibold text-sm border border-[#E4E1DA] shrink-0">
-                      {teacher.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+      <DataTable
+        data={filteredTeachers}
+        columns={columns}
+        keyExtractor={(t) => t.id}
+        loading={loading}
+        emptyState={
+          <EmptyState
+            title={search ? "No matching teachers found" : "No teachers registered yet"}
+            description={
+              search
+                ? "Try adjusting your search query."
+                : "Add your first teacher account to begin assigning classes and schedules."
+            }
+            icon={<Users className="w-8 h-8" strokeWidth={1.75} />}
+            action={
+              !search ? (
+                <Button variant="primary" onClick={openAddSheet}>
+                  Add Teacher
+                </Button>
+              ) : undefined
+            }
+          />
+        }
+        renderMobileCard={(teacher) => (
+          <Card className="p-4 flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-3">
+                {teacher.photoUrl ? (
+                  <img
+                    src={teacher.photoUrl}
+                    alt={teacher.name}
+                    className="w-11 h-11 rounded-full object-cover border border-[#E4E1DA] shrink-0"
+                  />
+                ) : (
+                  <div className="w-11 h-11 rounded-full bg-[#E6F0EC] text-[#1F5C4D] flex items-center justify-center font-semibold text-sm border border-[#E4E1DA] shrink-0">
+                    {teacher.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
 
-                  <div>
-                    <h3 className="font-semibold text-sm text-[#1C1F23] flex items-center gap-2">
-                      <span>{teacher.name}</span>
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#5F6670] mt-0.5">
-                      <span className="flex items-center gap-1">
-                        <Mail className="w-3.5 h-3.5" strokeWidth={1.75} />
-                        {teacher.email}
+                <div>
+                  <h3 className="font-semibold text-sm text-[#1C1F23] flex items-center gap-2">
+                    <span>{teacher.name}</span>
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#5F6670] mt-0.5">
+                    <span className="flex items-center gap-1">
+                      <Mail className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      {teacher.email}
+                    </span>
+                    {teacher.phone && (
+                      <span className="flex items-center gap-1 tabular-nums">
+                        <Phone className="w-3.5 h-3.5" strokeWidth={1.75} />
+                        {teacher.phone}
                       </span>
-                      {teacher.phone && (
-                        <span className="flex items-center gap-1 tabular-nums">
-                          <Phone className="w-3.5 h-3.5" strokeWidth={1.75} />
-                          {teacher.phone}
-                        </span>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
-
-                {/* Status Chips */}
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  <StatusChip
-                    status={teacher.active ? "success" : "danger"}
-                    label={teacher.active ? "Active" : "Deactivated"}
-                  />
-                  {teacher.showOnPublicSite ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-[#1F5C4D]">
-                      <Globe className="w-3 h-3" strokeWidth={1.75} />
-                      Public
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-[#5F6670]">
-                      <EyeOff className="w-3 h-3" strokeWidth={1.75} />
-                      Hidden
-                    </span>
-                  )}
-                </div>
               </div>
 
-              {/* Bio summary */}
-              {teacher.bio && (
-                <p className="text-xs text-[#5F6670] line-clamp-2 italic bg-[#FAF9F6] p-2 rounded border border-[#E4E1DA]">
-                  "{teacher.bio}"
-                </p>
-              )}
-
-              {/* Subjects */}
-              {teacher.subjects && teacher.subjects.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[#E4E1DA]">
-                  <span className="text-[11px] font-medium text-[#5F6670] flex items-center gap-1 mr-1">
-                    <BookOpen className="w-3 h-3" strokeWidth={1.75} />
-                    Subjects:
+              {/* Status Chips */}
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <StatusChip
+                  status={teacher.active ? "success" : "danger"}
+                  label={teacher.active ? "Active" : "Deactivated"}
+                />
+                {teacher.showOnPublicSite ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-[#1F5C4D]">
+                    <Globe className="w-3 h-3" strokeWidth={1.75} />
+                    Public
                   </span>
-                  {teacher.subjects.map((subj) => (
-                    <span
-                      key={subj}
-                      className="px-2 py-0.5 text-[11px] rounded bg-[#FAF9F6] border border-[#E4E1DA] text-[#1C1F23]"
-                    >
-                      {subj}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E4E1DA]">
-                <Button
-                  variant="quiet"
-                  onClick={() => openEditSheet(teacher)}
-                  className="text-xs h-8 px-2.5 gap-1"
-                >
-                  <Edit className="w-3.5 h-3.5" strokeWidth={1.75} />
-                  <span>Edit Profile</span>
-                </Button>
-
-                <Button
-                  variant={teacher.active ? "quiet" : "secondary"}
-                  onClick={() => setStatusDialogTeacher(teacher)}
-                  className={`text-xs h-8 px-2.5 gap-1 ${
-                    teacher.active ? "text-[#A32A2A] hover:bg-[#FBE9E7]" : "text-[#1F5C4D]"
-                  }`}
-                >
-                  {teacher.active ? (
-                    <>
-                      <UserX className="w-3.5 h-3.5" strokeWidth={1.75} />
-                      <span>Deactivate</span>
-                    </>
-                  ) : (
-                    <>
-                      <UserCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
-                      <span>Activate</span>
-                    </>
-                  )}
-                </Button>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-[#5F6670]">
+                    <EyeOff className="w-3 h-3" strokeWidth={1.75} />
+                    Hidden
+                  </span>
+                )}
               </div>
-            </Card>
-          ))}
-        </div>
-      )}
+            </div>
+
+            {/* Bio summary */}
+            {teacher.bio && (
+              <p className="text-xs text-[#5F6670] line-clamp-2 italic bg-[#FAF9F6] p-2 rounded border border-[#E4E1DA]">
+                &quot;{teacher.bio}&quot;
+              </p>
+            )}
+
+            {/* Subjects */}
+            {teacher.subjects && teacher.subjects.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[#E4E1DA]">
+                <span className="text-[11px] font-medium text-[#5F6670] flex items-center gap-1 mr-1">
+                  <BookOpen className="w-3 h-3" strokeWidth={1.75} />
+                  Subjects:
+                </span>
+                {teacher.subjects.map((subj) => (
+                  <span
+                    key={subj}
+                    className="px-2 py-0.5 text-[11px] rounded bg-[#FAF9F6] border border-[#E4E1DA] text-[#1C1F23]"
+                  >
+                    {subj}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E4E1DA]">
+              <Button
+                variant="quiet"
+                onClick={() => openEditSheet(teacher)}
+                className="text-xs h-8 px-2.5 gap-1"
+              >
+                <Edit className="w-3.5 h-3.5" strokeWidth={1.75} />
+                <span>Edit Profile</span>
+              </Button>
+
+              <Button
+                variant={teacher.active ? "quiet" : "secondary"}
+                onClick={() => setStatusDialogTeacher(teacher)}
+                className={`text-xs h-8 px-2.5 gap-1 ${
+                  teacher.active ? "text-[#A32A2A] hover:bg-[#FBE9E7]" : "text-[#1F5C4D]"
+                }`}
+              >
+                {teacher.active ? (
+                  <>
+                    <UserX className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    <span>Deactivate</span>
+                  </>
+                ) : (
+                  <>
+                    <UserCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    <span>Activate</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </Card>
+        )}
+      />
 
       {/* Add / Edit Teacher Bottom Sheet */}
       <BottomSheet
@@ -700,8 +810,10 @@ export default function OwnerTeachersPage() {
           message={toastMessage}
           variant={toastVariant}
           onDismiss={() => setToastMessage("")}
+          floating
         />
       )}
+      </PageContainer>
     </OwnerShell>
   );
 }

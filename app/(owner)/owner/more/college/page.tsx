@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { OwnerShell } from "@/components/layout/OwnerShell";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Field } from "@/components/ui/Field";
@@ -116,7 +117,8 @@ export default function CollegeProfilePage() {
 
   return (
     <OwnerShell pageTitle="College Profile">
-      <div className="mb-2">
+      <PageContainer variant="narrow">
+        <div className="mb-2">
         <Link
           href="/owner/more"
           className="inline-flex items-center text-xs font-medium text-[#1F5C4D] hover:underline min-h-[36px]"
@@ -246,6 +248,7 @@ export default function CollegeProfilePage() {
           Save College Profile
         </Button>
       </form>
+      </PageContainer>
     </OwnerShell>
   );
 }

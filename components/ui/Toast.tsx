@@ -10,6 +10,7 @@ export interface ToastProps {
   variant?: ToastVariant;
   onDismiss?: () => void;
   className?: string;
+  floating?: boolean;
 }
 
 export function Toast({
@@ -17,6 +18,7 @@ export function Toast({
   variant = "info",
   onDismiss,
   className = "",
+  floating = false,
 }: ToastProps) {
   const variantStyles = {
     info: "bg-[#FFFFFF] text-[#1C1F23] border-[#E4E1DA]",
@@ -32,15 +34,19 @@ export function Toast({
     danger: AlertCircle,
   }[variant];
 
+  const positionClass = floating
+    ? "md:fixed md:top-4 md:right-4 md:z-50 md:w-80 md:shadow-lg"
+    : "";
+
   return (
     <div
       role="status"
       aria-live="polite"
-      className={`flex items-center justify-between gap-3 px-3 py-2.5 text-xs border rounded-[6px] ${variantStyles} ${className}`}
+      className={`flex items-center justify-between gap-3 px-3 py-2.5 text-xs border rounded-[6px] ${variantStyles} ${positionClass} ${className}`}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 min-w-0">
         <IconComponent className="w-4 h-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
-        <span className="font-medium">{message}</span>
+        <span className="font-medium truncate">{message}</span>
       </div>
       {onDismiss && (
         <button

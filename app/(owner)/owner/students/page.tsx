@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { OwnerShell } from "@/components/layout/OwnerShell";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -15,6 +16,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Toast, type ToastVariant } from "@/components/ui/Toast";
 import { MoneyText } from "@/components/ui/MoneyText";
+import { DataTable, type ColumnDef } from "@/components/ui/DataTable";
 import {
   GraduationCap,
   Plus,
@@ -256,18 +258,114 @@ export default function OwnerStudentsPage() {
     return nameMatch || schoolMatch || guardMatch || phoneMatch;
   });
 
+  const columns: ColumnDef<Student & { grade: string }>[] = [
+    {
+      key: "name",
+      header: "Student",
+      sortable: true,
+      render: (s) => (
+        <div>
+          <Link
+            href={`/owner/students/${s.id}`}
+            className="font-semibold text-sm text-[#1C1F23] hover:text-[#1F5C4D] transition-colors"
+          >
+            {s.name}
+          </Link>
+          <div className="text-[11px] text-[#5F6670] mt-0.5">
+            Joined {formatColomboDate(s.joinedAt)}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "grade",
+      header: "Grade",
+      sortable: true,
+      render: (s) => (
+        <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#E6F0EC] text-[#1F5C4D] border border-[#1F5C4D]/20">
+          {s.grade}
+        </span>
+      ),
+    },
+    {
+      key: "school",
+      header: "School",
+      sortable: true,
+      render: (s) => <span className="text-xs text-[#5F6670]">{s.school}</span>,
+    },
+    {
+      key: "guardianName",
+      header: "Guardian & Phone",
+      render: (s) => (
+        <div>
+          <div className="font-medium text-[#1C1F23]">{s.guardianName}</div>
+          <div className="text-[11px] text-[#5F6670] tabular-nums">{s.guardianPhone}</div>
+        </div>
+      ),
+    },
+    {
+      key: "admissionFee",
+      header: "Admission Fee",
+      render: (s) => {
+        const fee = s.admissionFee;
+        const feeStatus = fee?.status || "unpaid";
+        const feeChipStatus =
+          feeStatus === "paid" ? "success" : feeStatus === "unpaid" ? "warning" : "neutral";
+        const feeLabel =
+          feeStatus === "paid" ? "Paid" : feeStatus === "unpaid" ? "Unpaid" : "N/A";
+        return (
+          <div className="flex flex-col gap-0.5">
+            <StatusChip status={feeChipStatus} label={feeLabel} />
+            {feeStatus === "paid" && fee?.amount ? (
+              <span className="text-[11px] text-[#5F6670] tabular-nums">
+                <MoneyText amount={fee.amount} />
+              </span>
+            ) : null}
+          </div>
+        );
+      },
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      align: "right",
+      render: (s) => (
+        <div className="flex items-center justify-end gap-1.5">
+          <Button
+            variant="secondary"
+            className="text-xs h-7 px-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              openEditSheet(s);
+            }}
+          >
+            <Edit className="w-3.5 h-3.5" />
+            <span>Edit</span>
+          </Button>
+          <Link href={`/owner/students/${s.id}`}>
+            <Button variant="secondary" className="text-xs h-7 px-2 text-[#1F5C4D]">
+              <span>Profile</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </Link>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <OwnerShell pageTitle={`Students (${activeYear})`}>
-      <PageHeader
-        title={`Student Directory (${activeYear})`}
-        subtitle="Manage permanent student records, grade assignments and admission fees"
-        action={
-          <Button variant="primary" onClick={openAddSheet} className="gap-1.5">
-            <Plus className="w-4 h-4" strokeWidth={2} />
-            <span>Add Student</span>
-          </Button>
-        }
-      />
+      <PageContainer variant="default">
+        <PageHeader
+          title={`Student Directory (${activeYear})`}
+          subtitle="Manage permanent student records, grade assignments and admission fees"
+          action={
+            <Button variant="primary" onClick={openAddSheet} className="gap-1.5">
+              <Plus className="w-4 h-4" strokeWidth={2} />
+              <span>Add Student</span>
+            </Button>
+          }
+        />
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row gap-2.5 mb-4">
@@ -308,117 +406,111 @@ export default function OwnerStudentsPage() {
       </div>
 
       {/* Student List */}
-      {loading ? (
-        <div className="flex flex-col gap-3">
-          <Skeleton height="96px" />
-          <Skeleton height="96px" />
-          <Skeleton height="96px" />
-        </div>
-      ) : filteredStudents.length === 0 ? (
-        <EmptyState
-          title={search || selectedGrade !== "all" ? "No matching students found" : "No students registered"}
-          description={
-            search || selectedGrade !== "all"
-              ? "Try adjusting your search query or grade filter."
-              : `Add your first student for Academic Year ${activeYear}.`
-          }
-          icon={<GraduationCap className="w-8 h-8" strokeWidth={1.75} />}
-          action={
-            !search && selectedGrade === "all" ? (
-              <Button variant="primary" onClick={openAddSheet}>
-                Add Student
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : (
-        <div className="flex flex-col gap-3">
-          {filteredStudents.map((student) => {
-            const fee = student.admissionFee;
-            const feeStatus = fee?.status || "unpaid";
-            const feeChipStatus =
-              feeStatus === "paid" ? "success" : feeStatus === "unpaid" ? "warning" : "neutral";
-            const feeLabel =
-              feeStatus === "paid" ? "Admission Paid" : feeStatus === "unpaid" ? "Admission Unpaid" : "N/A";
+      <DataTable
+        data={filteredStudents}
+        columns={columns}
+        keyExtractor={(s) => s.id}
+        loading={loading}
+        emptyState={
+          <EmptyState
+            title={search || selectedGrade !== "all" ? "No matching students found" : "No students registered"}
+            description={
+              search || selectedGrade !== "all"
+                ? "Try adjusting your search query or grade filter."
+                : `Add your first student for Academic Year ${activeYear}.`
+            }
+            icon={<GraduationCap className="w-8 h-8" strokeWidth={1.75} />}
+            action={
+              !search && selectedGrade === "all" ? (
+                <Button variant="primary" onClick={openAddSheet}>
+                  Add Student
+                </Button>
+              ) : undefined
+            }
+          />
+        }
+        renderMobileCard={(student) => {
+          const fee = student.admissionFee;
+          const feeStatus = fee?.status || "unpaid";
+          const feeChipStatus =
+            feeStatus === "paid" ? "success" : feeStatus === "unpaid" ? "warning" : "neutral";
+          const feeLabel =
+            feeStatus === "paid" ? "Admission Paid" : feeStatus === "unpaid" ? "Admission Unpaid" : "N/A";
 
-            return (
-              <Card key={student.id} className="p-4 flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href={`/owner/students/${student.id}`}
-                        className="font-semibold text-sm text-[#1C1F23] hover:text-[#1F5C4D] transition-colors"
-                      >
-                        {student.name}
-                      </Link>
-                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#E6F0EC] text-[#1F5C4D] border border-[#1F5C4D]/20">
-                        {student.grade}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-xs text-[#5F6670] mt-1">
-                      <School className="w-3.5 h-3.5 text-[#5F6670] shrink-0" strokeWidth={1.75} />
-                      <span className="truncate">{student.school}</span>
-                    </div>
-                  </div>
-
-                  {/* Admission Fee Status */}
-                  <div className="shrink-0 flex flex-col items-end gap-1">
-                    <StatusChip status={feeChipStatus} label={feeLabel} />
-                    {feeStatus === "paid" && fee?.amount ? (
-                      <span className="text-[11px] text-[#5F6670] tabular-nums">
-                        <MoneyText amount={fee.amount} />
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-
-                {/* Contact and Guardian Details */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#5F6670] pt-2 border-t border-[#E4E1DA] bg-[#FAF9F6] p-2.5 rounded">
-                  <div className="flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-[#5F6670] shrink-0" strokeWidth={1.75} />
-                    <span>
-                      Guardian: <strong className="text-[#1C1F23]">{student.guardianName}</strong>
+          return (
+            <Card className="p-4 flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/owner/students/${student.id}`}
+                      className="font-semibold text-sm text-[#1C1F23] hover:text-[#1F5C4D] transition-colors"
+                    >
+                      {student.name}
+                    </Link>
+                    <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-[#E6F0EC] text-[#1F5C4D] border border-[#1F5C4D]/20">
+                      {student.grade}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 tabular-nums">
-                    <Phone className="w-3.5 h-3.5 text-[#5F6670] shrink-0" strokeWidth={1.75} />
-                    <span>{student.guardianPhone}</span>
+                  <div className="flex items-center gap-1.5 text-xs text-[#5F6670] mt-1">
+                    <School className="w-3.5 h-3.5 text-[#5F6670] shrink-0" strokeWidth={1.75} />
+                    <span className="truncate">{student.school}</span>
                   </div>
                 </div>
 
-                {/* Permanent Joined Date & Actions */}
-                <div className="flex items-center justify-between pt-1 text-xs">
-                  <div className="flex items-center gap-1 text-[11px] text-[#5F6670]">
-                    <Calendar className="w-3 h-3" strokeWidth={1.75} />
-                    <span>Joined: {formatColomboDate(student.joinedAt)}</span>
-                  </div>
+                <div className="shrink-0 flex flex-col items-end gap-1">
+                  <StatusChip status={feeChipStatus} label={feeLabel} />
+                  {feeStatus === "paid" && fee?.amount ? (
+                    <span className="text-[11px] text-[#5F6670] tabular-nums">
+                      <MoneyText amount={fee.amount} />
+                    </span>
+                  ) : null}
+                </div>
+              </div>
 
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="quiet"
-                      onClick={() => openEditSheet(student)}
-                      className="text-xs h-7 px-2 gap-1"
-                    >
-                      <Edit className="w-3.5 h-3.5" strokeWidth={1.75} />
-                      <span>Edit</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#5F6670] pt-2 border-t border-[#E4E1DA] bg-[#FAF9F6] p-2.5 rounded">
+                <div className="flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-[#5F6670] shrink-0" strokeWidth={1.75} />
+                  <span>
+                    Guardian: <strong className="text-[#1C1F23]">{student.guardianName}</strong>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 tabular-nums">
+                  <Phone className="w-3.5 h-3.5 text-[#5F6670] shrink-0" strokeWidth={1.75} />
+                  <span>{student.guardianPhone}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1 text-xs">
+                <div className="flex items-center gap-1 text-[11px] text-[#5F6670]">
+                  <Calendar className="w-3 h-3" strokeWidth={1.75} />
+                  <span>Joined: {formatColomboDate(student.joinedAt)}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="quiet"
+                    onClick={() => openEditSheet(student)}
+                    className="text-xs h-7 px-2 gap-1"
+                  >
+                    <Edit className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    <span>Edit</span>
+                  </Button>
+
+                  <Link href={`/owner/students/${student.id}`}>
+                    <Button variant="secondary" className="text-xs h-7 px-2 gap-1 text-[#1F5C4D]">
+                      <span>Profile</span>
+                      <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
                     </Button>
-
-                    <Link href={`/owner/students/${student.id}`}>
-                      <Button variant="secondary" className="text-xs h-7 px-2 gap-1 text-[#1F5C4D]">
-                        <span>Profile</span>
-                        <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
-                      </Button>
-                    </Link>
-                  </div>
+                  </Link>
                 </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+              </div>
+            </Card>
+          );
+        }}
+      />
 
       {/* Add / Edit Student Bottom Sheet */}
       <BottomSheet
@@ -608,8 +700,10 @@ export default function OwnerStudentsPage() {
           message={toastMessage}
           variant={toastVariant}
           onDismiss={() => setToastMessage("")}
+          floating
         />
       )}
+      </PageContainer>
     </OwnerShell>
   );
 }

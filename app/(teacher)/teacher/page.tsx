@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { TeacherShell } from "@/components/layout/TeacherShell";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -275,7 +276,8 @@ export default function TeacherTodayPage() {
 
   return (
     <TeacherShell pageTitle="Today's Sessions">
-      {/* Toast Notification */}
+      <PageContainer variant="default">
+        {/* Toast Notification */}
       {toastMessage && (
         <div className="mb-4">
           <Toast
@@ -308,10 +310,10 @@ export default function TeacherTodayPage() {
           <Skeleton className="h-32 w-full" />
         </div>
       ) : (
-        <div className="flex flex-col gap-5">
-          {/* SECTION 1: UNMARKED URGENT SESSIONS FROM LAST 3 DAYS (APPEARS FIRST) */}
+        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-5 items-start">
+          {/* SECTION 1: UNMARKED URGENT SESSIONS FROM LAST 3 DAYS (APPEARS FIRST ON MOBILE) */}
           {unmarkedUrgent.length > 0 && (
-            <div>
+            <div className="order-1 lg:order-2 lg:col-span-5 w-full">
               <div className="flex items-center justify-between mb-2 px-1">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-[#9A5B00] uppercase tracking-wider">
                   <AlertTriangle className="w-4 h-4 text-[#9A5B00]" strokeWidth={2} />
@@ -338,8 +340,8 @@ export default function TeacherTodayPage() {
             </div>
           )}
 
-          {/* SECTION 2: TODAY'S SESSIONS */}
-          <div>
+          {/* SECTION 2: TODAY'S SESSIONS (PRIMARY ON DESKTOP) */}
+          <div className={`order-2 lg:order-1 ${unmarkedUrgent.length > 0 || upcomingSessions.length > 0 ? "lg:col-span-7" : "lg:col-span-12"} w-full`}>
             <div className="flex items-center justify-between mb-2 px-1">
               <span className="text-xs font-semibold text-[#5F6670] uppercase tracking-wider">
                 Today ({todayDateStr ? formatDateDisplay(todayDateStr) : "Today"})
@@ -371,7 +373,7 @@ export default function TeacherTodayPage() {
 
           {/* SECTION 3: UPCOMING SESSIONS */}
           {upcomingSessions.length > 0 && (
-            <div>
+            <div className="order-3 lg:order-3 lg:col-span-5 w-full">
               <div className="flex items-center justify-between mb-2 px-1">
                 <span className="text-xs font-semibold text-[#5F6670] uppercase tracking-wider">
                   Upcoming Classes
@@ -599,6 +601,7 @@ export default function TeacherTodayPage() {
           </div>
         </form>
       </BottomSheet>
+      </PageContainer>
     </TeacherShell>
   );
 }

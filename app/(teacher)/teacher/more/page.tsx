@@ -10,6 +10,7 @@ import {
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { TeacherShell } from "@/components/layout/TeacherShell";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Field } from "@/components/ui/Field";
@@ -94,7 +95,8 @@ export default function TeacherMorePage() {
 
   return (
     <TeacherShell pageTitle="Settings & Profile">
-      <PageHeader
+      <PageContainer variant="narrow">
+        <PageHeader
         title="Settings & Security"
         subtitle="Account preferences & password management"
       />
@@ -191,6 +193,7 @@ export default function TeacherMorePage() {
           </Button>
         </Card>
       </div>
+      </PageContainer>
     </TeacherShell>
   );
 }
