@@ -21,6 +21,7 @@ import {
   BookOpen,
   Inbox,
   FileSpreadsheet,
+  Globe,
 } from "lucide-react";
 
 export default function OwnerMorePage() {
@@ -111,6 +112,19 @@ export default function OwnerMorePage() {
                 </div>
               }
               subtitle="Name, logo, address, phone, email & hours"
+              rightValue={<ChevronRight className="w-4 h-4 text-[#5F6670]" strokeWidth={1.75} />}
+            />
+          </Link>
+
+          <Link href="/owner/more/public-site" className="block">
+            <DataRow
+              title={
+                <div className="flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
+                  <span>Public Site Editor</span>
+                </div>
+              }
+              subtitle="Hero promise, key facts, WhatsApp, visibility & public teachers"
               rightValue={<ChevronRight className="w-4 h-4 text-[#5F6670]" strokeWidth={1.75} />}
             />
           </Link>

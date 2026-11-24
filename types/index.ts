@@ -28,6 +28,75 @@ export interface CollegeProfile {
   updatedAt: string;
 }
 
+export interface KeyFacts {
+  location: string;
+  yearsRunning: string;
+  gradesTaught: string;
+}
+
+export interface PublicSiteSections {
+  showHero: boolean;
+  showKeyFacts: boolean;
+  showClasses: boolean;
+  showTeacherStrip: boolean;
+  showContactBlock: boolean;
+}
+
+export interface PublicSiteSettings {
+  heroPromise: string;
+  heroSubtext?: string;
+  aboutText?: string;
+  keyFacts: KeyFacts;
+  whatsappNumber: string;
+  mapUrl?: string;
+  admissionFeeNote?: string;
+  sections: PublicSiteSections;
+  updatedAt?: string;
+}
+
+export interface PublicSafeTeacher {
+  id: string;
+  name: string;
+  photoUrl?: string;
+  bio?: string;
+  subjects: string[];
+}
+
+export interface PublicSafeClass {
+  id: string;
+  grade: string;
+  subject: string;
+  teacherName: string;
+  monthlyFee: number;
+}
+
+export interface PublicSafeSlot {
+  id: string;
+  classId: string;
+  grade: string;
+  subject: string;
+  teacherName: string;
+  weekday: number; // 0 = Sun, 1 = Mon, ..., 6 = Sat
+  startTime: string; // "14:00"
+  endTime: string; // "16:00"
+}
+
+export interface PublicSiteData {
+  college: CollegeProfile & {
+    heroPromise?: string;
+    heroSubtext?: string;
+    keyFacts?: KeyFacts;
+    whatsappNumber?: string;
+    mapUrl?: string;
+    admissionFeeNote?: string;
+    sections?: PublicSiteSections;
+  };
+  teachers: PublicSafeTeacher[];
+  classes: PublicSafeClass[];
+  slots: PublicSafeSlot[];
+  activeYear: string;
+}
+
 export interface AcademicGrade {
   id: string;
   name: string; // e.g. "Grade 10"

@@ -60,7 +60,11 @@ if (getApps().length === 0) {
 
 export const adminAuth = getAuth(adminApp);
 export const adminDb = getFirestore(adminApp);
-adminDb.settings({ ignoreUndefinedProperties: true });
+try {
+  adminDb.settings({ ignoreUndefinedProperties: true });
+} catch {
+  // Settings already initialized
+}
 export const adminStorage = getStorage(adminApp);
 export const adminMessaging = getMessaging(adminApp);
 export { adminApp };
