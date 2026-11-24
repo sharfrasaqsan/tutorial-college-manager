@@ -132,7 +132,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-[375px] sm:max-w-md mx-auto flex flex-col gap-5">
+    <div className="w-full max-w-[375px] mx-auto flex flex-col gap-5">
       {/* College Header */}
       <div className="text-center">
         <span className="text-xs font-semibold uppercase tracking-wider text-[#1F5C4D]">
@@ -260,7 +260,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1F23] flex flex-col justify-center px-4 py-8">
       <Suspense
         fallback={
-          <div className="w-full max-w-[375px] sm:max-w-md mx-auto p-4 flex flex-col gap-4">
+          <div className="w-full max-w-[375px] mx-auto p-4 flex flex-col gap-4">
             <Skeleton variant="rectangular" height={40} />
             <Skeleton variant="rectangular" height={180} />
           </div>

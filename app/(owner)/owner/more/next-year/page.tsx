@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { OwnerShell } from "@/components/layout/OwnerShell";
-import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -95,8 +94,7 @@ export default function StartNextYearPage() {
 
   return (
     <OwnerShell pageTitle="Start Next Year">
-      <PageContainer variant="narrow">
-        <div className="mb-2">
+      <div className="mb-2">
         <Link
           href="/owner/more"
           className="inline-flex items-center text-xs font-medium text-[#1F5C4D] hover:underline min-h-[36px]"
@@ -231,7 +229,6 @@ export default function StartNextYearPage() {
         confirmLabel={`Start Year ${nextYear}`}
         loading={running}
       />
-      </PageContainer>
     </OwnerShell>
   );
 }

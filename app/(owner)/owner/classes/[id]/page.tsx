@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { OwnerShell } from "@/components/layout/OwnerShell";
-import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -303,221 +302,215 @@ export default function OwnerClassDetailPage() {
 
   return (
     <OwnerShell pageTitle={classItem.name}>
-      <PageContainer variant="default">
-        {/* Back Link */}
-        <div className="mb-3">
-          <Link
-            href="/owner/classes"
-            className="inline-flex items-center gap-1.5 text-xs text-[#5F6670] hover:text-[#1C1F23] transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />
-            <span>Back to Classes Directory</span>
-          </Link>
-        </div>
+      {/* Back Link */}
+      <div className="mb-3">
+        <Link
+          href="/owner/classes"
+          className="inline-flex items-center gap-1.5 text-xs text-[#5F6670] hover:text-[#1C1F23] transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />
+          <span>Back to Classes Directory</span>
+        </Link>
+      </div>
 
-        <PageHeader
-          title={classItem.name}
-          subtitle={`${classItem.grade} • Teacher: ${classItem.teacherName || "Unassigned"} • Year ${classItem.yearId}`}
-          action={
-            <Button variant="primary" onClick={openEnrollSheet} className="gap-1.5">
-              <Plus className="w-4 h-4" strokeWidth={2} />
-              <span>Enroll Students</span>
-            </Button>
-          }
-        />
+      <PageHeader
+        title={classItem.name}
+        subtitle={`${classItem.grade} • Teacher: ${classItem.teacherName || "Unassigned"} • Year ${classItem.yearId}`}
+        action={
+          <Button variant="primary" onClick={openEnrollSheet} className="gap-1.5">
+            <Plus className="w-4 h-4" strokeWidth={2} />
+            <span>Enroll Students</span>
+          </Button>
+        }
+      />
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Details, Active Terms, History & Progress */}
-          <div className="lg:col-span-5 flex flex-col gap-4">
-            {/* Class Overview & Teacher Card */}
-            <Card className="p-4 flex flex-col gap-3">
-              <CardHeader className="p-0 pb-2.5 border-b border-[#E4E1DA]">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
-                    <CardTitle>Class Information</CardTitle>
-                  </div>
-                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-[#E6F0EC] text-[#1F5C4D] border border-[#1F5C4D]/20">
-                    {classItem.grade}
-                  </span>
-                </div>
-              </CardHeader>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="text-[#5F6670] block">Assigned Teacher</span>
-                  <span className="font-medium text-[#1C1F23] flex items-center gap-1.5 mt-0.5">
-                    <GraduationCap className="w-3.5 h-3.5 text-[#1F5C4D]" strokeWidth={1.75} />
-                    {classItem.teacherName || "Unassigned"}
-                  </span>
-                </div>
-
-                <div>
-                  <span className="text-[#5F6670] block">Subject</span>
-                  <span className="font-medium text-[#1C1F23] mt-0.5 block">{classItem.subject}</span>
-                </div>
+      <div className="flex flex-col gap-4">
+        {/* Class Overview & Teacher Card */}
+        <Card className="p-4 flex flex-col gap-3">
+          <CardHeader className="p-0 pb-2.5 border-b border-[#E4E1DA]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
+                <CardTitle>Class Information</CardTitle>
               </div>
-            </Card>
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-[#E6F0EC] text-[#1F5C4D] border border-[#1F5C4D]/20">
+                {classItem.grade}
+              </span>
+            </div>
+          </CardHeader>
 
-            {/* Current Active Terms Card */}
-            <Card className="p-4 flex flex-col gap-3">
-              <CardHeader className="p-0 pb-2.5 border-b border-[#E4E1DA]">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Coins className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
-                    <CardTitle>Active Terms ({terms.effectiveFromMonth})</CardTitle>
-                  </div>
-                  <Button variant="secondary" onClick={openTermsSheet} className="text-xs h-7 px-2.5 gap-1">
-                    <Edit className="w-3.5 h-3.5" strokeWidth={1.75} />
-                    <span>Update Terms</span>
-                  </Button>
-                </div>
-              </CardHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div>
+              <span className="text-[#5F6670] block">Assigned Teacher</span>
+              <span className="font-medium text-[#1C1F23] flex items-center gap-1.5 mt-0.5">
+                <GraduationCap className="w-3.5 h-3.5 text-[#1F5C4D]" strokeWidth={1.75} />
+                {classItem.teacherName || "Unassigned"}
+              </span>
+            </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="text-[#5F6670] block">Monthly Fee</span>
-                  <span className="font-semibold text-sm text-[#1C1F23] tabular-nums mt-0.5 block">
-                    <MoneyText amount={terms.monthlyFee} />
-                  </span>
-                </div>
+            <div>
+              <span className="text-[#5F6670] block">Subject</span>
+              <span className="font-medium text-[#1C1F23] mt-0.5 block">{classItem.subject}</span>
+            </div>
+          </div>
+        </Card>
 
-                <div>
-                  <span className="text-[#5F6670] block">Teacher Share</span>
-                  <span className="font-semibold text-sm text-[#1C1F23] tabular-nums mt-0.5 block">
-                    <MoneyText amount={terms.teacherSharePerStudent} />
-                  </span>
-                </div>
-
-                <div>
-                  <span className="text-[#5F6670] block">College Share</span>
-                  <span className="font-semibold text-sm text-[#1F5C4D] tabular-nums mt-0.5 block">
-                    <MoneyText amount={terms.ownerShare ?? (terms.monthlyFee - terms.teacherSharePerStudent)} />
-                  </span>
-                </div>
-
-                <div>
-                  <span className="text-[#5F6670] block">Required Sessions</span>
-                  <span className="font-semibold text-sm text-[#1C1F23] tabular-nums mt-0.5 block">
-                    {terms.requiredSessionsPerMonth} / month
-                  </span>
-                </div>
+        {/* Current Active Terms Card */}
+        <Card className="p-4 flex flex-col gap-3">
+          <CardHeader className="p-0 pb-2.5 border-b border-[#E4E1DA]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Coins className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
+                <CardTitle>Active Terms (Effective {terms.effectiveFromMonth})</CardTitle>
               </div>
+              <Button variant="secondary" onClick={openTermsSheet} className="text-xs h-7 px-2.5 gap-1">
+                <Edit className="w-3.5 h-3.5" strokeWidth={1.75} />
+                <span>Update Terms</span>
+              </Button>
+            </div>
+          </CardHeader>
 
-              {/* Terms History Section */}
-              {classItem.termsHistory && classItem.termsHistory.length > 1 && (
-                <div className="pt-2.5 border-t border-[#E4E1DA]">
-                  <div className="flex items-center gap-1.5 text-xs text-[#5F6670] font-medium mb-2">
-                    <History className="w-3.5 h-3.5" strokeWidth={1.75} />
-                    <span>Versioned Terms History ({classItem.termsHistory.length} versions)</span>
-                  </div>
-                  <div className="divide-y divide-[#E4E1DA] text-[11px]">
-                    {classItem.termsHistory.map((h: ClassTerms, i: number) => (
-                      <div key={i} className="py-1.5 flex items-center justify-between">
-                        <span>
-                          Effective <strong>{h.effectiveFromMonth}</strong>: Fee <MoneyText amount={h.monthlyFee} /> • Teacher <MoneyText amount={h.teacherSharePerStudent} />
-                        </span>
-                        <span className="text-[#5F6670]">Req: {h.requiredSessionsPerMonth} sess</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Card>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div>
+              <span className="text-[#5F6670] block">Monthly Fee / Student</span>
+              <span className="font-semibold text-sm text-[#1C1F23] tabular-nums mt-0.5 block">
+                <MoneyText amount={terms.monthlyFee} />
+              </span>
+            </div>
 
-            {/* Monthly Session Progress Card */}
-            <Card className="p-4 flex flex-col gap-3">
-              <CardHeader className="p-0 pb-2.5 border-b border-[#E4E1DA]">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
-                    <CardTitle>Session Progress ({sessionProgress ? formatMonthDisplay(sessionProgress.month) : "Current Month"})</CardTitle>
-                  </div>
-                  <StatusChip status="neutral" label="Scheduled" />
-                </div>
-              </CardHeader>
+            <div>
+              <span className="text-[#5F6670] block">Teacher Share / Student</span>
+              <span className="font-semibold text-sm text-[#1C1F23] tabular-nums mt-0.5 block">
+                <MoneyText amount={terms.teacherSharePerStudent} />
+              </span>
+            </div>
 
-              <div className="flex items-center justify-between text-xs bg-[#FAF9F6] p-3 rounded border border-[#E4E1DA]">
-                <div>
-                  <span className="font-semibold text-sm text-[#1C1F23]">
-                    {sessionProgress?.heldSessions ?? 0} of {terms.requiredSessionsPerMonth} sessions held
-                  </span>
-                  <p className="text-[11px] text-[#5F6670] mt-0.5">
-                    Live session tracking and attendance completion window.
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className="text-[11px] text-[#5F6670]">Target</span>
-                  <span className="font-semibold text-sm text-[#1C1F23] block tabular-nums">
-                    {terms.requiredSessionsPerMonth} req
-                  </span>
-                </div>
-              </div>
-            </Card>
+            <div>
+              <span className="text-[#5F6670] block">College Share / Student</span>
+              <span className="font-semibold text-sm text-[#1F5C4D] tabular-nums mt-0.5 block">
+                <MoneyText amount={terms.ownerShare ?? (terms.monthlyFee - terms.teacherSharePerStudent)} />
+              </span>
+            </div>
+
+            <div>
+              <span className="text-[#5F6670] block">Required Sessions</span>
+              <span className="font-semibold text-sm text-[#1C1F23] tabular-nums mt-0.5 block">
+                {terms.requiredSessionsPerMonth} sessions / mo
+              </span>
+            </div>
           </div>
 
-          {/* Right Column: Enrolled Students */}
-          <div className="lg:col-span-7 flex flex-col gap-4">
-            <Card className="p-4 flex flex-col gap-3 shadow-xs">
-              <CardHeader className="p-0 pb-2.5 border-b border-[#E4E1DA]">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
-                    <CardTitle>Enrolled Students</CardTitle>
+          {/* Terms History Section */}
+          {classItem.termsHistory && classItem.termsHistory.length > 1 && (
+            <div className="pt-2.5 border-t border-[#E4E1DA]">
+              <div className="flex items-center gap-1.5 text-xs text-[#5F6670] font-medium mb-2">
+                <History className="w-3.5 h-3.5" strokeWidth={1.75} />
+                <span>Versioned Terms History ({classItem.termsHistory.length} versions)</span>
+              </div>
+              <div className="divide-y divide-[#E4E1DA] text-[11px]">
+                {classItem.termsHistory.map((h: ClassTerms, i: number) => (
+                  <div key={i} className="py-1.5 flex items-center justify-between">
+                    <span>
+                      Effective <strong>{h.effectiveFromMonth}</strong>: Fee <MoneyText amount={h.monthlyFee} /> • Teacher <MoneyText amount={h.teacherSharePerStudent} />
+                    </span>
+                    <span className="text-[#5F6670]">Req: {h.requiredSessionsPerMonth} sess</span>
                   </div>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#FAF9F6] border border-[#E4E1DA] text-[#1C1F23]">
-                    {enrolledStudents.length} student{enrolledStudents.length === 1 ? "" : "s"}
-                  </span>
-                </div>
-              </CardHeader>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
 
-              {enrolledStudents.length === 0 ? (
-                <div className="py-12 text-center text-xs text-[#5F6670]">
-                  <Users className="w-8 h-8 mx-auto mb-2 opacity-50 text-[#5F6670]" strokeWidth={1.75} />
-                  <p className="font-medium text-[#1C1F23]">No students enrolled yet</p>
-                  <p className="text-[11px] text-[#5F6670] mt-1">
-                    Click &quot;Enroll Students&quot; above to allocate registered students to this class.
-                  </p>
-                </div>
-              ) : (
-                <div className="divide-y divide-[#E4E1DA]">
-                  {enrolledStudents.map((enrolment) => (
-                    <div key={enrolment.studentId} className="py-3 flex items-center justify-between gap-3 text-xs hover:bg-[#FAF9F6]/50 px-1 rounded transition-colors">
-                      <div>
-                        <Link
-                          href={`/owner/students/${enrolment.studentId}`}
-                          className="font-semibold text-[#1C1F23] hover:text-[#1F5C4D] transition-colors"
-                        >
-                          {enrolment.studentName}
-                        </Link>
-                        <div className="flex items-center gap-2 text-[11px] text-[#5F6670] mt-0.5">
-                          {enrolment.studentSchool && <span>{enrolment.studentSchool}</span>}
-                          <span>&bull;</span>
-                          <span>Enrolled in {enrolment.joinedMonth}</span>
-                        </div>
-                      </div>
+        {/* Monthly Session Progress Placeholder (Step 6) */}
+        <Card className="p-4 flex flex-col gap-3">
+          <CardHeader className="p-0 pb-2.5 border-b border-[#E4E1DA]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
+                <CardTitle>Session Progress ({sessionProgress ? formatMonthDisplay(sessionProgress.month) : "Current Month"})</CardTitle>
+              </div>
+              <StatusChip status="neutral" label="Scheduled" />
+            </div>
+          </CardHeader>
 
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 text-[11px] rounded bg-[#FAF9F6] border border-[#E4E1DA] text-[#5F6670]">
-                          {enrolment.studentGrade}
-                        </span>
+          <div className="flex items-center justify-between text-xs bg-[#FAF9F6] p-3 rounded border border-[#E4E1DA]">
+            <div>
+              <span className="font-semibold text-sm text-[#1C1F23]">
+                {sessionProgress?.heldSessions ?? 0} of {terms.requiredSessionsPerMonth} sessions held
+              </span>
+              <p className="text-[11px] text-[#5F6670] mt-0.5">
+                Session scheduling, clash validation and attendance marking will be configured in Step 6.
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-[11px] text-[#5F6670]">Target</span>
+              <span className="font-semibold text-sm text-[#1C1F23] block tabular-nums">
+                {terms.requiredSessionsPerMonth} req
+              </span>
+            </div>
+          </div>
+        </Card>
 
-                        <button
-                          type="button"
-                          onClick={() => setRemoveDialogStudent(enrolment)}
-                          className="p-1.5 text-[#5F6670] hover:text-[#A32A2A] rounded hover:bg-[#FBE9E7] transition-colors"
-                          title="Remove from class"
-                        >
-                          <UserMinus className="w-4 h-4" strokeWidth={1.75} />
-                        </button>
-                      </div>
+        {/* Enrolled Students Card */}
+        <Card className="p-4 flex flex-col gap-3">
+          <CardHeader className="p-0 pb-2.5 border-b border-[#E4E1DA]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
+                <CardTitle>Enrolled Students</CardTitle>
+              </div>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#FAF9F6] border border-[#E4E1DA] text-[#1C1F23]">
+                {enrolledStudents.length} student{enrolledStudents.length === 1 ? "" : "s"}
+              </span>
+            </div>
+          </CardHeader>
+
+          {enrolledStudents.length === 0 ? (
+            <div className="py-6 text-center text-xs text-[#5F6670]">
+              <Users className="w-6 h-6 mx-auto mb-2 opacity-50 text-[#5F6670]" strokeWidth={1.75} />
+              <p className="font-medium text-[#1C1F23]">No students enrolled yet</p>
+              <p className="text-[11px] text-[#5F6670] mt-1">
+                Click "Enroll Students" above to allocate students to this class.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-[#E4E1DA]">
+              {enrolledStudents.map((enrolment) => (
+                <div key={enrolment.studentId} className="py-3 flex items-center justify-between gap-3 text-xs">
+                  <div>
+                    <Link
+                      href={`/owner/students/${enrolment.studentId}`}
+                      className="font-semibold text-[#1C1F23] hover:text-[#1F5C4D] transition-colors"
+                    >
+                      {enrolment.studentName}
+                    </Link>
+                    <div className="flex items-center gap-2 text-[11px] text-[#5F6670] mt-0.5">
+                      {enrolment.studentSchool && <span>{enrolment.studentSchool}</span>}
+                      <span>•</span>
+                      <span>Enrolled in {enrolment.joinedMonth}</span>
                     </div>
-                  ))}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 text-[11px] rounded bg-[#FAF9F6] border border-[#E4E1DA] text-[#5F6670]">
+                      {enrolment.studentGrade}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setRemoveDialogStudent(enrolment)}
+                      className="p-1.5 text-[#5F6670] hover:text-[#A32A2A] rounded hover:bg-[#FBE9E7] transition-colors"
+                      title="Remove from class"
+                    >
+                      <UserMinus className="w-4 h-4" strokeWidth={1.75} />
+                    </button>
+                  </div>
                 </div>
-              )}
-            </Card>
-          </div>
-        </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
 
       {/* Update Terms Bottom Sheet */}
       <BottomSheet
@@ -755,10 +748,8 @@ export default function OwnerClassDetailPage() {
           message={toastMessage}
           variant={toastVariant}
           onDismiss={() => setToastMessage("")}
-          floating
         />
       )}
-      </PageContainer>
     </OwnerShell>
   );
 }

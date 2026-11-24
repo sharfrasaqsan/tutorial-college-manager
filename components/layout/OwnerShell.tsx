@@ -3,8 +3,6 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import {
   Home,
   BookOpen,
@@ -15,16 +13,6 @@ import {
   ChevronDown,
   Plus,
   Check,
-  Users,
-  GraduationCap,
-  Calendar,
-  FileSpreadsheet,
-  Inbox,
-  Building2,
-  Layers,
-  LogOut,
-  ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Field } from "@/components/ui/Field";
@@ -37,13 +25,14 @@ export interface OwnerShellProps {
   children: React.ReactNode;
   pageTitle?: string;
   hasNotifications?: boolean;
-  maxWidth?: "md" | "5xl" | "full"; // Deprecated, kept for backward compatibility
+  maxWidth?: "md" | "5xl" | "full";
 }
 
 export function OwnerShell({
   children,
   pageTitle = "Owner Portal",
   hasNotifications = false,
+  maxWidth = "md",
 }: OwnerShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -56,8 +45,6 @@ export function OwnerShell({
   const [errorMessage, setErrorMessage] = useState("");
   const [firstTimeModal, setFirstTimeModal] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
-  const [collegeName, setCollegeName] = useState("Tutorial College");
-  const [collegeLogo, setCollegeLogo] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadNotifications() {
@@ -73,20 +60,6 @@ export function OwnerShell({
   }, [pathname]);
 
   useEffect(() => {
-    async function loadCollegeProfile() {
-      try {
-        const res = await fetch("/api/owner/settings/college");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.profile?.name) setCollegeName(data.profile.name);
-          if (data.profile?.logoUrl) setCollegeLogo(data.profile.logoUrl);
-        }
-      } catch {}
-    }
-    loadCollegeProfile();
-  }, []);
-
-  useEffect(() => {
     async function loadYears() {
       try {
         const res = await fetch("/api/owner/years");
@@ -98,6 +71,7 @@ export function OwnerShell({
           } else if (data.years && data.years.length > 0) {
             setSelectedYear(data.years[0].id);
           } else {
+            // First time setup: no years exist yet
             setFirstTimeModal(true);
           }
         }
@@ -166,18 +140,7 @@ export function OwnerShell({
     }
   }
 
-  async function handleSignOut() {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      await signOut(auth);
-      router.push("/login");
-    } catch {
-      router.push("/login");
-    }
-  }
-
-  // Mobile Bottom Navigation (Strictly unchanged 5 items)
-  const mobileNavItems = [
+  const navItems = [
     { label: "Home", href: "/owner", icon: Home },
     { label: "Classes", href: "/owner/classes", icon: BookOpen },
     { label: "Fees", href: "/owner/fees", icon: CreditCard },
@@ -185,243 +148,64 @@ export function OwnerShell({
     { label: "More", href: "/owner/more", icon: Menu },
   ];
 
-  // Desktop / Tablet Expanded Sidebar Navigation (NO "More" item, all direct links)
-  const desktopNavItems = [
-    { label: "Home", href: "/owner", icon: Home, shortLabel: "Home" },
-    { label: "Classes", href: "/owner/classes", icon: BookOpen, shortLabel: "Classes" },
-    { label: "Students", href: "/owner/students", icon: GraduationCap, shortLabel: "Students" },
-    { label: "Teachers", href: "/owner/teachers", icon: Users, shortLabel: "Teachers" },
-    { label: "Timetable", href: "/owner/timetable", icon: Calendar, shortLabel: "Timetable" },
-    { label: "Fees", href: "/owner/fees", icon: CreditCard, shortLabel: "Fees" },
-    { label: "Salary", href: "/owner/salary", icon: Banknote, shortLabel: "Salary" },
-    { label: "Reports", href: "/owner/reports", icon: FileSpreadsheet, shortLabel: "Reports" },
-    { label: "Requests", href: "/owner/requests", icon: Inbox, shortLabel: "Requests" },
-    {
-      label: "Notifications",
-      href: "/owner/notifications",
-      icon: Bell,
-      shortLabel: "Alerts",
-      badge: unreadNotifCount,
-    },
-    { label: "College Settings", href: "/owner/more/college", icon: Building2, shortLabel: "College" },
-    { label: "Academic Years", href: "/owner/more/academic", icon: Layers, shortLabel: "Years" },
-  ];
-
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#FAF9F6] text-[#1C1F23]">
-      {/* ============================================================ */}
-      {/* 1. TABLET SIDEBAR (768px - 1023px): Narrow Icon + Short Label */}
-      {/* ============================================================ */}
-      <aside
-        aria-label="Owner navigation (tablet)"
-        className="hidden md:flex lg:hidden fixed top-0 bottom-0 left-0 z-40 w-20 flex-col bg-[#FFFFFF] border-r border-[#E4E1DA]"
-      >
-        {/* Brand mark */}
-        <div className="h-14 flex items-center justify-center border-b border-[#E4E1DA]">
-          {collegeLogo ? (
-            <img src={collegeLogo} alt={collegeName} className="w-8 h-8 object-contain rounded-[4px]" />
-          ) : (
-            <div className="w-8 h-8 rounded-[4px] bg-[#1F5C4D] text-[#FFFFFF] flex items-center justify-center font-serif font-bold text-sm">
-              {collegeName.charAt(0) || "T"}
-            </div>
-          )}
+    <div className="min-h-screen flex flex-col bg-[#FAF9F6] text-[#1C1F23]">
+      {/* Top Bar */}
+      <header className="sticky top-0 z-40 bg-[#FFFFFF] border-b border-[#E4E1DA] px-4 py-2 flex items-center justify-between min-h-[52px]">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm font-semibold text-[#1C1F23] truncate">
+            {pageTitle}
+          </span>
         </div>
 
-        {/* Navigation list */}
-        <nav className="flex-1 overflow-y-auto py-2 px-1.5 space-y-1">
-          {desktopNavItems.map((item) => {
-            const isActive =
-              item.href === "/owner"
-                ? pathname === "/owner"
-                : pathname === item.href || (item.href !== "/owner" && pathname?.startsWith(item.href + "/"));
-            const Icon = item.icon;
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={item.label}
-                className={`flex flex-col items-center justify-center py-2 px-1 rounded-[6px] select-none transition-colors min-h-[48px] relative ${
-                  isActive
-                    ? "bg-[#E6F0EC] text-[#1F5C4D] font-semibold"
-                    : "text-[#5F6670] hover:text-[#1C1F23] hover:bg-[#FAF9F6]"
-                }`}
-                aria-current={isActive ? "page" : undefined}
-              >
-                <Icon className="w-5 h-5 shrink-0" strokeWidth={isActive ? 2 : 1.75} />
-                <span className="text-[10px] mt-1 tracking-tight text-center truncate max-w-full">
-                  {item.shortLabel}
-                </span>
-                {item.badge && item.badge > 0 ? (
-                  <span className="absolute top-1 right-2 w-2 h-2 rounded-full bg-[#A32A2A]" />
-                ) : null}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Sign Out at Bottom */}
-        <div className="p-2 border-t border-[#E4E1DA]">
+        <div className="flex items-center gap-2">
+          {/* Header Year Selector */}
           <button
             type="button"
-            onClick={handleSignOut}
-            title="Sign Out"
-            className="w-full flex flex-col items-center justify-center py-2 text-[#A32A2A] hover:bg-[#FBE9E7] rounded-[6px] transition-colors min-h-[44px]"
-            aria-label="Sign out of owner account"
+            onClick={() => setSheetOpen(true)}
+            className="min-h-[44px] px-2.5 py-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#1C1F23] bg-[#FAF9F6] border border-[#E4E1DA] rounded-[6px] hover:bg-[#F2EFE9] transition-colors"
+            aria-label={`Academic year ${selectedYear}. Click to change.`}
           >
-            <LogOut className="w-4 h-4" />
-            <span className="text-[9px] mt-0.5">Exit</span>
+            <span className="tabular-nums font-semibold">{selectedYear}</span>
+            <ChevronDown className="w-3.5 h-3.5 text-[#5F6670]" strokeWidth={1.75} />
           </button>
-        </div>
-      </aside>
 
-      {/* ============================================================ */}
-      {/* 2. DESKTOP SIDEBAR (1024px+): Full 240px with Text Labels    */}
-      {/* ============================================================ */}
-      <aside
-        aria-label="Owner navigation (desktop)"
-        className="hidden lg:flex fixed top-0 bottom-0 left-0 z-40 w-60 flex-col bg-[#FFFFFF] border-r border-[#E4E1DA]"
+          {/* Notifications Bell */}
+          <Link
+            href="/owner/notifications"
+            className="min-h-[44px] min-w-[44px] relative flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23] rounded-[6px] transition-colors"
+            aria-label={`View notifications (${unreadNotifCount} unread)`}
+          >
+            <Bell className="w-5 h-5" strokeWidth={1.75} />
+            {(unreadNotifCount > 0 || hasNotifications) && (
+              <span className="absolute top-2 right-2 min-w-[16px] h-4 px-1 text-[10px] font-bold bg-[#A32A2A] text-[#FFFFFF] rounded-full flex items-center justify-center leading-none">
+                {unreadNotifCount > 9 ? "9+" : unreadNotifCount || "•"}
+              </span>
+            )}
+          </Link>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main
+        className={`flex-1 w-full mx-auto p-4 pb-24 ${
+          maxWidth === "5xl"
+            ? "max-w-md md:max-w-5xl"
+            : maxWidth === "full"
+            ? "max-w-full"
+            : "max-w-md"
+        }`}
       >
-        {/* Brand Header */}
-        <div className="h-16 px-4 flex items-center gap-3 border-b border-[#E4E1DA]">
-          {collegeLogo ? (
-            <img src={collegeLogo} alt={collegeName} className="w-9 h-9 object-contain rounded-[6px]" />
-          ) : (
-            <div className="w-9 h-9 rounded-[6px] bg-[#1F5C4D] text-[#FFFFFF] flex items-center justify-center font-serif font-bold text-base shrink-0">
-              {collegeName.charAt(0) || "T"}
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <div className="font-serif font-semibold text-sm text-[#1C1F23] truncate leading-tight">
-              {collegeName}
-            </div>
-            <div className="text-[10px] text-[#5F6670] font-medium tracking-wider uppercase mt-0.5">
-              Owner Administration
-            </div>
-          </div>
-        </div>
+        {children}
+      </main>
 
-        {/* Desktop Direct Links */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {desktopNavItems.map((item) => {
-            const isActive =
-              item.href === "/owner"
-                ? pathname === "/owner"
-                : pathname === item.href || (item.href !== "/owner" && pathname?.startsWith(item.href + "/"));
-            const Icon = item.icon;
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center justify-between px-3 py-2 rounded-[6px] text-xs select-none transition-colors min-h-[40px] ${
-                  isActive
-                    ? "bg-[#E6F0EC] text-[#1F5C4D] font-semibold"
-                    : "text-[#5F6670] hover:text-[#1C1F23] hover:bg-[#FAF9F6]"
-                }`}
-                aria-current={isActive ? "page" : undefined}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Icon className="w-4 h-4 shrink-0" strokeWidth={isActive ? 2 : 1.75} />
-                  <span className="truncate">{item.label}</span>
-                </div>
-                {item.badge && item.badge > 0 ? (
-                  <span className="min-w-[18px] h-4 px-1.5 text-[10px] font-bold bg-[#A32A2A] text-[#FFFFFF] rounded-full flex items-center justify-center leading-none">
-                    {item.badge > 9 ? "9+" : item.badge}
-                  </span>
-                ) : null}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Bottom Profile & Sign Out Block */}
-        <div className="p-3 border-t border-[#E4E1DA] space-y-2">
-          <div className="px-3 py-1.5 rounded-[6px] bg-[#FAF9F6] border border-[#E4E1DA] flex items-center justify-between">
-            <span className="text-[11px] text-[#5F6670]">Academic Year</span>
-            <button
-              type="button"
-              onClick={() => setSheetOpen(true)}
-              className="text-xs font-semibold text-[#1F5C4D] hover:underline flex items-center gap-1"
-            >
-              <span>{selectedYear}</span>
-              <ChevronDown className="w-3 h-3" />
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-[#A32A2A] hover:bg-[#FBE9E7] rounded-[6px] transition-colors min-h-[44px]"
-            aria-label="Sign out of owner account"
-          >
-            <LogOut className="w-4 h-4 shrink-0" />
-            <span>Sign Out</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* ============================================================ */}
-      {/* 3. MAIN CONTENT WRAPPER (Offsets for Tablet & Desktop)       */}
-      {/* ============================================================ */}
-      <div className="flex-1 flex flex-col md:pl-20 lg:pl-60 min-w-0">
-        {/* Top Header Bar */}
-        <header className="sticky top-0 z-30 bg-[#FFFFFF] border-b border-[#E4E1DA] px-4 sm:px-6 py-2.5 flex items-center justify-between min-h-[52px]">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-sm font-semibold text-[#1C1F23] truncate">
-              {pageTitle}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Year Selector Button */}
-            <button
-              type="button"
-              onClick={() => setSheetOpen(true)}
-              className="min-h-[44px] px-2.5 py-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#1C1F23] bg-[#FAF9F6] border border-[#E4E1DA] rounded-[6px] hover:bg-[#F2EFE9] transition-colors"
-              aria-label={`Academic year ${selectedYear}. Click to change.`}
-            >
-              <span className="tabular-nums font-semibold">Year {selectedYear}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#5F6670]" strokeWidth={1.75} />
-            </button>
-
-            {/* Notifications Bell */}
-            <Link
-              href="/owner/notifications"
-              className="min-h-[44px] min-w-[44px] relative flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23] rounded-[6px] transition-colors"
-              aria-label={`View notifications (${unreadNotifCount} unread)`}
-            >
-              <Bell className="w-5 h-5" strokeWidth={1.75} />
-              {(unreadNotifCount > 0 || hasNotifications) && (
-                <span className="absolute top-2 right-2 min-w-[16px] h-4 px-1 text-[10px] font-bold bg-[#A32A2A] text-[#FFFFFF] rounded-full flex items-center justify-center leading-none">
-                  {unreadNotifCount > 9 ? "9+" : unreadNotifCount || "•"}
-                </span>
-              )}
-            </Link>
-
-            {/* Desktop Signed-In Owner Pill */}
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-[#1F5C4D] bg-[#E6F0EC] border border-[#C2DDD4] rounded-[6px]">
-              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-              <span>Owner</span>
-            </div>
-          </div>
-        </header>
-
-        {/* Content Body */}
-        <main className="flex-1 w-full pb-24 md:pb-12 pt-4">
-          {children}
-        </main>
-      </div>
-
-      {/* ============================================================ */}
-      {/* 4. MOBILE BOTTOM BAR (Strictly < 768px, 5 items + More)      */}
-      {/* ============================================================ */}
+      {/* Bottom Bar Navigation */}
       <nav
         aria-label="Owner navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FFFFFF] border-t border-[#E4E1DA] pb-[calc(env(safe-area-inset-bottom,0px)+2px)]"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-[#FFFFFF] border-t border-[#E4E1DA]"
       >
-        <div className="flex items-center justify-around px-1 py-1">
-          {mobileNavItems.map((item) => {
+        <div className="max-w-md mx-auto flex items-center justify-around px-1 py-1">
+          {navItems.map((item) => {
             const isActive =
               item.href === "/owner"
                 ? pathname === "/owner"
@@ -453,9 +237,7 @@ export function OwnerShell({
         </div>
       </nav>
 
-      {/* ============================================================ */}
-      {/* 5. YEAR SELECTION SHEET                                      */}
-      {/* ============================================================ */}
+      {/* Year Selection Sheet */}
       <BottomSheet
         open={sheetOpen}
         onClose={() => {
@@ -499,7 +281,6 @@ export function OwnerShell({
             </span>
             <div className="flex gap-2">
               <Input
-                id="new-academic-year"
                 type="text"
                 placeholder="e.g. 2027"
                 maxLength={4}

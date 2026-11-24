@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { OwnerShell } from "@/components/layout/OwnerShell";
-import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -232,33 +231,30 @@ export default function StudentDetailPage() {
 
   return (
     <OwnerShell pageTitle={student.name}>
-      <PageContainer variant="default">
-        {/* Back Button */}
-        <div className="mb-3">
-          <Link
-            href="/owner/students"
-            className="inline-flex items-center gap-1.5 text-xs text-[#5F6670] hover:text-[#1C1F23] transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />
-            <span>Back to Student Directory</span>
-          </Link>
-        </div>
+      {/* Back Button */}
+      <div className="mb-3">
+        <Link
+          href="/owner/students"
+          className="inline-flex items-center gap-1.5 text-xs text-[#5F6670] hover:text-[#1C1F23] transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />
+          <span>Back to Student Directory</span>
+        </Link>
+      </div>
 
-        <PageHeader
-          title={student.name}
-          subtitle={`${student.school} • ${student.grade} (${yearId})`}
-          action={
-            <Button variant="secondary" onClick={openEditSheet} className="gap-1.5">
-              <Edit className="w-4 h-4" strokeWidth={1.75} />
-              <span>Edit Profile</span>
-            </Button>
-          }
-        />
+      <PageHeader
+        title={student.name}
+        subtitle={`${student.school} • ${student.grade} (${yearId})`}
+        action={
+          <Button variant="secondary" onClick={openEditSheet} className="gap-1.5">
+            <Edit className="w-4 h-4" strokeWidth={1.75} />
+            <span>Edit Profile</span>
+          </Button>
+        }
+      />
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Student Info, Admission Fee & Enrolled Classes */}
-          <div className="lg:col-span-5 flex flex-col gap-4">
-            {/* Profile Card */}
+      <div className="flex flex-col gap-4">
+        {/* Profile Card */}
         <Card className="p-4 flex flex-col gap-3">
           <CardHeader className="p-0 border-b border-[#E4E1DA] pb-2.5">
             <div className="flex items-center justify-between">
@@ -419,10 +415,7 @@ export default function StudentDetailPage() {
             </div>
           )}
         </Card>
-      </div>
 
-      {/* Right Column: Fee History */}
-      <div className="lg:col-span-7 flex flex-col gap-4">
         {/* Fee History */}
         <Card className="p-4 flex flex-col gap-3">
           <CardHeader className="p-0 border-b border-[#E4E1DA] pb-2.5">
@@ -506,7 +499,6 @@ export default function StudentDetailPage() {
             </div>
           )}
         </Card>
-      </div>
       </div>
 
       {/* Edit Student Bottom Sheet */}
@@ -683,10 +675,8 @@ export default function StudentDetailPage() {
           message={toastMessage}
           variant={toastVariant}
           onDismiss={() => setToastMessage("")}
-          floating
         />
       )}
-      </PageContainer>
     </OwnerShell>
   );
 }

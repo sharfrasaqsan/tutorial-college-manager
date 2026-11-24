@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { OwnerShell } from "@/components/layout/OwnerShell";
-import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -346,9 +345,8 @@ export default function OwnerTimetablePage() {
   }
 
   return (
-    <OwnerShell pageTitle="Weekly Timetable">
-      <PageContainer variant="wide">
-        {/* Toast Notification */}
+    <OwnerShell pageTitle="Weekly Timetable" maxWidth="5xl">
+      {/* Toast Notification */}
       {toastMessage && (
         <div className="mb-4">
           <Toast
@@ -461,8 +459,8 @@ export default function OwnerTimetablePage() {
         />
       ) : (
         <>
-          {/* PHONE VIEW: Horizontal Day Tabs (hidden on lg screens and wider) */}
-          <div className="block lg:hidden">
+          {/* PHONE VIEW: Horizontal Day Tabs (hidden on md screens and wider) */}
+          <div className="block md:hidden">
             <div className="flex overflow-x-auto gap-1 pb-2 border-b border-[#E4E1DA] mb-3 no-scrollbar">
               {SHORT_WEEKDAY_NAMES.map((name, index) => {
                 const count = slotsByDay[index]?.length || 0;
@@ -519,8 +517,8 @@ export default function OwnerTimetablePage() {
             </div>
           </div>
 
-          {/* WIDE SCREEN VIEW: 7-Column Weekly Grid (hidden on mobile and tablet) */}
-          <div className="hidden lg:grid lg:grid-cols-7 gap-2.5 items-start">
+          {/* WIDE SCREEN VIEW: 7-Column Weekly Grid (hidden on mobile) */}
+          <div className="hidden md:grid md:grid-cols-7 gap-2.5 items-start">
             {WEEKDAY_NAMES.map((dayName, dayIndex) => {
               const daySlots = slotsByDay[dayIndex] || [];
               const isToday = currentWeekday === dayIndex;
@@ -734,7 +732,6 @@ export default function OwnerTimetablePage() {
           setSlotToDelete(null);
         }}
       />
-      </PageContainer>
     </OwnerShell>
   );
 }

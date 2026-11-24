@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { OwnerShell } from "@/components/layout/OwnerShell";
-import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Field } from "@/components/ui/Field";
@@ -127,8 +126,7 @@ export default function PublicSiteEditorPage() {
 
   return (
     <OwnerShell pageTitle="Public Site Settings">
-      <PageContainer variant="default">
-        <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2">
         <Link
           href="/owner/more"
           className="inline-flex items-center text-xs text-[#5F6670] hover:text-[#1C1F23]"
@@ -465,7 +463,6 @@ export default function PublicSiteEditorPage() {
           onDismiss={() => setErrorMessage("")}
         />
       )}
-      </PageContainer>
     </OwnerShell>
   );
 }

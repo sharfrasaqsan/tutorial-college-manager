@@ -810,7 +810,7 @@ export function FeesClientView({ initialYearId }: FeesClientViewProps) {
               icon={<CheckCircle2 className="w-8 h-8 text-[#1F5C4D]" strokeWidth={1.5} />}
             />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
               {groupedUnpaidStudents.map((grp) => (
                 <div
                   key={grp.studentId}
@@ -1004,204 +1004,103 @@ export function FeesClientView({ initialYearId }: FeesClientViewProps) {
               icon={<CreditCard className="w-8 h-8 text-[#5F6670]" strokeWidth={1.5} />}
             />
           ) : (
-            <>
-              {/* Desktop Table View */}
-              <div className="hidden lg:block bg-white border border-[#E4E1DA] rounded-[6px] overflow-hidden">
-                <table className="w-full text-xs text-left border-collapse">
-                  <thead>
-                    <tr className="bg-[#FAF9F6] border-b border-[#E4E1DA] text-[#5F6670] uppercase tracking-wider text-[11px] font-semibold">
-                      <th className="py-2.5 px-3">Student</th>
-                      <th className="py-2.5 px-3">Class</th>
-                      <th className="py-2.5 px-3">Status</th>
-                      <th className="py-2.5 px-3 text-right">Fee Amount</th>
-                      <th className="py-2.5 px-3 text-right">Teacher Share</th>
-                      <th className="py-2.5 px-3">Payment Info</th>
-                      <th className="py-2.5 px-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E4E1DA]">
-                    {fees.map((fee) => {
-                      const isPaid = fee.status === "paid";
-                      return (
-                        <tr key={fee.id} className="hover:bg-[#FAF9F6]/60 transition-colors">
-                          <td className="py-2.5 px-3 font-semibold text-[#1C1F23]">
-                            {fee.studentName}
-                            {fee.note && <div className="text-[10px] text-[#9A5B00] italic font-normal">{fee.note}</div>}
-                          </td>
-                          <td className="py-2.5 px-3 text-[#5F6670]">{fee.className}</td>
-                          <td className="py-2.5 px-3"><StatusChip status={fee.status} /></td>
-                          <td className="py-2.5 px-3 text-right font-bold text-[#1C1F23] tabular-nums">{formatLKR(fee.amount)}</td>
-                          <td className="py-2.5 px-3 text-right text-[#5F6670] tabular-nums">{formatLKR(fee.teacherShare)}</td>
-                          <td className="py-2.5 px-3 text-[#5F6670]">
-                            {isPaid ? (
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="uppercase font-semibold text-[#1F5C4D] text-[10px]">{fee.paymentMethod || "Cash"}</span>
-                                {fee.receiptNo && (
-                                  <span className="font-mono bg-[#E6F0EC] px-1.5 py-0.5 rounded border border-[#C2DDD4] text-[#1F5C4D] text-[10px]">
-                                    {fee.receiptNo}
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-[#A32A2A]">Pending</span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {!isPaid ? (
-                                <Button
-                                  variant="quiet"
-                                  size="sm"
-                                  onClick={() => handleOpenAdjustFee(fee)}
-                                  className="h-7 px-2 text-xs border border-[#E4E1DA]"
-                                >
-                                  <Edit2 className="w-3 h-3 mr-1" />
-                                  Adjust
-                                </Button>
-                              ) : (
-                                <>
-                                  {fee.receiptNo && (
-                                    <>
-                                      <Button
-                                        variant="secondary"
-                                        size="sm"
-                                        onClick={() => handleViewReceipt(fee.receiptNo!)}
-                                        className="h-7 px-2 text-xs"
-                                      >
-                                        <Printer className="w-3 h-3 mr-1" />
-                                        Receipt
-                                      </Button>
-                                      <a
-                                        href={`/api/owner/fees/receipt/${fee.receiptNo}/pdf`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="h-7 px-2 text-xs flex items-center gap-1 border border-[#C2DDD4] bg-[#E6F0EC] text-[#1F5C4D] rounded font-medium hover:bg-[#d0e4dc] transition-colors"
-                                      >
-                                        <Download className="w-3 h-3" />
-                                        PDF
-                                      </a>
-                                    </>
-                                  )}
-                                  <Button
-                                    variant="quiet"
-                                    size="sm"
-                                    onClick={() => handleRevertUnpaid(fee)}
-                                    className="h-7 px-2 text-[11px] text-[#A32A2A] hover:bg-[#FBE9E7]"
-                                  >
-                                    Revert
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+            fees.map((fee) => {
+              const isPaid = fee.status === "paid";
+              return (
+                <Card
+                  key={fee.id}
+                  className="p-3 bg-white border-[#E4E1DA] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-[#1C1F23]">
+                        {fee.studentName}
+                      </span>
+                      <StatusChip status={fee.status} />
+                      <span className="text-[11px] text-[#5F6670]">{fee.className}</span>
+                    </div>
 
-              {/* Mobile/Tablet Card Stack */}
-              <div className="lg:hidden space-y-2.5">
-                {fees.map((fee) => {
-                  const isPaid = fee.status === "paid";
-                  return (
-                    <Card
-                      key={fee.id}
-                      className="p-3 bg-white border-[#E4E1DA] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm text-[#1C1F23]">
-                            {fee.studentName}
+                    {fee.note && (
+                      <div className="text-[11px] text-[#9A5B00] italic">
+                        Note: {fee.note}
+                      </div>
+                    )}
+
+                    {isPaid && (
+                      <div className="text-[11px] text-[#1F5C4D] flex items-center gap-2">
+                        <span className="uppercase font-semibold">{fee.paymentMethod || "Cash"}</span>
+                        {fee.paidAt && <span>• Paid on {new Date(fee.paidAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</span>}
+                        {fee.receiptNo && (
+                          <span className="font-mono bg-[#E6F0EC] px-1.5 py-0.5 rounded border border-[#C2DDD4]">
+                            {fee.receiptNo}
                           </span>
-                          <StatusChip status={fee.status} />
-                          <span className="text-[11px] text-[#5F6670]">{fee.className}</span>
-                        </div>
-
-                        {fee.note && (
-                          <div className="text-[11px] text-[#9A5B00] italic">
-                            Note: {fee.note}
-                          </div>
-                        )}
-
-                        {isPaid && (
-                          <div className="text-[11px] text-[#1F5C4D] flex items-center gap-2">
-                            <span className="uppercase font-semibold">{fee.paymentMethod || "Cash"}</span>
-                            {fee.paidAt && <span>• Paid on {new Date(fee.paidAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</span>}
-                            {fee.receiptNo && (
-                              <span className="font-mono bg-[#E6F0EC] px-1.5 py-0.5 rounded border border-[#C2DDD4]">
-                                {fee.receiptNo}
-                              </span>
-                            )}
-                          </div>
                         )}
                       </div>
+                    )}
+                  </div>
 
-                      <div className="flex items-center justify-between sm:justify-end gap-3 pt-1 sm:pt-0">
-                        <div className="text-right">
-                          <div className="font-bold text-sm text-[#1C1F23]">
-                            {formatLKR(fee.amount)}
-                          </div>
-                          <div className="text-[11px] text-[#5F6670]">
-                            Share: {formatLKR(fee.teacherShare)}
-                          </div>
-                        </div>
+                  <div className="flex items-center justify-between sm:justify-end gap-3 pt-1 sm:pt-0">
+                    <div className="text-right">
+                      <div className="font-bold text-sm text-[#1C1F23]">
+                        {formatLKR(fee.amount)}
+                      </div>
+                      <div className="text-[11px] text-[#5F6670]">
+                        Share: {formatLKR(fee.teacherShare)}
+                      </div>
+                    </div>
 
-                        <div className="flex items-center gap-1.5">
-                          {!isPaid ? (
+                    <div className="flex items-center gap-1.5">
+                      {!isPaid ? (
+                        <>
+                          <Button
+                            variant="quiet"
+                            size="sm"
+                            onClick={() => handleOpenAdjustFee(fee)}
+                            className="h-8 px-2 text-xs border border-[#E4E1DA]"
+                          >
+                            <Edit2 className="w-3 h-3 mr-1" />
+                            Adjust
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          {fee.receiptNo && (
                             <>
                               <Button
-                                variant="quiet"
+                                variant="secondary"
                                 size="sm"
-                                onClick={() => handleOpenAdjustFee(fee)}
-                                className="h-8 px-2 text-xs border border-[#E4E1DA]"
+                                onClick={() => handleViewReceipt(fee.receiptNo!)}
+                                className="h-8 px-2 text-xs"
                               >
-                                <Edit2 className="w-3 h-3 mr-1" />
-                                Adjust
+                                <Printer className="w-3 h-3 mr-1" />
+                                Receipt
                               </Button>
-                            </>
-                          ) : (
-                            <>
-                              {fee.receiptNo && (
-                                <>
-                                  <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => handleViewReceipt(fee.receiptNo!)}
-                                    className="h-8 px-2 text-xs"
-                                  >
-                                    <Printer className="w-3 h-3 mr-1" />
-                                    Receipt
-                                  </Button>
-                                  <a
-                                    href={`/api/owner/fees/receipt/${fee.receiptNo}/pdf`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="h-8 px-2 text-xs flex items-center gap-1 border border-[#C2DDD4] bg-[#E6F0EC] text-[#1F5C4D] rounded font-medium hover:bg-[#d0e4dc] transition-colors"
-                                  >
-                                    <Download className="w-3 h-3" />
-                                    PDF
-                                  </a>
-                                </>
-                              )}
-                              <Button
-                                variant="quiet"
-                                size="sm"
-                                onClick={() => handleRevertUnpaid(fee)}
-                                className="h-8 px-2 text-[11px] text-[#A32A2A] hover:bg-[#FBE9E7]"
+                              <a
+                                href={`/api/owner/fees/receipt/${fee.receiptNo}/pdf`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="h-8 px-2 text-xs flex items-center gap-1 border border-[#C2DDD4] bg-[#E6F0EC] text-[#1F5C4D] rounded font-medium hover:bg-[#d0e4dc] transition-colors"
                               >
-                                Revert
-                              </Button>
+                                <Download className="w-3 h-3" />
+                                PDF
+                              </a>
                             </>
                           )}
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            </>
+                          <Button
+                            variant="quiet"
+                            size="sm"
+                            onClick={() => handleRevertUnpaid(fee)}
+                            className="h-8 px-2 text-[11px] text-[#A32A2A] hover:bg-[#FBE9E7]"
+                          >
+                            Revert
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })
           )}
         </div>
       )}

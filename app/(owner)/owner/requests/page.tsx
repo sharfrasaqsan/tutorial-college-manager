@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { OwnerShell } from "@/components/layout/OwnerShell";
-import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -111,8 +110,7 @@ export default function OwnerRequestsPage() {
 
   return (
     <OwnerShell pageTitle="Requests Inbox">
-      <PageContainer variant="default">
-        {toastMessage && (
+      {toastMessage && (
         <div className="mb-4">
           <Toast
             message={toastMessage.text}
@@ -179,7 +177,7 @@ export default function OwnerRequestsPage() {
             description="All teacher session correction requests have been resolved."
           />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div className="flex flex-col gap-3">
             {pendingRequests.map((req) => (
               <RequestCard
                 key={req.id}
@@ -197,7 +195,7 @@ export default function OwnerRequestsPage() {
           description="Approved and rejected correction requests will appear here in the history log."
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="flex flex-col gap-3">
           {resolvedRequests.map((req) => (
             <RequestCard key={req.id} request={req} />
           ))}
@@ -231,7 +229,6 @@ export default function OwnerRequestsPage() {
           setSelectedRequest(null);
         }}
       />
-      </PageContainer>
     </OwnerShell>
   );
 }

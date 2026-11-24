@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { OwnerShell } from "@/components/layout/OwnerShell";
-import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -206,25 +205,24 @@ export default function OwnerClassesPage() {
 
   return (
     <OwnerShell pageTitle={`Classes (${activeYear})`}>
-      <PageContainer variant="default">
-        <PageHeader
-          title={`Classes & Curriculum (${activeYear})`}
-          subtitle="Manage grade and subject combinations, teacher allocations and fee terms"
-          action={
-            <div className="flex items-center gap-2">
-              <Link href="/owner/timetable">
-                <Button variant="secondary" className="gap-1.5 text-xs h-9">
-                  <Calendar className="w-4 h-4" strokeWidth={1.75} />
-                  <span>Timetable</span>
-                </Button>
-              </Link>
-              <Button variant="primary" onClick={openCreateSheet} className="gap-1.5 text-xs h-9">
-                <Plus className="w-4 h-4" strokeWidth={2} />
-                <span>Create Class</span>
+      <PageHeader
+        title={`Classes & Curriculum (${activeYear})`}
+        subtitle="Manage grade and subject combinations, teacher allocations and fee terms"
+        action={
+          <div className="flex items-center gap-2">
+            <Link href="/owner/timetable">
+              <Button variant="secondary" className="gap-1.5 text-xs h-9">
+                <Calendar className="w-4 h-4" strokeWidth={1.75} />
+                <span>Timetable</span>
               </Button>
-            </div>
-          }
-        />
+            </Link>
+            <Button variant="primary" onClick={openCreateSheet} className="gap-1.5 text-xs h-9">
+              <Plus className="w-4 h-4" strokeWidth={2} />
+              <span>Create Class</span>
+            </Button>
+          </div>
+        }
+      />
 
       {/* Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-2.5 mb-4">
@@ -254,10 +252,10 @@ export default function OwnerClassesPage() {
 
       {/* Classes List */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Skeleton height="160px" />
-          <Skeleton height="160px" />
-          <Skeleton height="160px" />
+        <div className="flex flex-col gap-3">
+          <Skeleton height="108px" />
+          <Skeleton height="108px" />
+          <Skeleton height="108px" />
         </div>
       ) : filteredClasses.length === 0 ? (
         <EmptyState
@@ -277,7 +275,7 @@ export default function OwnerClassesPage() {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="flex flex-col gap-3">
           {filteredClasses.map((cls) => {
             const terms = cls.currentTerms || {
               monthlyFee: 0,
@@ -547,10 +545,8 @@ export default function OwnerClassesPage() {
           message={toastMessage}
           variant={toastVariant}
           onDismiss={() => setToastMessage("")}
-          floating
         />
       )}
-      </PageContainer>
     </OwnerShell>
   );
 }

@@ -15,21 +15,17 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <div
-      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-[#E4E1DA] ${className}`}
+      className={`flex items-start justify-between gap-3 mb-4 pb-3 border-b border-[#E4E1DA] ${className}`}
     >
-      <div className="min-w-0">
-        <h1 className="font-serif text-xl sm:text-2xl font-semibold text-[#1C1F23] tracking-tight leading-snug">
+      <div>
+        <h1 className="text-lg font-semibold text-[#1C1F23] tracking-tight">
           {title}
         </h1>
         {subtitle && (
-          <p className="text-xs text-[#5F6670] mt-1 leading-relaxed">{subtitle}</p>
+          <p className="text-xs text-[#5F6670] mt-0.5">{subtitle}</p>
         )}
       </div>
-      {action && (
-        <div className="shrink-0 flex items-center gap-2 self-start sm:self-center">
-          {action}
-        </div>
-      )}
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
