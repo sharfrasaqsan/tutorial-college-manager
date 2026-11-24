@@ -180,8 +180,8 @@ export function ReportsClientView({ initialYearId }: ReportsClientViewProps) {
         </div>
       </div>
 
-      {/* Tabs for the 4 Reports */}
-      <div className="flex border-b border-[#E4E1DA] gap-2 sm:gap-6 overflow-x-auto no-scrollbar">
+      {/* Tabs for the 4 Reports (Mobile & Tablet) */}
+      <div className="flex lg:hidden border-b border-[#E4E1DA] gap-2 sm:gap-6 overflow-x-auto no-scrollbar">
         <button
           type="button"
           onClick={() => setActiveTab("month-summary")}
@@ -234,6 +234,116 @@ export function ReportsClientView({ initialYearId }: ReportsClientViewProps) {
           <span>Teacher Salary</span>
         </button>
       </div>
+
+      {/* Main Grid: At lg, two columns (Left: 4 Report Types List, Right: Active Report Preview with Download buttons) */}
+      <div className="lg:grid lg:grid-cols-12 lg:gap-6 items-start">
+        {/* Left Column: Vertical Report Types List on Desktop */}
+        <div className="hidden lg:block lg:col-span-4 xl:col-span-3 space-y-2.5">
+          <div className="text-xs font-semibold uppercase tracking-wider text-[#5F6670] px-1 mb-1">
+            Report Types
+          </div>
+
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab("month-summary")}
+              className={`w-full text-left p-3.5 rounded-[6px] border transition-all flex items-start gap-3 ${
+                activeTab === "month-summary"
+                  ? "border-[#1F5C4D] ring-1 ring-[#1F5C4D] bg-[#E6F0EC]/20 text-[#1F5C4D]"
+                  : "border-[#E4E1DA] bg-[#FFFFFF] hover:border-[#1F5C4D]/60 hover:bg-[#FAF9F6] text-[#1C1F23]"
+              }`}
+            >
+              <div className={`p-2 rounded-[4px] mt-0.5 ${activeTab === "month-summary" ? "bg-[#1F5C4D] text-[#FFFFFF]" : "bg-[#FAF9F6] text-[#5F6670]"}`}>
+                <PieChart className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-bold text-sm leading-tight">Month Summary</div>
+                <div className="text-xs text-[#5F6670] mt-1 leading-snug">Income, expenditures & margin</div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("student-payments")}
+              className={`w-full text-left p-3.5 rounded-[6px] border transition-all flex items-start gap-3 ${
+                activeTab === "student-payments"
+                  ? "border-[#1F5C4D] ring-1 ring-[#1F5C4D] bg-[#E6F0EC]/20 text-[#1F5C4D]"
+                  : "border-[#E4E1DA] bg-[#FFFFFF] hover:border-[#1F5C4D]/60 hover:bg-[#FAF9F6] text-[#1C1F23]"
+              }`}
+            >
+              <div className={`p-2 rounded-[4px] mt-0.5 ${activeTab === "student-payments" ? "bg-[#1F5C4D] text-[#FFFFFF]" : "bg-[#FAF9F6] text-[#5F6670]"}`}>
+                <CreditCard className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-bold text-sm leading-tight">Student Payments</div>
+                <div className="text-xs text-[#5F6670] mt-1 leading-snug">Tuition and fee receipts by grade</div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("pending-fees")}
+              className={`w-full text-left p-3.5 rounded-[6px] border transition-all flex items-start gap-3 ${
+                activeTab === "pending-fees"
+                  ? "border-[#1F5C4D] ring-1 ring-[#1F5C4D] bg-[#E6F0EC]/20 text-[#1F5C4D]"
+                  : "border-[#E4E1DA] bg-[#FFFFFF] hover:border-[#1F5C4D]/60 hover:bg-[#FAF9F6] text-[#1C1F23]"
+              }`}
+            >
+              <div className={`p-2 rounded-[4px] mt-0.5 ${activeTab === "pending-fees" ? "bg-[#1F5C4D] text-[#FFFFFF]" : "bg-[#FAF9F6] text-[#5F6670]"}`}>
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-bold text-sm leading-tight">Pending Fees</div>
+                <div className="text-xs text-[#5F6670] mt-1 leading-snug">Overdue tuition and admission fees</div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("teacher-salary")}
+              className={`w-full text-left p-3.5 rounded-[6px] border transition-all flex items-start gap-3 ${
+                activeTab === "teacher-salary"
+                  ? "border-[#1F5C4D] ring-1 ring-[#1F5C4D] bg-[#E6F0EC]/20 text-[#1F5C4D]"
+                  : "border-[#E4E1DA] bg-[#FFFFFF] hover:border-[#1F5C4D]/60 hover:bg-[#FAF9F6] text-[#1C1F23]"
+              }`}
+            >
+              <div className={`p-2 rounded-[4px] mt-0.5 ${activeTab === "teacher-salary" ? "bg-[#1F5C4D] text-[#FFFFFF]" : "bg-[#FAF9F6] text-[#5F6670]"}`}>
+                <Banknote className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-bold text-sm leading-tight">Teacher Salary</div>
+                <div className="text-xs text-[#5F6670] mt-1 leading-snug">Target sessions, progress & payouts</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Right Column on Desktop, Full Width below lg */}
+        <div className="lg:col-span-8 xl:col-span-9 space-y-6">
+          {/* Header on Desktop with Download Buttons */}
+          <div className="hidden lg:flex bg-[#FFFFFF] border border-[#E4E1DA] rounded-[6px] p-4 items-center justify-between">
+            <div>
+              <h2 className="font-serif font-bold text-lg text-[#1C1F23]">
+                {activeTab === "month-summary" && "Month Summary Report"}
+                {activeTab === "student-payments" && "Student Payments Report"}
+                {activeTab === "pending-fees" && "Pending Fees & Arrears Report"}
+                {activeTab === "teacher-salary" && "Teacher Salary Report"}
+              </h2>
+              <p className="text-xs text-[#5F6670] mt-0.5">
+                Official financial ledger for {formatMonthDisplay(selectedMonth)}
+              </p>
+            </div>
+
+            <a
+              href={pdfDownloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-semibold text-[#FFFFFF] bg-[#1F5C4D] rounded-[6px] hover:bg-[#164237] transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download PDF</span>
+            </a>
+          </div>
 
       {loading && (
         <div className="space-y-4">
@@ -592,6 +702,8 @@ export function ReportsClientView({ initialYearId }: ReportsClientViewProps) {
           )}
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }

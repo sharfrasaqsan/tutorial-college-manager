@@ -78,6 +78,7 @@ export function OwnerSalaryClientView({ initialYearId }: OwnerSalaryClientViewPr
 
   // Pay Teacher Bottom Sheet State
   const [payingTeacher, setPayingTeacher] = useState<TeacherGroup | null>(null);
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   const [depositDate, setDepositDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [paymentMethod, setPaymentMethod] = useState<"bank" | "cash" | "cheque">("bank");
@@ -229,6 +230,11 @@ export function OwnerSalaryClientView({ initialYearId }: OwnerSalaryClientViewPr
     if (statusFilter === "paid") return t.paidClassesCount > 0;
     return true;
   });
+
+  const activeSelectedTeacher =
+    filteredTeachers.find((t) => t.teacherId === selectedTeacherId) ||
+    filteredTeachers[0] ||
+    null;
 
   return (
     <div className="space-y-6 pb-12">
@@ -425,120 +431,405 @@ export function OwnerSalaryClientView({ initialYearId }: OwnerSalaryClientViewPr
             />
           )}
 
-          {/* Teachers Cards List */}
-          {!loading &&
-            filteredTeachers.map((teacher) => (
-              <div
-                key={teacher.teacherId}
-                className="bg-[#FFFFFF] border border-[#E4E1DA] rounded-[6px] overflow-hidden"
-              >
-                {/* Teacher Header Bar */}
-                <div className="p-4 bg-[#FAF9F6] border-b border-[#E4E1DA] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-bold text-base text-[#1C1F23]">
-                      {teacher.teacherName}
-                    </h3>
-                    <div className="flex items-center gap-3 text-xs text-[#5F6670] mt-0.5">
-                      {teacher.teacherPhone && <span>{teacher.teacherPhone}</span>}
-                      {teacher.teacherEmail && <span>{teacher.teacherEmail}</span>}
-                      <span>• {teacher.classes.length} class(es)</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="text-xs text-[#5F6670]">Ready to Pay</div>
-                      <div className="font-bold text-base text-[#1F5C4D]">
-                        {formatLKR(teacher.totalReadyAmount)}
-                      </div>
-                    </div>
-
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      disabled={!teacher.canPay}
-                      onClick={() => openPayModal(teacher)}
-                      className="whitespace-nowrap"
-                    >
-                      Pay Teacher
-                    </Button>
-                  </div>
+          {/* DESKTOP VIEW (>=1024px): 2 COLUMNS (Left: Teachers with Ready Total; Right: Selected Teacher Class Table + Pay Panel) */}
+          {!loading && filteredTeachers.length > 0 && (
+            <div className="hidden lg:grid lg:grid-cols-12 lg:gap-6 items-start">
+              {/* Left Column: Teachers List */}
+              <div className="lg:col-span-5 xl:col-span-4 space-y-3">
+                <div className="text-xs font-semibold uppercase tracking-wider text-[#5F6670] px-1">
+                  Assigned Teachers ({filteredTeachers.length})
                 </div>
 
-                {/* Teacher's Classes List */}
-                <div className="divide-y divide-[#E4E1DA]">
-                  {teacher.classes.map((cls) => {
-                    const progressPercent = Math.min(
-                      100,
-                      Math.round((cls.heldSessions / (cls.requiredSessions || 1)) * 100)
-                    );
-
+                <div className="space-y-2.5">
+                  {filteredTeachers.map((teacher) => {
+                    const isSelected = activeSelectedTeacher?.teacherId === teacher.teacherId;
                     return (
                       <div
-                        key={cls.id}
-                        className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF9F6]/50 transition-colors"
+                        key={teacher.teacherId}
+                        onClick={() => setSelectedTeacherId(teacher.teacherId)}
+                        className={`p-4 bg-[#FFFFFF] border rounded-[6px] cursor-pointer transition-all ${
+                          isSelected
+                            ? "border-[#1F5C4D] ring-1 ring-[#1F5C4D] bg-[#E6F0EC]/20 shadow-none"
+                            : "border-[#E4E1DA] hover:border-[#1F5C4D]/60 hover:bg-[#FAF9F6]"
+                        }`}
                       >
-                        <div className="space-y-1 sm:max-w-md">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-sm text-[#1C1F23]">
-                              {cls.className}
-                            </span>
-                            <StatusChip status={cls.status} />
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-bold text-sm text-[#1C1F23] truncate">
+                              {teacher.teacherName}
+                            </h4>
+                            <div className="text-xs text-[#5F6670] mt-0.5 truncate">
+                              {teacher.classes.length} class(es) assigned
+                            </div>
                           </div>
 
-                          {/* Sessions Progress */}
-                          <div className="flex items-center gap-3 text-xs text-[#5F6670]">
-                            <span className="font-medium text-[#1C1F23]">
-                              {cls.heldSessions} of {cls.requiredSessions} sessions
-                            </span>
-                            <span>•</span>
-                            <span>{cls.studentCount} enrolled student(s)</span>
-                          </div>
-
-                          {/* Mini Progress Bar */}
-                          <div className="w-48 h-1.5 bg-[#E4E1DA] rounded-full overflow-hidden mt-1">
-                            <div
-                              className={`h-full transition-all rounded-full ${
-                                cls.status === "paid"
-                                  ? "bg-[#1F5C4D]"
-                                  : cls.status === "ready"
-                                  ? "bg-[#1F5C4D]"
-                                  : "bg-[#9A5B00]"
-                              }`}
-                              style={{ width: `${progressPercent}%` }}
-                            />
+                          <div className="text-right shrink-0">
+                            <div className="text-[11px] font-medium text-[#5F6670] uppercase tracking-wider">
+                              Ready
+                            </div>
+                            <div className="font-bold text-sm text-[#1F5C4D]">
+                              {formatLKR(teacher.totalReadyAmount)}
+                            </div>
                           </div>
                         </div>
 
-                        {/* Amount & Invoice info */}
-                        <div className="flex items-center justify-between sm:justify-end gap-4 text-right">
-                          <div>
-                            <div className="font-bold text-sm text-[#1C1F23]">
-                              {formatLKR(cls.amount)}
-                            </div>
-                            <div className="text-xs text-[#5F6670]">
-                              Teacher share
-                            </div>
-                          </div>
+                        <div className="mt-3 pt-2.5 border-t border-[#E4E1DA] flex items-center justify-between text-xs text-[#5F6670]">
+                          <span>
+                            On hold: <strong className="text-[#9A5B00]">{formatLKR(teacher.totalOnHoldAmount)}</strong>
+                          </span>
 
-                          {cls.isPaid && cls.invoiceNo && (
-                            <a
-                              href={`/api/salaries/invoice/${cls.invoiceNo}/pdf`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs font-semibold text-[#1F5C4D] bg-[#E6F0EC] px-2.5 py-1.5 rounded-[4px] hover:bg-[#C2DDD4] transition-colors"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                              <span>{cls.invoiceNo}</span>
-                            </a>
-                          )}
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            disabled={!teacher.canPay}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openPayModal(teacher);
+                            }}
+                            className="h-7 text-xs px-3"
+                          >
+                            Pay
+                          </Button>
                         </div>
                       </div>
                     );
                   })}
                 </div>
               </div>
-            ))}
+
+              {/* Right Column: Selected Teacher Class Table & Pay Panel */}
+              <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+                {activeSelectedTeacher && (
+                  <div className="space-y-4">
+                    {/* Selected Teacher Details Strip */}
+                    <div className="bg-[#FFFFFF] border border-[#E4E1DA] rounded-[6px] p-4 flex items-center justify-between">
+                      <div>
+                        <h3 className="font-bold text-base text-[#1C1F23]">
+                          {activeSelectedTeacher.teacherName}
+                        </h3>
+                        <p className="text-xs text-[#5F6670] mt-0.5">
+                          {activeSelectedTeacher.teacherEmail || activeSelectedTeacher.teacherPhone || "Teacher breakdown for selected month"}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-right">
+                        <div>
+                          <div className="text-xs text-[#5F6670]">Total Ready</div>
+                          <div className="font-bold text-base text-[#1F5C4D]">
+                            {formatLKR(activeSelectedTeacher.totalReadyAmount)}
+                          </div>
+                        </div>
+
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          disabled={!activeSelectedTeacher.canPay}
+                          onClick={() => openPayModal(activeSelectedTeacher)}
+                          className="h-9 px-4"
+                        >
+                          Pay Teacher
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Class records semantic table */}
+                    <div className="bg-[#FFFFFF] border border-[#E4E1DA] rounded-[6px] overflow-hidden">
+                      <table className="w-full text-left text-sm border-collapse">
+                        <thead>
+                          <tr className="bg-[#FAF9F6] border-b border-[#E4E1DA] text-xs font-semibold text-[#5F6670] uppercase tracking-wider">
+                            <th className="py-3 px-4">Class</th>
+                            <th className="py-3 px-4">Sessions Progress</th>
+                            <th className="py-3 px-4 text-center">Students</th>
+                            <th className="py-3 px-4 text-right">Teacher Share</th>
+                            <th className="py-3 px-4 text-center">Status</th>
+                            <th className="py-3 px-4 text-right">Invoice</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#E4E1DA]">
+                          {activeSelectedTeacher.classes.map((cls) => {
+                            const progressPercent = Math.min(
+                              100,
+                              Math.round((cls.heldSessions / (cls.requiredSessions || 1)) * 100)
+                            );
+
+                            return (
+                              <tr key={cls.id} className="hover:bg-[#FAF9F6]/50 transition-colors">
+                                <td className="py-3.5 px-4 font-semibold text-[#1C1F23]">
+                                  {cls.className}
+                                </td>
+                                <td className="py-3.5 px-4">
+                                  <div className="text-xs font-medium text-[#1C1F23]">
+                                    {cls.heldSessions} of {cls.requiredSessions} sessions
+                                  </div>
+                                  <div className="w-32 h-1.5 bg-[#E4E1DA] rounded-full overflow-hidden mt-1">
+                                    <div
+                                      className={`h-full transition-all rounded-full ${
+                                        cls.status === "paid" || cls.status === "ready"
+                                          ? "bg-[#1F5C4D]"
+                                          : "bg-[#9A5B00]"
+                                      }`}
+                                      style={{ width: `${progressPercent}%` }}
+                                    />
+                                  </div>
+                                </td>
+                                <td className="py-3.5 px-4 text-center text-xs text-[#5F6670]">
+                                  {cls.studentCount}
+                                </td>
+                                <td className="py-3.5 px-4 text-right font-bold text-[#1C1F23]">
+                                  {formatLKR(cls.amount)}
+                                </td>
+                                <td className="py-3.5 px-4 text-center">
+                                  <StatusChip status={cls.status} />
+                                </td>
+                                <td className="py-3.5 px-4 text-right">
+                                  {cls.isPaid && cls.invoiceNo ? (
+                                    <a
+                                      href={`/api/salaries/invoice/${cls.invoiceNo}/pdf`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#1F5C4D] bg-[#E6F0EC] px-2 py-1 rounded-[4px] hover:bg-[#C2DDD4] transition-colors"
+                                    >
+                                      <Download className="w-3 h-3" />
+                                      <span>{cls.invoiceNo}</span>
+                                    </a>
+                                  ) : (
+                                    <span className="text-xs text-[#5F6670]">—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pay Teacher Panel */}
+                    <div className="bg-[#FFFFFF] border border-[#E4E1DA] rounded-[6px] p-5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                          <h4 className="font-bold text-sm text-[#1C1F23]">
+                            Payment Status & Action
+                          </h4>
+                          <p className="text-xs text-[#5F6670] mt-0.5">
+                            {activeSelectedTeacher.canPay
+                              ? `${activeSelectedTeacher.readyClassesCount} class(es) have completed monthly session targets and are ready for disbursement.`
+                              : "No classes are ready to pay yet. Target sessions must be held before payment."}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <div className="text-xs text-[#5F6670]">Disbursement Amount</div>
+                            <div className="font-bold text-lg text-[#1F5C4D]">
+                              {formatLKR(activeSelectedTeacher.totalReadyAmount)}
+                            </div>
+                          </div>
+
+                          <Button
+                            variant="primary"
+                            disabled={!activeSelectedTeacher.canPay}
+                            onClick={() => openPayModal(activeSelectedTeacher)}
+                            className="px-5"
+                          >
+                            Pay Teacher
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TABLET VIEW (768px - 1023px): Stacked with Full-Width Tables */}
+          {!loading && filteredTeachers.length > 0 && (
+            <div className="hidden md:block lg:hidden space-y-4">
+              {filteredTeachers.map((teacher) => (
+                <div
+                  key={teacher.teacherId}
+                  className="bg-[#FFFFFF] border border-[#E4E1DA] rounded-[6px] overflow-hidden"
+                >
+                  <div className="p-4 bg-[#FAF9F6] border-b border-[#E4E1DA] flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-base text-[#1C1F23]">
+                        {teacher.teacherName}
+                      </h3>
+                      <div className="text-xs text-[#5F6670] mt-0.5">
+                        {teacher.classes.length} class(es) • {teacher.teacherEmail || teacher.teacherPhone || ""}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="text-xs text-[#5F6670]">Ready Payout</div>
+                        <div className="font-bold text-base text-[#1F5C4D]">
+                          {formatLKR(teacher.totalReadyAmount)}
+                        </div>
+                      </div>
+
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        disabled={!teacher.canPay}
+                        onClick={() => openPayModal(teacher)}
+                      >
+                        Pay Teacher
+                      </Button>
+                    </div>
+                  </div>
+
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#E4E1DA] text-xs font-semibold text-[#5F6670] uppercase tracking-wider bg-[#FAF9F6]/50">
+                        <th className="py-2.5 px-4">Class</th>
+                        <th className="py-2.5 px-4">Sessions</th>
+                        <th className="py-2.5 px-4 text-center">Students</th>
+                        <th className="py-2.5 px-4 text-right">Amount</th>
+                        <th className="py-2.5 px-4 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E4E1DA]">
+                      {teacher.classes.map((cls) => (
+                        <tr key={cls.id} className="hover:bg-[#FAF9F6]/30">
+                          <td className="py-3 px-4 font-semibold text-[#1C1F23]">
+                            {cls.className}
+                          </td>
+                          <td className="py-3 px-4 text-xs text-[#5F6670]">
+                            {cls.heldSessions} / {cls.requiredSessions} sessions
+                          </td>
+                          <td className="py-3 px-4 text-center text-xs text-[#5F6670]">
+                            {cls.studentCount}
+                          </td>
+                          <td className="py-3 px-4 text-right font-bold text-[#1C1F23]">
+                            {formatLKR(cls.amount)}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <StatusChip status={cls.status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* MOBILE VIEW (<768px): Exact Existing Card Stack */}
+          {!loading && (
+            <div className="block md:hidden space-y-4">
+              {filteredTeachers.map((teacher) => (
+                <div
+                  key={teacher.teacherId}
+                  className="bg-[#FFFFFF] border border-[#E4E1DA] rounded-[6px] overflow-hidden"
+                >
+                  {/* Teacher Header Bar */}
+                  <div className="p-4 bg-[#FAF9F6] border-b border-[#E4E1DA] flex flex-col justify-between gap-3">
+                    <div>
+                      <h3 className="font-bold text-base text-[#1C1F23]">
+                        {teacher.teacherName}
+                      </h3>
+                      <div className="flex items-center gap-3 text-xs text-[#5F6670] mt-0.5">
+                        {teacher.teacherPhone && <span>{teacher.teacherPhone}</span>}
+                        {teacher.teacherEmail && <span>{teacher.teacherEmail}</span>}
+                        <span>• {teacher.classes.length} class(es)</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs text-[#5F6670]">Ready to Pay</div>
+                        <div className="font-bold text-base text-[#1F5C4D]">
+                          {formatLKR(teacher.totalReadyAmount)}
+                        </div>
+                      </div>
+
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        disabled={!teacher.canPay}
+                        onClick={() => openPayModal(teacher)}
+                        className="whitespace-nowrap"
+                      >
+                        Pay Teacher
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Teacher's Classes List */}
+                  <div className="divide-y divide-[#E4E1DA]">
+                    {teacher.classes.map((cls) => {
+                      const progressPercent = Math.min(
+                        100,
+                        Math.round((cls.heldSessions / (cls.requiredSessions || 1)) * 100)
+                      );
+
+                      return (
+                        <div
+                          key={cls.id}
+                          className="p-4 flex flex-col justify-between gap-3"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-sm text-[#1C1F23]">
+                                {cls.className}
+                              </span>
+                              <StatusChip status={cls.status} />
+                            </div>
+
+                            <div className="flex items-center gap-3 text-xs text-[#5F6670]">
+                              <span className="font-medium text-[#1C1F23]">
+                                {cls.heldSessions} of {cls.requiredSessions} sessions
+                              </span>
+                              <span>•</span>
+                              <span>{cls.studentCount} enrolled student(s)</span>
+                            </div>
+
+                            <div className="w-48 h-1.5 bg-[#E4E1DA] rounded-full overflow-hidden mt-1">
+                              <div
+                                className={`h-full transition-all rounded-full ${
+                                  cls.status === "paid"
+                                    ? "bg-[#1F5C4D]"
+                                    : cls.status === "ready"
+                                    ? "bg-[#1F5C4D]"
+                                    : "bg-[#9A5B00]"
+                                }`}
+                                style={{ width: `${progressPercent}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-4 text-right">
+                            <div>
+                              <div className="font-bold text-sm text-[#1C1F23]">
+                                {formatLKR(cls.amount)}
+                              </div>
+                              <div className="text-xs text-[#5F6670]">
+                                Teacher share
+                              </div>
+                            </div>
+
+                            {cls.isPaid && cls.invoiceNo && (
+                              <a
+                                href={`/api/salaries/invoice/${cls.invoiceNo}/pdf`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-[#1F5C4D] bg-[#E6F0EC] px-2.5 py-1.5 rounded-[4px] hover:bg-[#C2DDD4] transition-colors"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span>{cls.invoiceNo}</span>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
