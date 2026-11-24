@@ -87,9 +87,15 @@ export async function POST(request: NextRequest) {
       expiresIn: SESSION_COOKIE_MAX_AGE * 1000,
     });
 
-    // 4. Set HTTP-only secure cookie
-    const cookieStore = await cookies();
-    cookieStore.set(SESSION_COOKIE_NAME, sessionCookie, {
+    // 4. Set HTTP-only secure cookie on the response
+    const response = NextResponse.json({
+      status: "ok",
+      role,
+      uid,
+      email,
+    });
+
+    response.cookies.set(SESSION_COOKIE_NAME, sessionCookie, {
       maxAge: SESSION_COOKIE_MAX_AGE,
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -97,12 +103,7 @@ export async function POST(request: NextRequest) {
       sameSite: "lax",
     });
 
-    return NextResponse.json({
-      status: "ok",
-      role,
-      uid,
-      email,
-    });
+    return response;
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || "Authentication failed. Unable to verify user session with Firebase." },

@@ -12,7 +12,11 @@
     "create-teacher": "node --experimental-strip-types scripts/create-test-teacher.ts"
   },
   "overrides": {
-    "@react-pdf/hyphenate": "0.1.0"
+    "@react-pdf/hyphenate": "0.1.0",
+    "jose": "^5.9.6"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.9.1",
