@@ -54,10 +54,18 @@ function LoginForm() {
         body: JSON.stringify({ idToken }),
       });
 
-      const data = await response.json();
+      let data: any = null;
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {
+          error: `Server returned HTTP ${response.status}. Please check Vercel environment variables.`,
+        };
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || "Unable to establish server session.");
+        throw new Error(data?.error || `Unable to establish server session (HTTP ${response.status}).`);
       }
 
       // 3. Determine redirect based on custom claim role

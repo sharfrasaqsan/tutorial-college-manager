@@ -72,9 +72,22 @@ export async function GET(request: NextRequest) {
     // Sort by name
     filtered.sort((a, b) => a.name.localeCompare(b.name));
 
+    // 4. Pagination support
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const limit = Math.max(0, parseInt(searchParams.get("limit") || "0", 10));
+    const totalCount = filtered.length;
+
+    let paginatedStudents = filtered;
+    if (limit > 0) {
+      const startIndex = (page - 1) * limit;
+      paginatedStudents = filtered.slice(startIndex, startIndex + limit);
+    }
+
     return NextResponse.json({
-      students: filtered,
-      totalCount: filtered.length,
+      students: paginatedStudents,
+      totalCount,
+      page: limit > 0 ? page : 1,
+      totalPages: limit > 0 ? Math.ceil(totalCount / limit) : 1,
       yearId,
     });
   } catch (error: any) {

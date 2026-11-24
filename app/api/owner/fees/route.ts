@@ -196,8 +196,22 @@ export async function GET(request: NextRequest) {
     // Sort by student name ascending
     filteredFees.sort((a, b) => (a.studentName || "").localeCompare(b.studentName || ""));
 
+    // 6. Pagination support
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const limit = Math.max(0, parseInt(searchParams.get("limit") || "0", 10));
+    const totalCount = filteredFees.length;
+
+    let paginatedFees = filteredFees;
+    if (limit > 0) {
+      const startIndex = (page - 1) * limit;
+      paginatedFees = filteredFees.slice(startIndex, startIndex + limit);
+    }
+
     return NextResponse.json({
-      fees: filteredFees,
+      fees: paginatedFees,
+      totalCount,
+      page: limit > 0 ? page : 1,
+      totalPages: limit > 0 ? Math.ceil(totalCount / limit) : 1,
       summary,
       month,
       yearId,

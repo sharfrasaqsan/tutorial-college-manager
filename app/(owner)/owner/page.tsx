@@ -47,12 +47,21 @@ export default async function OwnerHomePage() {
 
     // Get today's timetable slots
     const todayWeekday = new Date().getDay();
-    const slotsSnap = await adminDb
+    let slotsSnap = await adminDb
       .collection("years")
       .doc(selectedYear)
-      .collection("timetableSlots")
+      .collection("slots")
       .where("weekday", "==", todayWeekday)
       .get();
+
+    if (slotsSnap.empty) {
+      slotsSnap = await adminDb
+        .collection("years")
+        .doc(selectedYear)
+        .collection("timetableSlots")
+        .where("weekday", "==", todayWeekday)
+        .get();
+    }
 
     todaySessions = slotsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     todaySessions.sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));

@@ -1,0 +1,53 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner() {
+      return isAuthenticated() && request.auth.token.role == 'owner';
+    }
+
+    function isTeacher() {
+      return isAuthenticated() && request.auth.token.role == 'teacher';
+    }
+
+    // 1. DEFAULT DENY ALL
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // 2. College institution assets (logo, public branding)
+    // Authenticated users can view logo; only owner can upload/update
+    match /college/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner();
+    }
+
+    // 3. Teacher profile photos
+    // Owner can manage all; teacher can view their own photo
+    match /teachers/{teacherId}/{allPaths=**} {
+      allow read: if isOwner() || (isTeacher() && request.auth.uid == teacherId);
+      allow write: if isOwner();
+    }
+
+    // 4. Teacher salary invoices / payment vouchers (PDFs)
+    // Owner and the assigned teacher can read; only owner can write
+    match /invoices/{yearId}/{teacherId}/{allPaths=**} {
+      allow read: if isOwner() || (isTeacher() && request.auth.uid == teacherId);
+      allow write: if isOwner();
+    }
+
+    // 5. Student fee receipts (PDFs) - Owner only
+    match /receipts/{allPaths=**} {
+      allow read, write: if isOwner();
+    }
+
+    // 6. Monthly college financial reports (PDFs) - Owner only
+    match /reports/{allPaths=**} {
+      allow read, write: if isOwner();
+    }
+  }
+}

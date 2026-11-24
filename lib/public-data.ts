@@ -141,11 +141,19 @@ export async function getPublicSiteData(): Promise<PublicSiteData> {
     // 5. Fetch Timetable Slots for Active Year (NEVER sessions or makeups)
     let slots: PublicSafeSlot[] = [];
     try {
-      const slotsSnap = await adminDb
+      let slotsSnap = await adminDb
         .collection("years")
         .doc(activeYear)
-        .collection("timetableSlots")
+        .collection("slots")
         .get();
+
+      if (slotsSnap.empty) {
+        slotsSnap = await adminDb
+          .collection("years")
+          .doc(activeYear)
+          .collection("timetableSlots")
+          .get();
+      }
 
       slots = slotsSnap.docs.map((doc) => {
         const data = doc.data();
