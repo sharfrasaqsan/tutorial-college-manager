@@ -139,6 +139,18 @@ export async function verifyApiAuth(
         if (docRole === "owner" || docRole === "teacher") {
           role = docRole;
         }
+      } else {
+        // Fallback: check by uid or email field in case doc ID was auto-generated
+        let snap = await adminDb.collection("users").where("uid", "==", uid).limit(1).get();
+        if (snap.empty && decoded.email) {
+          snap = await adminDb.collection("users").where("email", "==", decoded.email).limit(1).get();
+        }
+        if (!snap.empty) {
+          const docRole = snap.docs[0].data()?.role;
+          if (docRole === "owner" || docRole === "teacher") {
+            role = docRole;
+          }
+        }
       }
     }
   }

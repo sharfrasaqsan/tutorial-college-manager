@@ -47,6 +47,29 @@ export async function POST(request: NextRequest) {
             // Sync claim back to Firebase Auth so subsequent tokens contain it
             await adminAuth.setCustomUserClaims(uid, { role });
           }
+        } else {
+          // Fallback / Self-healing: check if user document was created with an auto-generated ID or matched by uid / email
+          let snap = await adminDb.collection("users").where("uid", "==", uid).limit(1).get();
+          if (snap.empty && email) {
+            snap = await adminDb.collection("users").where("email", "==", email).limit(1).get();
+          }
+          if (!snap.empty) {
+            const matchedDoc = snap.docs[0];
+            const docRole = matchedDoc.data()?.role;
+            if (docRole === "owner" || docRole === "teacher") {
+              role = docRole;
+              // Auto-heal: Ensure users/{uid} exists with proper document ID
+              await adminDb.collection("users").doc(uid).set(
+                {
+                  ...matchedDoc.data(),
+                  uid,
+                  updatedAt: new Date().toISOString(),
+                },
+                { merge: true }
+              );
+              await adminAuth.setCustomUserClaims(uid, { role });
+            }
+          }
         }
       }
     }
