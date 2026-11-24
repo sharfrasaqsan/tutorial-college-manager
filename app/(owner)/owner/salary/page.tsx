@@ -2,24 +2,20 @@ import React from "react";
 import { cookies } from "next/headers";
 import { OwnerShell } from "@/components/layout/OwnerShell";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { Banknote } from "lucide-react";
+import { OwnerSalaryClientView } from "@/components/salary/OwnerSalaryClientView";
+import { YEAR_COOKIE_NAME } from "@/lib/academic-year";
 
 export default async function OwnerSalaryPage() {
   const cookieStore = await cookies();
-  const selectedYear = cookieStore.get("tcm_year")?.value || "2026";
+  const selectedYear = cookieStore.get(YEAR_COOKIE_NAME)?.value || "2026";
 
   return (
-    <OwnerShell pageTitle={`Salaries (${selectedYear})`}>
+    <OwnerShell pageTitle={`Teacher Salaries (${selectedYear})`}>
       <PageHeader
         title={`Teacher Salaries (${selectedYear})`}
-        subtitle={`Payouts & session counts for ${selectedYear}`}
+        subtitle={`Session progress, monthly teacher share calculations, and salary payment invoices for ${selectedYear}`}
       />
-      <EmptyState
-        title={`Salaries for ${selectedYear}`}
-        description={`Calculate teacher shares based on enrolled students and generate monthly invoices for ${selectedYear}.`}
-        icon={<Banknote className="w-8 h-8" strokeWidth={1.75} />}
-      />
+      <OwnerSalaryClientView initialYearId={selectedYear} />
     </OwnerShell>
   );
 }

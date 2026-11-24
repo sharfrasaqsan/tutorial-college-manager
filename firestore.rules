@@ -1,0 +1,124 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner() {
+      return isAuthenticated() && request.auth.token.role == 'owner';
+    }
+
+    function isTeacher() {
+      return isAuthenticated() && request.auth.token.role == 'teacher';
+    }
+
+    function isOwnTeacher(teacherId) {
+      return isAuthenticated() && request.auth.uid == teacherId;
+    }
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Public college profile
+    match /settings/college {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isOwner());
+      allow write: if isOwner();
+    }
+
+    // Teacher records
+    match /teachers/{teacherId} {
+      // Teachers can only read their own profile; owner can read all
+      allow read: if isOwner() || isOwnTeacher(teacherId) || resource.data.showOnPublicSite == true;
+      allow write: if isOwner();
+    }
+
+    // Student permanent records
+    match /students/{studentId} {
+      // Teachers cannot read student records directly from client SDK (must go through authenticated API or owner)
+      allow read: if isOwner();
+      allow write: if isOwner();
+    }
+
+    // Years collection
+    match /years/{yearId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner();
+
+      // Academic roster
+      match /roster/{studentId} {
+        allow read: if isOwner();
+        allow write: if isOwner();
+      }
+
+      // Classes
+      match /classes/{classId} {
+        // Teachers can ONLY read classes assigned to them
+        allow read: if isOwner() || (isTeacher() && resource.data.teacherId == request.auth.uid);
+        allow write: if isOwner();
+
+        match /terms/{termId} {
+          // Fees and terms are owner only. Teachers NEVER see fees.
+          allow read, write: if isOwner();
+        }
+
+        match /enrolments/{enrolmentId} {
+          allow read: if isOwner();
+          allow write: if isOwner();
+        }
+      }
+
+      // Timetable Slots
+      match /slots/{slotId} {
+        // Teachers can ONLY read their own slots
+        allow read: if isOwner() || (isTeacher() && resource.data.teacherId == request.auth.uid);
+        allow write: if isOwner();
+      }
+
+      // Sessions
+      match /sessions/{sessionId} {
+        // Teachers can ONLY read their own sessions
+        allow read: if isOwner() || (isTeacher() && resource.data.teacherId == request.auth.uid);
+        allow write: if isOwner();
+      }
+
+      // Correction Requests
+      match /correctionRequests/{requestId} {
+        // Teachers can ONLY read their own requests
+        allow read: if isOwner() || (isTeacher() && resource.data.teacherId == request.auth.uid);
+        allow write: if isOwner();
+      }
+
+      // Fees - Owner only! Teachers NEVER see fees
+      match /fees/{feeId} {
+        allow read, write: if isOwner();
+      }
+
+      // Salaries - Owner and assigned teacher only
+      match /salaries/{salaryId} {
+        allow read: if isOwner() || (isTeacher() && resource.data.teacherId == request.auth.uid);
+        allow write: if isOwner();
+      }
+
+      // Audit logs - Owner only
+      match /auditLog/{logId} {
+        allow read, write: if isOwner();
+      }
+    }
+
+    // Notifications
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated() && resource.data.recipientId == request.auth.uid;
+      allow write: if isOwner();
+    }
+  }
+}

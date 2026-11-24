@@ -4,6 +4,7 @@ import { getApps, initializeApp, cert, getApp, type App } from "firebase-admin/a
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
+import { getMessaging } from "firebase-admin/messaging";
 
 let adminApp: App;
 
@@ -43,16 +44,23 @@ if (getApps().length === 0) {
     });
   }
 
-  adminApp = initializeApp(
-    credential
-      ? { credential, storageBucket: `${projectId}.firebasestorage.app` }
-      : { projectId, storageBucket: `${projectId}.firebasestorage.app` }
-  );
+  if (!credential) {
+    throw new Error(
+      "Firebase Admin credentials missing. Please provide FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY or service-account.json."
+    );
+  }
+
+  adminApp = initializeApp({
+    credential,
+    storageBucket: `${projectId}.firebasestorage.app`,
+  });
 } else {
   adminApp = getApp();
 }
 
 export const adminAuth = getAuth(adminApp);
 export const adminDb = getFirestore(adminApp);
+adminDb.settings({ ignoreUndefinedProperties: true });
 export const adminStorage = getStorage(adminApp);
+export const adminMessaging = getMessaging(adminApp);
 export { adminApp };

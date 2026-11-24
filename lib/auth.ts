@@ -8,7 +8,6 @@ export const SESSION_COOKIE_MAX_AGE = 5 * 24 * 60 * 60; // 5 days in seconds
 /**
  * Creates a teacher user in Firebase Auth with the "teacher" custom claim,
  * records the teacher in Firestore, and generates a password setup link.
- * Used in Step 4 when adding teachers.
  */
 export async function createTeacherAccount(
   email: string,
@@ -26,7 +25,7 @@ export async function createTeacherAccount(
     });
   }
 
-  // 2. Set custom claims for teacher role
+  // 2. Set custom claims for teacher role directly in Firebase Auth
   await adminAuth.setCustomUserClaims(user.uid, {
     role: "teacher",
   });
@@ -34,14 +33,26 @@ export async function createTeacherAccount(
   // 3. Generate password setup/reset email link
   const resetLink = await adminAuth.generatePasswordResetLink(email);
 
-  // 4. Save teacher record in Firestore
+  // 4. Save teacher and user records in Firestore
+  const now = new Date().toISOString();
   await adminDb.collection("teachers").doc(user.uid).set(
     {
       id: user.uid,
       name,
       email,
       active: true,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+    },
+    { merge: true }
+  );
+
+  await adminDb.collection("users").doc(user.uid).set(
+    {
+      uid: user.uid,
+      email,
+      name,
+      role: "teacher",
+      createdAt: now,
     },
     { merge: true }
   );
@@ -54,9 +65,9 @@ export async function createTeacherAccount(
 }
 
 /**
- * Decodes a session JWT payload (safe for Edge and Node)
+ * Parses claims from a JWT token safely (used by Edge middleware)
  */
-export function decodeSessionJwt(token: string): { [key: string]: any } | null {
+export function parseJwtClaims(token: string): { [key: string]: any } | null {
   try {
     const parts = token.split(".");
     if (parts.length < 2) return null;
@@ -70,7 +81,8 @@ export function decodeSessionJwt(token: string): { [key: string]: any } | null {
 }
 
 /**
- * Verify session cookie on server for API routes using Firebase Admin
+ * Strictly verify session cookie using Firebase Admin.
+ * NO fallback token decoding.
  */
 export async function verifyServerSession(cookieValue?: string) {
   if (!cookieValue) return null;
@@ -78,18 +90,12 @@ export async function verifyServerSession(cookieValue?: string) {
     const decoded = await adminAuth.verifySessionCookie(cookieValue, true);
     return decoded;
   } catch {
-    // If verifySessionCookie fails (e.g. In local development without service account credentials),
-    // Fall back to decoded payload if valid and unexpired
-    const payload = decodeSessionJwt(cookieValue);
-    if (payload && payload.exp && payload.exp * 1000 > Date.now()) {
-      return payload;
-    }
     return null;
   }
 }
 
 /**
- * Authorize an API request by verifying cookie and role.
+ * Authorize an API request strictly via Firebase Admin session cookie and Firestore.
  */
 export async function verifyApiAuth(
   request: NextRequest,
@@ -107,6 +113,7 @@ export async function verifyApiAuth(
     };
   }
 
+  // Strictly verify with Firebase Admin
   const decoded = await verifyServerSession(sessionCookie);
   if (!decoded) {
     return {
@@ -118,9 +125,34 @@ export async function verifyApiAuth(
     };
   }
 
-  const ownerEmail = (process.env.OWNER_EMAIL || "sharfrasaqsan@gmail.com").toLowerCase();
-  const isOwnerUser = decoded.role === "owner" || (decoded.email && decoded.email.toLowerCase() === ownerEmail);
-  const role = isOwnerUser ? "owner" : ((decoded.role as UserRole) || "teacher");
+  // Read role from verified Firebase claims or Firestore
+  let role: UserRole | null = null;
+  if (decoded.role === "owner" || decoded.role === "teacher") {
+    role = decoded.role as UserRole;
+  } else {
+    // Check Firestore
+    const uid = decoded.uid || decoded.sub;
+    if (uid) {
+      const userDoc = await adminDb.collection("users").doc(uid).get();
+      if (userDoc.exists) {
+        const docRole = userDoc.data()?.role;
+        if (docRole === "owner" || docRole === "teacher") {
+          role = docRole;
+        }
+      }
+    }
+  }
+
+  if (!role) {
+    return {
+      user: null,
+      errorResponse: NextResponse.json(
+        { error: "Access denied. User does not have a valid role in Firebase/Firestore." },
+        { status: 403 }
+      ),
+    };
+  }
+
   const user: AuthUser = {
     uid: decoded.uid || decoded.sub || "",
     email: decoded.email || "",

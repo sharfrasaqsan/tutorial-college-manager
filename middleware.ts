@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-function decodeJwtPayload(token: string): { [key: string]: any } | null {
+function parseJwtClaims(token: string): { [key: string]: any } | null {
   try {
     const parts = token.split(".");
     if (parts.length < 2) return null;
@@ -22,13 +22,11 @@ export function middleware(request: NextRequest) {
   const isTeacherRoute = pathname.startsWith("/teacher");
   const isLoginRoute = pathname === "/login";
 
-  // Decode JWT payload
-  const payload = sessionCookie ? decodeJwtPayload(sessionCookie) : null;
-  const isExpired = payload?.exp ? Date.now() >= payload.exp * 1000 : true;
-  const isAuthenticated = Boolean(payload && !isExpired);
-  const ownerEmail = (process.env.OWNER_EMAIL || "sharfrasaqsan@gmail.com").toLowerCase();
-  const isOwnerUser = payload?.role === "owner" || (payload?.email && payload.email.toLowerCase() === ownerEmail);
-  const role = isOwnerUser ? "owner" : (payload?.role || "teacher");
+  // Parse claims from the Firebase session cookie
+  const claims = sessionCookie ? parseJwtClaims(sessionCookie) : null;
+  const isExpired = claims?.exp ? Date.now() >= claims.exp * 1000 : true;
+  const isAuthenticated = Boolean(claims && !isExpired);
+  const role = claims?.role;
 
   // 1. If visiting protected route while logged out -> redirect to /login
   if ((isOwnerRoute || isTeacherRoute) && !isAuthenticated) {
@@ -37,18 +35,19 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // 2. Role isolation: A teacher opening /owner is redirected to /teacher
+  // 2. Role isolation based strictly on Firebase custom claims:
+  // Non-owner opening /owner is redirected to /teacher (or /login if role invalid)
   if (isOwnerRoute && role !== "owner") {
-    return NextResponse.redirect(new URL("/teacher", request.url));
+    return NextResponse.redirect(new URL(role === "teacher" ? "/teacher" : "/login", request.url));
   }
 
-  // An owner opening /teacher is redirected to /owner
+  // Non-teacher opening /teacher is redirected to /owner (or /login if role invalid)
   if (isTeacherRoute && role !== "teacher") {
-    return NextResponse.redirect(new URL("/owner", request.url));
+    return NextResponse.redirect(new URL(role === "owner" ? "/owner" : "/login", request.url));
   }
 
   // 3. If authenticated user visits /login -> redirect to their designated portal
-  if (isLoginRoute && isAuthenticated) {
+  if (isLoginRoute && isAuthenticated && role) {
     const target = role === "owner" ? "/owner" : "/teacher";
     return NextResponse.redirect(new URL(target, request.url));
   }

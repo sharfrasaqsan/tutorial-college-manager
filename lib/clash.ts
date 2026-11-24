@@ -1,4 +1,4 @@
-import { timeToMinutes, formatTimeDisplay } from "./dates.ts";
+import { timeToMinutes, formatTimeDisplay, getWeekdayName, formatDateDisplay } from "./dates.ts";
 import type { TimeInterval } from "../types/index.ts";
 
 export interface ClashCheckResult {
@@ -73,10 +73,17 @@ export function checkClash(
       )
     ) {
       const teacherName = candidate.teacherName || existing.teacherName || "The teacher";
-      const otherClass = existing.className ? ` for ${existing.className}` : "";
+      const dayContext = existing.date
+        ? `on ${formatDateDisplay(existing.date)} `
+        : existing.weekday !== undefined
+        ? `on ${getWeekdayName(existing.weekday)} `
+        : "";
+      const classContext = existing.className ? `${existing.className} ` : "";
       return {
         hasClash: true,
-        message: `${teacherName} already has a session${otherClass} from ${formatTimeDisplay(existing.startTime)} to ${formatTimeDisplay(existing.endTime)}.`,
+        message: `${teacherName} already teaches ${classContext}${dayContext}from ${formatTimeDisplay(
+          existing.startTime
+        )} to ${formatTimeDisplay(existing.endTime)}.`.replace(/\s+/g, " ").replace(" .", "."),
       };
     }
   }
@@ -104,25 +111,19 @@ export function checkClash(
 
   for (const t of timePoints) {
     let activeClassesCount = 1; // candidate itself
-    const activeAtT: TimeInterval[] = [];
 
     for (const item of overlapping) {
       const s = timeToMinutes(item.startTime);
       const e = timeToMinutes(item.endTime);
       if (s <= t && e > t) {
         activeClassesCount++;
-        activeAtT.push(item);
       }
     }
 
     if (activeClassesCount > 3) {
       return {
         hasClash: true,
-        message: `All 3 rooms are occupied at ${formatTimeDisplay(
-          `${Math.floor(t / 60)
-            .toString()
-            .padStart(2, "0")}:${(t % 60).toString().padStart(2, "0")}`
-        )} by other classes.`,
+        message: "Three classes already run at that time.",
       };
     }
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -27,6 +27,20 @@ export function TeacherShell({
   hasNotifications = false,
 }: TeacherShellProps) {
   const pathname = usePathname();
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+
+  useEffect(() => {
+    async function loadNotifications() {
+      try {
+        const res = await fetch("/api/notifications");
+        if (res.ok) {
+          const data = await res.json();
+          setUnreadNotifCount(data.unreadCount || 0);
+        }
+      } catch {}
+    }
+    loadNotifications();
+  }, [pathname]);
 
   const navItems = [
     { label: "Today", href: "/teacher", icon: CalendarDays },
@@ -56,17 +70,19 @@ export function TeacherShell({
             <ChevronDown className="w-3.5 h-3.5 text-[#5F6670]" strokeWidth={1.75} />
           </div>
 
-          {/* Notifications Bell Placeholder */}
-          <button
-            type="button"
+          {/* Notifications Bell */}
+          <Link
+            href="/teacher/notifications"
             className="min-h-[44px] min-w-[44px] relative flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23] rounded-[6px] transition-colors"
-            aria-label="View notifications"
+            aria-label={`View notifications (${unreadNotifCount} unread)`}
           >
             <Bell className="w-5 h-5" strokeWidth={1.75} />
-            {hasNotifications && (
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[#A32A2A] rounded-full" />
+            {(unreadNotifCount > 0 || hasNotifications) && (
+              <span className="absolute top-2 right-2 min-w-[16px] h-4 px-1 text-[10px] font-bold bg-[#A32A2A] text-[#FFFFFF] rounded-full flex items-center justify-center leading-none">
+                {unreadNotifCount > 9 ? "9+" : unreadNotifCount || "•"}
+              </span>
             )}
-          </button>
+          </Link>
         </div>
       </header>
 

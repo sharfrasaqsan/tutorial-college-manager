@@ -6,6 +6,9 @@ import {
   formatMonthDisplay,
   timeToMinutes,
   canCountForPreviousMonth,
+  isMarkingWindowOpen,
+  getMarkingWindowDetails,
+  validateMakeupMonth,
 } from "./dates.ts";
 
 describe("Dates Library (Asia/Colombo)", () => {
@@ -32,5 +35,58 @@ describe("Dates Library (Asia/Colombo)", () => {
 
     assert.strictEqual(canCountForPreviousMonth(fifthOfNov), true);
     assert.strictEqual(canCountForPreviousMonth(sixthOfNov), false);
+  });
+
+  test("Marking window: open during 3 days after session, closed after", () => {
+    // Session on 2026-03-10 at 10:00 AM
+    // Starts: 2026-03-10 10:00 AM
+    // Closes: 2026-03-13 23:59:59 PM (end of 3rd day)
+
+    // Before session starts
+    const beforeStart = new Date(2026, 2, 10, 9, 30);
+    const beforeDetails = getMarkingWindowDetails("2026-03-10", "10:00", beforeStart);
+    assert.strictEqual(beforeDetails.isOpen, false);
+    assert.strictEqual(beforeDetails.isBeforeWindow, true);
+
+    // 1 hour after session starts: OPEN (3 days left)
+    const day1 = new Date(2026, 2, 10, 11, 0);
+    const day1Details = getMarkingWindowDetails("2026-03-10", "10:00", day1);
+    assert.strictEqual(day1Details.isOpen, true);
+    assert.strictEqual(day1Details.daysLeft, 3);
+
+    // 2 days after session: OPEN (1 day left)
+    const day2 = new Date(2026, 2, 12, 12, 0);
+    const day2Details = getMarkingWindowDetails("2026-03-10", "10:00", day2);
+    assert.strictEqual(day2Details.isOpen, true);
+    assert.strictEqual(day2Details.daysLeft, 1);
+
+    // 4 days after session (March 14): LOCKED
+    const day4 = new Date(2026, 2, 14, 10, 0);
+    const day4Details = getMarkingWindowDetails("2026-03-10", "10:00", day4);
+    assert.strictEqual(day4Details.isOpen, false);
+    assert.strictEqual(day4Details.isPastWindow, true);
+    assert.match(day4Details.statusLabel, /closed|Locked/i);
+  });
+
+  test("validateMakeupMonth: allows previous month up to 5th, refuses after 5th", () => {
+    // On 4 March 2026: counting for Feb (2026-02) is allowed
+    const mar4 = new Date(2026, 2, 4);
+    const validFeb = validateMakeupMonth("2026-02", mar4);
+    assert.strictEqual(validFeb.valid, true);
+
+    // On 6 March 2026: counting for Feb (2026-02) is REFUSED
+    const mar6 = new Date(2026, 2, 6);
+    const invalidFeb = validateMakeupMonth("2026-02", mar6);
+    assert.strictEqual(invalidFeb.valid, false);
+    assert.match(invalidFeb.error || "", /up to the 5th/);
+
+    // Current month (2026-03) is always allowed
+    const validMar = validateMakeupMonth("2026-03", mar6);
+    assert.strictEqual(validMar.valid, true);
+
+    // January (2026-01) from March is strictly refused
+    const invalidJan = validateMakeupMonth("2026-01", mar4);
+    assert.strictEqual(invalidJan.valid, false);
+    assert.match(invalidJan.error || "", /cannot count toward earlier months/);
   });
 });

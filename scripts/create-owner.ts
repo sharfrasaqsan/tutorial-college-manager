@@ -76,8 +76,8 @@ const adminAuth = getAuth(app);
 const adminDb = getFirestore(app);
 
 async function createOwner() {
-  const email = process.env.OWNER_EMAIL || "owner@college.lk";
-  const password = process.env.OWNER_PASSWORD || "OwnerCollege2026!";
+  const email = process.argv[2] || process.env.OWNER_EMAIL || "sharfrasaqsan@gmail.com";
+  const password = process.argv[3] || process.env.OWNER_PASSWORD || "Sa@1997626";
 
   console.log(`Setting up college owner account for: ${email}`);
 

@@ -54,27 +54,45 @@ export interface Teacher {
   id: string;
   name: string;
   email: string;
-  phone?: string;
-  subjects?: string[];
+  phone: string;
+  photoUrl?: string;
   bio?: string;
+  subjects: string[];
+  showOnPublicSite: boolean;
   active: boolean;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type AdmissionFeeStatus = "unpaid" | "paid" | "notApplicable";
+export type PaymentMethod = "cash" | "bank";
+
+export interface StudentAdmissionFee {
+  amount: number;
+  status: AdmissionFeeStatus;
+  method?: PaymentMethod;
+  paidDate?: string;
+  receiptNo?: string;
+}
 
 export interface Student {
   id: string;
   name: string;
-  phone?: string;
-  guardianPhone?: string;
-  address?: string;
+  school: string;
+  address: string;
+  guardianName: string;
+  guardianPhone: string;
+  studentPhone?: string;
   joinedAt: string; // First creation date, permanent, never changes
-  admissionFeeStatus: AdmissionFeeStatus;
+  admissionFee: StudentAdmissionFee;
+  // Legacy compatibility fields
+  admissionFeeStatus?: AdmissionFeeStatus;
   admissionFeePaidAt?: string;
   admissionFeeReceiptNo?: string;
   gradesByYear: Record<string, string>; // e.g. { "2026": "Grade 10" }
   active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ClassItem {
@@ -87,16 +105,34 @@ export interface ClassItem {
   name: string;
   active: boolean;
   createdAt: string;
+  updatedAt?: string;
+  currentTerms?: ClassTerms;
+  termsHistory?: ClassTerms[];
+  enrolledStudentCount?: number;
 }
 
 export interface ClassTerms {
-  id: string;
-  classId: string;
-  yearId: string;
+  id?: string;
+  classId?: string;
+  yearId?: string;
   effectiveFromMonth: string;
   monthlyFee: number;
   teacherSharePerStudent: number;
   requiredSessionsPerMonth: number;
+  ownerShare?: number;
+  createdAt?: string;
+}
+
+export interface ClassEnrolment {
+  id?: string;
+  studentId: string;
+  classId?: string;
+  yearId?: string;
+  joinedMonth: string;
+  enrolledAt: string;
+  studentName?: string;
+  studentSchool?: string;
+  studentGrade?: string;
 }
 
 export interface TimetableSlot {
@@ -108,9 +144,13 @@ export interface TimetableSlot {
   yearId: string;
   teacherId: string;
   teacherName?: string;
-  weekday: number;
-  startTime: string;
-  endTime: string;
+  weekday: number; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  startTime: string; // "14:00"
+  endTime: string; // "16:00"
+  validFrom?: string; // "YYYY-MM-DD"
+  validTo?: string; // "YYYY-MM-DD"
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type SessionType = "regular" | "makeup";
@@ -137,7 +177,6 @@ export interface Session {
   locked: boolean;
 }
 
-export type PaymentMethod = "cash" | "bank";
 export type FeeStatus = "unpaid" | "paid";
 
 export interface FeeRecord {
@@ -146,6 +185,11 @@ export interface FeeRecord {
   classId: string;
   studentId: string;
   studentName?: string;
+  className?: string;
+  grade?: string;
+  subject?: string;
+  teacherId?: string;
+  teacherName?: string;
   month: string;
   amount: number;
   teacherShare: number;
@@ -153,9 +197,38 @@ export interface FeeRecord {
   paymentMethod?: PaymentMethod;
   paidAt?: string;
   receiptNo?: string;
+  note?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type SalaryStatus = "onHold" | "ready" | "paid";
+
+export interface ClassSalaryRecord {
+  id: string; // `${teacherId}_${classId}_${month}`
+  yearId: string;
+  teacherId: string;
+  teacherName?: string;
+  classId: string;
+  className: string;
+  grade: string;
+  subject: string;
+  month: string;
+  displayName: string; // e.g. "2026 November, Grade 10 Maths"
+  studentCount: number;
+  amount: number;
+  requiredSessions: number;
+  heldSessions: number;
+  status: SalaryStatus;
+  isPaid?: boolean;
+  depositDate?: string;
+  paymentMethod?: string;
+  invoiceId?: string;
+  invoiceNo?: string;
+  paidAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 export interface SalaryClassSummary {
   classId: string;
@@ -194,9 +267,12 @@ export interface Invoice {
   status: "ready" | "paid";
   collegeName: string;
   collegeLogoUrl?: string;
+  collegeAddress?: string;
+  collegePhone?: string;
   issuedAt: string;
   paidAt?: string;
   depositDate?: string;
+  paymentMethod?: string;
 }
 
 export interface CorrectionRequest {
@@ -223,3 +299,22 @@ export interface TimeInterval {
   date?: string;
   weekday?: number;
 }
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  title: string;
+  body: string;
+  link: string;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface FCMTokenRecord {
+  token: string;
+  userId: string;
+  device?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+

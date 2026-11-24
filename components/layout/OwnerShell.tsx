@@ -25,12 +25,14 @@ export interface OwnerShellProps {
   children: React.ReactNode;
   pageTitle?: string;
   hasNotifications?: boolean;
+  maxWidth?: "md" | "5xl" | "full";
 }
 
 export function OwnerShell({
   children,
   pageTitle = "Owner Portal",
   hasNotifications = false,
+  maxWidth = "md",
 }: OwnerShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -42,6 +44,20 @@ export function OwnerShell({
   const [isCreating, setIsCreating] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [firstTimeModal, setFirstTimeModal] = useState(false);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+
+  useEffect(() => {
+    async function loadNotifications() {
+      try {
+        const res = await fetch("/api/notifications");
+        if (res.ok) {
+          const data = await res.json();
+          setUnreadNotifCount(data.unreadCount || 0);
+        }
+      } catch {}
+    }
+    loadNotifications();
+  }, [pathname]);
 
   useEffect(() => {
     async function loadYears() {
@@ -154,22 +170,32 @@ export function OwnerShell({
             <ChevronDown className="w-3.5 h-3.5 text-[#5F6670]" strokeWidth={1.75} />
           </button>
 
-          {/* Notifications Bell Placeholder */}
-          <button
-            type="button"
+          {/* Notifications Bell */}
+          <Link
+            href="/owner/notifications"
             className="min-h-[44px] min-w-[44px] relative flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23] rounded-[6px] transition-colors"
-            aria-label="View notifications"
+            aria-label={`View notifications (${unreadNotifCount} unread)`}
           >
             <Bell className="w-5 h-5" strokeWidth={1.75} />
-            {hasNotifications && (
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[#A32A2A] rounded-full" />
+            {(unreadNotifCount > 0 || hasNotifications) && (
+              <span className="absolute top-2 right-2 min-w-[16px] h-4 px-1 text-[10px] font-bold bg-[#A32A2A] text-[#FFFFFF] rounded-full flex items-center justify-center leading-none">
+                {unreadNotifCount > 9 ? "9+" : unreadNotifCount || "•"}
+              </span>
             )}
-          </button>
+          </Link>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 w-full max-w-md mx-auto p-4 pb-24">
+      <main
+        className={`flex-1 w-full mx-auto p-4 pb-24 ${
+          maxWidth === "5xl"
+            ? "max-w-md md:max-w-5xl"
+            : maxWidth === "full"
+            ? "max-w-full"
+            : "max-w-md"
+        }`}
+      >
         {children}
       </main>
 

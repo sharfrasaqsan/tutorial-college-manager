@@ -1,9 +1,10 @@
 import { test, describe } from "node:test";
 import assert from "node:assert";
 import {
-  decodeSessionJwt,
+  parseJwtClaims,
   isOwner,
   isTeacher,
+  verifyServerSession,
   SESSION_COOKIE_NAME,
   SESSION_COOKIE_MAX_AGE,
 } from "./auth.ts";
@@ -24,7 +25,7 @@ describe("Auth Library & Session Helpers", () => {
     assert.strictEqual(isTeacher(undefined), false);
   });
 
-  test("decodeSessionJwt successfully parses base64url encoded JWT payloads", () => {
+  test("parseJwtClaims successfully parses base64url encoded JWT payloads", () => {
     const payload = {
       uid: "usr_12345",
       email: "owner@college.lk",
@@ -37,16 +38,21 @@ describe("Auth Library & Session Helpers", () => {
     const payloadBase64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
     const mockJwt = `${headerBase64}.${payloadBase64}.mockSignature`;
 
-    const decoded = decodeSessionJwt(mockJwt);
+    const decoded = parseJwtClaims(mockJwt);
     assert.notStrictEqual(decoded, null);
     assert.strictEqual(decoded?.uid, "usr_12345");
     assert.strictEqual(decoded?.email, "owner@college.lk");
     assert.strictEqual(decoded?.role, "owner");
   });
 
-  test("decodeSessionJwt returns null on invalid or malformed tokens", () => {
-    assert.strictEqual(decodeSessionJwt("not-a-jwt"), null);
-    assert.strictEqual(decodeSessionJwt(""), null);
-    assert.strictEqual(decodeSessionJwt("header.invalid_base64!json.sig"), null);
+  test("parseJwtClaims returns null on invalid or malformed tokens", () => {
+    assert.strictEqual(parseJwtClaims("not-a-jwt"), null);
+    assert.strictEqual(parseJwtClaims(""), null);
+    assert.strictEqual(parseJwtClaims("header.invalid_base64!json.sig"), null);
+  });
+
+  test("verifyServerSession returns null when cookie is missing", async () => {
+    const result = await verifyServerSession(undefined);
+    assert.strictEqual(result, null);
   });
 });

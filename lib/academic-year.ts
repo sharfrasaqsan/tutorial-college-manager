@@ -1,5 +1,7 @@
 import type { AcademicGrade, AcademicYear } from "@/types";
 
+export const YEAR_COOKIE_NAME = "tcm_year";
+
 /**
  * Determine if a student in the specified grade graduates into the Finished list
  */
