@@ -219,31 +219,33 @@ export default function PublicSiteEditorPage() {
                 />
               </Field>
 
-              <Field id="keyFactsYears" label="Years Running / Established Experience">
-                <Input
-                  value={settings.keyFacts?.yearsRunning || ""}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      keyFacts: { ...settings.keyFacts, yearsRunning: e.target.value },
-                    })
-                  }
-                  placeholder="e.g. 12 Years of continuous teaching excellence"
-                />
-              </Field>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field id="keyFactsYears" label="Years Running / Experience">
+                  <Input
+                    value={settings.keyFacts?.yearsRunning || ""}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        keyFacts: { ...settings.keyFacts, yearsRunning: e.target.value },
+                      })
+                    }
+                    placeholder="e.g. 12 Years of continuous excellence"
+                  />
+                </Field>
 
-              <Field id="keyFactsGrades" label="Grades Taught">
-                <Input
-                  value={settings.keyFacts?.gradesTaught || ""}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      keyFacts: { ...settings.keyFacts, gradesTaught: e.target.value },
-                    })
-                  }
-                  placeholder="e.g. Grade 6 through Grade 13 (O/L & A/L)"
-                />
-              </Field>
+                <Field id="keyFactsGrades" label="Grades Taught">
+                  <Input
+                    value={settings.keyFacts?.gradesTaught || ""}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        keyFacts: { ...settings.keyFacts, gradesTaught: e.target.value },
+                      })
+                    }
+                    placeholder="e.g. Grade 6 through Grade 13 (O/L & A/L)"
+                  />
+                </Field>
+              </div>
             </div>
           </Card>
 
@@ -260,25 +262,27 @@ export default function PublicSiteEditorPage() {
             </CardHeader>
 
             <div className="flex flex-col gap-4">
-              <Field id="whatsappNumber" label="WhatsApp Contact Number" hint="Format: +9477XXXXXXX or 077XXXXXXX">
-                <Input
-                  value={settings.whatsappNumber || ""}
-                  onChange={(e) =>
-                    setSettings({ ...settings, whatsappNumber: e.target.value })
-                  }
-                  placeholder="+94 77 123 4567"
-                />
-              </Field>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field id="whatsappNumber" label="WhatsApp Contact Number" hint="Format: +9477XXXXXXX or 077XXXXXXX">
+                  <Input
+                    value={settings.whatsappNumber || ""}
+                    onChange={(e) =>
+                      setSettings({ ...settings, whatsappNumber: e.target.value })
+                    }
+                    placeholder="+94 77 123 4567"
+                  />
+                </Field>
 
-              <Field id="mapUrl" label="Google Maps Link" hint="Paste URL for location directions">
-                <Input
-                  value={settings.mapUrl || ""}
-                  onChange={(e) =>
-                    setSettings({ ...settings, mapUrl: e.target.value })
-                  }
-                  placeholder="https://maps.google.com/?q=..."
-                />
-              </Field>
+                <Field id="mapUrl" label="Google Maps Link" hint="Paste URL for location directions">
+                  <Input
+                    value={settings.mapUrl || ""}
+                    onChange={(e) =>
+                      setSettings({ ...settings, mapUrl: e.target.value })
+                    }
+                    placeholder="https://maps.google.com/?q=..."
+                  />
+                </Field>
+              </div>
 
               <Field id="admissionFeeNote" label="Admission Fee Note" hint="Shown on the public classes & fees page">
                 <Input

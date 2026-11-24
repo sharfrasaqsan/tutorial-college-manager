@@ -94,141 +94,143 @@ export default function StartNextYearPage() {
 
   return (
     <OwnerShell pageTitle="Start Next Year">
-      <div className="mb-2">
-        <Link
-          href="/owner/more"
-          className="inline-flex items-center text-xs font-medium text-[#1F5C4D] hover:underline min-h-[36px]"
-        >
-          <ArrowLeft className="w-3.5 h-3.5 mr-1" strokeWidth={1.75} />
-          Back to More
-        </Link>
-      </div>
-
-      <PageHeader
-        title="Start Next Academic Year"
-        subtitle={`Advance college records from ${currentYear} to ${nextYear}`}
-      />
-
-      {errorMessage && (
-        <div className="mb-4">
-          <Toast message={errorMessage} variant="danger" onDismiss={() => setErrorMessage("")} />
+      <div className="max-w-3xl mx-auto space-y-6 pb-12">
+        <div>
+          <Link
+            href="/owner/more"
+            className="inline-flex items-center text-xs font-medium text-[#1F5C4D] hover:underline min-h-[36px]"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 mr-1" strokeWidth={1.75} />
+            Back to More
+          </Link>
         </div>
-      )}
 
-      {alreadyPromoted ? (
-        <Card className="flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-[#1F5C4D]">
-            <CheckCircle2 className="w-5 h-5 shrink-0" strokeWidth={1.75} />
-            <CardTitle>Academic Year Already Promoted</CardTitle>
+        <PageHeader
+          title="Start Next Academic Year"
+          subtitle={`Advance college records from ${currentYear} to ${nextYear}`}
+        />
+
+        {errorMessage && (
+          <div>
+            <Toast message={errorMessage} variant="danger" onDismiss={() => setErrorMessage("")} />
           </div>
-          <p className="text-xs text-[#5F6670] leading-relaxed">
-            The next academic year ({alreadyPromotedTo}) has already been started from {currentYear}. By rule, promotion cannot be run twice for the same academic year.
-          </p>
-          <div className="mt-2">
+        )}
+
+        {alreadyPromoted ? (
+          <Card className="flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-[#1F5C4D]">
+              <CheckCircle2 className="w-5 h-5 shrink-0" strokeWidth={1.75} />
+              <CardTitle>Academic Year Already Promoted</CardTitle>
+            </div>
+            <p className="text-xs text-[#5F6670] leading-relaxed">
+              The next academic year ({alreadyPromotedTo}) has already been started from {currentYear}. By rule, promotion cannot be run twice for the same academic year.
+            </p>
+            <div className="mt-2">
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={() => router.push("/owner")}
+              >
+                Return to Owner Home
+              </Button>
+            </div>
+          </Card>
+        ) : result ? (
+          <Card className="flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-[#1F5C4D]">
+              <CheckCircle2 className="w-5 h-5 shrink-0" strokeWidth={2} />
+              <CardTitle>Academic Year {nextYear} Successfully Started!</CardTitle>
+            </div>
+
+            <div className="flex flex-col gap-2.5 text-xs divide-y divide-[#E4E1DA]">
+              <div className="flex justify-between py-1.5">
+                <span className="text-[#5F6670]">Promoted Students</span>
+                <span className="font-semibold text-[#1C1F23] tabular-nums">
+                  {result.promotedCount} students (advanced +1 grade)
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-[#5F6670]">Graduated Students</span>
+                <span className="font-semibold text-[#1C1F23] tabular-nums">
+                  {result.finishedCount} Grade 13 students (Finished list)
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-[#5F6670]">Active Year Set To</span>
+                <span className="font-semibold text-[#1F5C4D] tabular-nums">
+                  Year {nextYear}
+                </span>
+              </div>
+            </div>
+
             <Button
-              variant="secondary"
+              variant="primary"
               fullWidth
               onClick={() => router.push("/owner")}
             >
-              Return to Owner Home
+              Go to Year {nextYear} Home
             </Button>
-          </div>
-        </Card>
-      ) : result ? (
-        <Card className="flex flex-col gap-4">
-          <div className="flex items-center gap-2 text-[#1F5C4D]">
-            <CheckCircle2 className="w-5 h-5 shrink-0" strokeWidth={2} />
-            <CardTitle>Academic Year {nextYear} Successfully Started!</CardTitle>
-          </div>
-
-          <div className="flex flex-col gap-2.5 text-xs divide-y divide-[#E4E1DA]">
-            <div className="flex justify-between py-1.5">
-              <span className="text-[#5F6670]">Promoted Students</span>
-              <span className="font-semibold text-[#1C1F23] tabular-nums">
-                {result.promotedCount} students (advanced +1 grade)
-              </span>
-            </div>
-            <div className="flex justify-between py-1.5">
-              <span className="text-[#5F6670]">Graduated Students</span>
-              <span className="font-semibold text-[#1C1F23] tabular-nums">
-                {result.finishedCount} Grade 13 students (Finished list)
-              </span>
-            </div>
-            <div className="flex justify-between py-1.5">
-              <span className="text-[#5F6670]">Active Year Set To</span>
-              <span className="font-semibold text-[#1F5C4D] tabular-nums">
-                Year {nextYear}
-              </span>
-            </div>
-          </div>
-
-          <Button
-            variant="primary"
-            fullWidth
-            onClick={() => router.push("/owner")}
-          >
-            Go to Year {nextYear} Home
-          </Button>
-        </Card>
-      ) : (
-        <div className="flex flex-col gap-5">
-          {/* Rules Confirmation Card */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <CalendarPlus className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
-                <CardTitle>Promotion Transition Rules</CardTitle>
-              </div>
-              <p className="text-xs text-[#5F6670] mt-1">
-                Creating Year {nextYear} from Year {currentYear} executes the following:
-              </p>
-            </CardHeader>
-
-            <ul className="flex flex-col gap-2 text-xs text-[#1C1F23] list-disc list-inside leading-relaxed">
-              <li>
-                <strong>Student Grades:</strong> Each active student grade is advanced by exactly 1 level (e.g. Grade 10 becomes Grade 11).
-              </li>
-              <li>
-                <strong>Grade 13 Students:</strong> Moved to the <em>Finished list</em> in Year {nextYear} for owner review.
-              </li>
-              <li>
-                <strong>Faculty:</strong> Teachers are permanent records and carry over automatically.
-              </li>
-              <li>
-                <strong>Uncopied Data:</strong> Classes, timetable slots, and fee enrolments are <strong>NOT copied</strong>. New classes and slots start fresh for {nextYear}.
-              </li>
-              <li>
-                <strong>Permanent Joined Date:</strong> Student <code>joinedAt</code> is permanent and never modified.
-              </li>
-              <li>
-                <strong>Single Run:</strong> This promotion action <strong>cannot be run twice</strong> for {currentYear}.
-              </li>
-            </ul>
           </Card>
+        ) : (
+          <div className="flex flex-col gap-5">
+            {/* Rules Confirmation Card */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <CalendarPlus className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
+                  <CardTitle>Promotion Transition Rules</CardTitle>
+                </div>
+                <p className="text-xs text-[#5F6670] mt-1">
+                  Creating Year {nextYear} from Year {currentYear} executes the following:
+                </p>
+              </CardHeader>
 
-          <Button
-            type="button"
-            variant="primary"
-            fullWidth
-            loading={loading || running}
-            disabled={loading || running || alreadyPromoted}
-            onClick={() => setConfirmOpen(true)}
-          >
-            Start Academic Year {nextYear}
-          </Button>
-        </div>
-      )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-[#1C1F23]">
+                <div className="p-3 bg-[#FAF9F6] rounded-[6px] border border-[#E4E1DA]">
+                  <strong className="block text-[#1F5C4D] mb-1">Student Grades</strong>
+                  <span>Each active student grade advances by exactly 1 level (e.g. Grade 10 becomes Grade 11).</span>
+                </div>
+                <div className="p-3 bg-[#FAF9F6] rounded-[6px] border border-[#E4E1DA]">
+                  <strong className="block text-[#1F5C4D] mb-1">Grade 13 Students</strong>
+                  <span>Moved to the <em>Finished list</em> in Year {nextYear} for owner review.</span>
+                </div>
+                <div className="p-3 bg-[#FAF9F6] rounded-[6px] border border-[#E4E1DA]">
+                  <strong className="block text-[#1F5C4D] mb-1">Faculty Records</strong>
+                  <span>Teachers are permanent records and carry over automatically.</span>
+                </div>
+                <div className="p-3 bg-[#FAF9F6] rounded-[6px] border border-[#E4E1DA]">
+                  <strong className="block text-[#1F5C4D] mb-1">Fresh Year State</strong>
+                  <span>Classes, timetable slots, and fee enrolments start fresh for {nextYear}.</span>
+                </div>
+              </div>
+            </Card>
 
-      {/* Confirmation Dialog */}
-      <ConfirmDialog
-        open={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        onConfirm={handleExecutePromotion}
-        title={`Confirm Starting Year ${nextYear}?`}
-        description={`This will promote all active students from Year ${currentYear} to ${nextYear} and graduate Grade 13 students. This action cannot be undone.`}
-        confirmLabel={`Start Year ${nextYear}`}
-        loading={running}
-      />
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="primary"
+                className="w-full sm:w-auto px-6 h-10"
+                loading={loading || running}
+                disabled={loading || running || alreadyPromoted}
+                onClick={() => setConfirmOpen(true)}
+              >
+                Start Academic Year {nextYear}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation Dialog */}
+        <ConfirmDialog
+          open={confirmOpen}
+          onClose={() => setConfirmOpen(false)}
+          onConfirm={handleExecutePromotion}
+          title={`Confirm Starting Year ${nextYear}?`}
+          description={`This will promote all active students from Year ${currentYear} to ${nextYear} and graduate Grade 13 students. This action cannot be undone.`}
+          confirmLabel={`Start Year ${nextYear}`}
+          loading={running}
+        />
+      </div>
     </OwnerShell>
   );
 }

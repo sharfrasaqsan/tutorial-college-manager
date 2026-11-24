@@ -30,6 +30,7 @@ export function NotificationsClientView({ role }: NotificationsClientViewProps) 
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [markingAll, setMarkingAll] = useState<boolean>(false);
+  const [filter, setFilter] = useState<"all" | "unread">("all");
 
   const fetchNotifications = useCallback(async (isBg = false) => {
     if (!isBg) setLoading(true);
@@ -111,23 +112,55 @@ export function NotificationsClientView({ role }: NotificationsClientViewProps) 
     }
   };
 
+  const displayedNotifications = notifications.filter(
+    (n) => filter === "all" || !n.readAt
+  );
+
   return (
-    <div className="space-y-4 pb-12">
+    <div className="max-w-3xl mx-auto space-y-4 pb-12">
       {/* Web Push Permission Prompt & iPhone Install Help Card */}
       <PushPermissionPrompt />
 
-      {/* Header Action Bar */}
-      <div className="flex items-center justify-between gap-3 p-3 bg-[#FFFFFF] border border-[#E4E1DA] rounded-[6px]">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-sm text-[#1C1F23]">Notifications</span>
-          {unreadCount > 0 && (
-            <span className="px-2 py-0.5 text-xs font-bold bg-[#A32A2A] text-[#FFFFFF] rounded-full">
-              {unreadCount} unread
-            </span>
-          )}
+      {/* Header Action Bar with Filter Tabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-[#FFFFFF] border border-[#E4E1DA] rounded-[6px]">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm text-[#1C1F23]">Notifications</span>
+            {unreadCount > 0 && (
+              <span className="px-2 py-0.5 text-xs font-bold bg-[#A32A2A] text-[#FFFFFF] rounded-full">
+                {unreadCount} unread
+              </span>
+            )}
+          </div>
+
+          {/* Filter Row: All / Unread */}
+          <div className="inline-flex items-center p-0.5 bg-[#FAF9F6] border border-[#E4E1DA] rounded-[6px] text-xs">
+            <button
+              type="button"
+              onClick={() => setFilter("all")}
+              className={`px-2.5 py-1 rounded-[4px] font-medium transition-colors ${
+                filter === "all"
+                  ? "bg-[#1F5C4D] text-white shadow-xs"
+                  : "text-[#5F6670] hover:text-[#1C1F23]"
+              }`}
+            >
+              All ({notifications.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("unread")}
+              className={`px-2.5 py-1 rounded-[4px] font-medium transition-colors ${
+                filter === "unread"
+                  ? "bg-[#1F5C4D] text-white shadow-xs"
+                  : "text-[#5F6670] hover:text-[#1C1F23]"
+              }`}
+            >
+              Unread ({unreadCount})
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-end sm:self-auto">
           {unreadCount > 0 && (
             <Button
               variant="secondary"
@@ -164,60 +197,64 @@ export function NotificationsClientView({ role }: NotificationsClientViewProps) 
       )}
 
       {/* Empty State */}
-      {!loading && notifications.length === 0 && (
+      {!loading && displayedNotifications.length === 0 && (
         <EmptyState
-          title="No notifications yet"
-          description="You will receive alerts here for timetable updates, salary milestones, and class reminders."
+          title={filter === "unread" ? "No unread notifications" : "No notifications yet"}
+          description={
+            filter === "unread"
+              ? "You have read all your alerts. Switch to 'All' to view your notification history."
+              : "You will receive alerts here for timetable updates, salary milestones, and class reminders."
+          }
           icon={<Bell className="w-8 h-8" strokeWidth={1.75} />}
         />
       )}
 
       {/* Notifications List */}
-      {!loading && notifications.length > 0 && (
+      {!loading && displayedNotifications.length > 0 && (
         <div className="bg-[#FFFFFF] border border-[#E4E1DA] rounded-[6px] divide-y divide-[#E4E1DA] overflow-hidden">
-          {notifications.map((notif) => {
+          {displayedNotifications.map((notif) => {
             const isUnread = !notif.readAt;
 
             return (
               <div
                 key={notif.id}
                 onClick={() => handleItemClick(notif)}
-                className={`p-4 flex items-start gap-3 cursor-pointer transition-colors ${
+                className={`p-4 flex items-start gap-3.5 cursor-pointer transition-colors ${
                   isUnread
                     ? "bg-[#FAF9F6] hover:bg-[#F2EFE9]"
                     : "hover:bg-[#FAF9F6]/50"
                 }`}
               >
-                {/* Unread dot / status icon */}
-                <div className="pt-1 shrink-0">
-                  {isUnread ? (
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#1F5C4D] block" />
-                  ) : (
-                    <span className="w-2.5 h-2.5 rounded-full bg-transparent block" />
-                  )}
+                {/* Unread indicator */}
+                <div className="pt-1.5 shrink-0">
+                  <span
+                    className={`w-2 h-2 rounded-full block ${
+                      isUnread ? "bg-[#1F5C4D]" : "bg-transparent"
+                    }`}
+                  />
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-4">
                     <h4
-                      className={`text-sm truncate ${
+                      className={`text-sm ${
                         isUnread ? "font-bold text-[#1C1F23]" : "font-medium text-[#1C1F23]"
                       }`}
                     >
                       {notif.title}
                     </h4>
-                    <span className="text-[11px] text-[#5F6670] shrink-0">
+                    <span className="text-[11px] text-[#5F6670] whitespace-nowrap shrink-0 text-right pt-0.5">
                       {formatRelativeTime(notif.createdAt)}
                     </span>
                   </div>
 
-                  <p className="text-xs text-[#5F6670] line-clamp-2 leading-relaxed">
+                  <p className="text-xs text-[#5F6670] mt-1 leading-relaxed">
                     {notif.body}
                   </p>
 
                   {notif.link && notif.link !== "/" && (
-                    <div className="pt-1 flex items-center gap-1 text-[11px] font-semibold text-[#1F5C4D]">
+                    <div className="pt-2 flex items-center gap-1 text-[11px] font-semibold text-[#1F5C4D]">
                       <span>View details</span>
                       <ArrowRight className="w-3 h-3" />
                     </div>

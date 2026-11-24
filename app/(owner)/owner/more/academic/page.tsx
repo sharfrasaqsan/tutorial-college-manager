@@ -94,174 +94,93 @@ export default function AcademicSettingsPage() {
 
   return (
     <OwnerShell pageTitle="Grades & Subjects" maxWidth="wide">
-      <div className="mb-2">
-        <Link
-          href="/owner/more"
-          className="inline-flex items-center text-xs font-medium text-[#1F5C4D] hover:underline min-h-[36px]"
-        >
-          <ArrowLeft className="w-3.5 h-3.5 mr-1" strokeWidth={1.75} />
-          Back to More
-        </Link>
-      </div>
-
-      <PageHeader
-        title="Grades & Subjects"
-        subtitle="Manage college academic grade tiers and available subjects"
-      />
-
-      {successMessage && (
-        <div className="mb-4">
-          <Toast message={successMessage} variant="success" onDismiss={() => setSuccessMessage("")} />
+      <div className="max-w-5xl mx-auto space-y-5 pb-12">
+        <div>
+          <Link
+            href="/owner/more"
+            className="inline-flex items-center text-xs font-medium text-[#1F5C4D] hover:underline min-h-[36px]"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 mr-1" strokeWidth={1.75} />
+            Back to More
+          </Link>
         </div>
-      )}
-      {errorMessage && (
-        <div className="mb-4">
-          <Toast message={errorMessage} variant="danger" onDismiss={() => setErrorMessage("")} />
-        </div>
-      )}
 
-      {/* Segmented Switcher */}
-      <div className="grid grid-cols-2 p-1 bg-[#F0EFEB] rounded-[6px] border border-[#E4E1DA] mb-4">
-        <button
-          type="button"
-          onClick={() => setActiveTab("grades")}
-          className={`min-h-[38px] flex items-center justify-center gap-1.5 text-xs font-semibold rounded-[4px] transition-colors ${
-            activeTab === "grades"
-              ? "bg-[#FFFFFF] text-[#1C1F23] shadow-none border border-[#E4E1DA]"
-              : "text-[#5F6670] hover:text-[#1C1F23]"
-          }`}
-        >
-          <GraduationCap className="w-4 h-4" strokeWidth={1.75} />
-          <span>Grades ({grades.length})</span>
-        </button>
+        <PageHeader
+          title="Grades & Subjects"
+          subtitle="Manage college academic grade tiers and available subjects"
+        />
 
-        <button
-          type="button"
-          onClick={() => setActiveTab("subjects")}
-          className={`min-h-[38px] flex items-center justify-center gap-1.5 text-xs font-semibold rounded-[4px] transition-colors ${
-            activeTab === "subjects"
-              ? "bg-[#FFFFFF] text-[#1C1F23] shadow-none border border-[#E4E1DA]"
-              : "text-[#5F6670] hover:text-[#1C1F23]"
-          }`}
-        >
-          <BookOpen className="w-4 h-4" strokeWidth={1.75} />
-          <span>Subjects ({subjects.length})</span>
-        </button>
-      </div>
-
-      {/* TAB 1: GRADES */}
-      {activeTab === "grades" && (
-        <div className="flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <p className="text-xs text-[#5F6670]">
-              Default Grade 1 to 13 seeded. You can rename or hide grades.
-            </p>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                setNewGradeName("");
-                setAddGradeModal(true);
-              }}
-            >
-              <Plus className="w-3.5 h-3.5 mr-1" strokeWidth={1.75} />
-              Add Grade
-            </Button>
+        {successMessage && (
+          <div>
+            <Toast message={successMessage} variant="success" onDismiss={() => setSuccessMessage("")} />
           </div>
+        )}
+        {errorMessage && (
+          <div>
+            <Toast message={errorMessage} variant="danger" onDismiss={() => setErrorMessage("")} />
+          </div>
+        )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {grades.map((grade) => (
-              <div
-                key={grade.id}
-                className="bg-white border border-[#E4E1DA] rounded-[6px] flex items-center justify-between p-3.5 min-h-[48px] hover:bg-[#FAF9F6] transition-colors shadow-xs"
+        {/* Segmented Switcher */}
+        <div className="grid grid-cols-2 p-1 bg-[#F0EFEB] rounded-[6px] border border-[#E4E1DA] mb-2 max-w-md">
+          <button
+            type="button"
+            onClick={() => setActiveTab("grades")}
+            className={`min-h-[38px] flex items-center justify-center gap-1.5 text-xs font-semibold rounded-[4px] transition-colors ${
+              activeTab === "grades"
+                ? "bg-[#FFFFFF] text-[#1C1F23] shadow-none border border-[#E4E1DA]"
+                : "text-[#5F6670] hover:text-[#1C1F23]"
+            }`}
+          >
+            <GraduationCap className="w-4 h-4" strokeWidth={1.75} />
+            <span>Grades ({grades.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("subjects")}
+            className={`min-h-[38px] flex items-center justify-center gap-1.5 text-xs font-semibold rounded-[4px] transition-colors ${
+              activeTab === "subjects"
+                ? "bg-[#FFFFFF] text-[#1C1F23] shadow-none border border-[#E4E1DA]"
+                : "text-[#5F6670] hover:text-[#1C1F23]"
+            }`}
+          >
+            <BookOpen className="w-4 h-4" strokeWidth={1.75} />
+            <span>Subjects ({subjects.length})</span>
+          </button>
+        </div>
+
+        {/* TAB 1: GRADES */}
+        {activeTab === "grades" && (
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <p className="text-xs text-[#5F6670]">
+                Default Grade 1 to 13 seeded. You can rename or hide grades.
+              </p>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  setNewGradeName("");
+                  setAddGradeModal(true);
+                }}
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-[#1C1F23]">
-                    {grade.name}
-                  </span>
-                  {grade.hidden && (
-                    <StatusChip status="notApplicable" label="Hidden" />
-                  )}
-                </div>
+                <Plus className="w-3.5 h-3.5 mr-1" strokeWidth={1.75} />
+                Add Grade
+              </Button>
+            </div>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTargetGrade(grade);
-                      setRenameGradeValue(grade.name);
-                      setRenameGradeModal(true);
-                    }}
-                    className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
-                    aria-label={`Rename ${grade.name}`}
-                  >
-                    <Edit2 className="w-4 h-4" strokeWidth={1.75} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleAction(
-                        {
-                          action: "toggleGradeHidden",
-                          id: grade.id,
-                          hidden: !grade.hidden,
-                        },
-                        `${grade.name} ${grade.hidden ? "unhidden" : "hidden"} successfully.`
-                      )
-                    }
-                    className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
-                    aria-label={grade.hidden ? `Unhide ${grade.name}` : `Hide ${grade.name}`}
-                  >
-                    {grade.hidden ? (
-                      <EyeOff className="w-4 h-4 text-[#A32A2A]" strokeWidth={1.75} />
-                    ) : (
-                      <Eye className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
-                    )}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: SUBJECTS */}
-      {activeTab === "subjects" && (
-        <div className="flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <p className="text-xs text-[#5F6670]">
-              Curriculum subjects taught by your teachers.
-            </p>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                setNewSubjectName("");
-                setAddSubjectModal(true);
-              }}
-            >
-              <Plus className="w-3.5 h-3.5 mr-1" strokeWidth={1.75} />
-              Add Subject
-            </Button>
-          </div>
-
-          {subjects.length === 0 ? (
-            <Card className="text-center p-6 text-xs text-[#5F6670]">
-              No subjects created yet. Click "Add Subject" to begin adding your curriculum courses (e.g. Mathematics, Science, English).
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {subjects.map((subject) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {grades.map((grade) => (
                 <div
-                  key={subject.id}
+                  key={grade.id}
                   className="bg-white border border-[#E4E1DA] rounded-[6px] flex items-center justify-between p-3.5 min-h-[48px] hover:bg-[#FAF9F6] transition-colors shadow-xs"
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-[#1C1F23]">
-                      {subject.name}
+                      {grade.name}
                     </span>
-                    {subject.hidden && (
+                    {grade.hidden && (
                       <StatusChip status="notApplicable" label="Hidden" />
                     )}
                   </div>
@@ -270,12 +189,12 @@ export default function AcademicSettingsPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        setTargetSubject(subject);
-                        setRenameSubjectValue(subject.name);
-                        setRenameSubjectModal(true);
+                        setTargetGrade(grade);
+                        setRenameGradeValue(grade.name);
+                        setRenameGradeModal(true);
                       }}
                       className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
-                      aria-label={`Rename ${subject.name}`}
+                      aria-label={`Rename ${grade.name}`}
                     >
                       <Edit2 className="w-4 h-4" strokeWidth={1.75} />
                     </button>
@@ -285,17 +204,17 @@ export default function AcademicSettingsPage() {
                       onClick={() =>
                         handleAction(
                           {
-                            action: "toggleSubjectHidden",
-                            id: subject.id,
-                            hidden: !subject.hidden,
+                            action: "toggleGradeHidden",
+                            id: grade.id,
+                            hidden: !grade.hidden,
                           },
-                          `${subject.name} ${subject.hidden ? "unhidden" : "hidden"} successfully.`
+                          `${grade.name} ${grade.hidden ? "unhidden" : "hidden"} successfully.`
                         )
                       }
                       className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
-                      aria-label={subject.hidden ? `Unhide ${subject.name}` : `Hide ${subject.name}`}
+                      aria-label={grade.hidden ? `Unhide ${grade.name}` : `Hide ${grade.name}`}
                     >
-                      {subject.hidden ? (
+                      {grade.hidden ? (
                         <EyeOff className="w-4 h-4 text-[#A32A2A]" strokeWidth={1.75} />
                       ) : (
                         <Eye className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
@@ -305,9 +224,92 @@ export default function AcademicSettingsPage() {
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+
+        {/* TAB 2: SUBJECTS */}
+        {activeTab === "subjects" && (
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <p className="text-xs text-[#5F6670]">
+                Curriculum subjects taught by your teachers.
+              </p>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  setNewSubjectName("");
+                  setAddSubjectModal(true);
+                }}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" strokeWidth={1.75} />
+                Add Subject
+              </Button>
+            </div>
+
+            {subjects.length === 0 ? (
+              <Card className="text-center p-6 text-xs text-[#5F6670]">
+                No subjects created yet. Click "Add Subject" to begin adding your curriculum courses (e.g. Mathematics, Science, English).
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {subjects.map((subject) => (
+                  <div
+                    key={subject.id}
+                    className="bg-white border border-[#E4E1DA] rounded-[6px] flex items-center justify-between p-3.5 min-h-[48px] hover:bg-[#FAF9F6] transition-colors shadow-xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-[#1C1F23]">
+                        {subject.name}
+                      </span>
+                      {subject.hidden && (
+                        <StatusChip status="notApplicable" label="Hidden" />
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTargetSubject(subject);
+                          setRenameSubjectValue(subject.name);
+                          setRenameSubjectModal(true);
+                        }}
+                        className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
+                        aria-label={`Rename ${subject.name}`}
+                      >
+                        <Edit2 className="w-4 h-4" strokeWidth={1.75} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleAction(
+                            {
+                              action: "toggleSubjectHidden",
+                              id: subject.id,
+                              hidden: !subject.hidden,
+                            },
+                            `${subject.name} ${subject.hidden ? "unhidden" : "hidden"} successfully.`
+                          )
+                        }
+                        className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
+                        aria-label={subject.hidden ? `Unhide ${subject.name}` : `Hide ${subject.name}`}
+                      >
+                        {subject.hidden ? (
+                          <EyeOff className="w-4 h-4 text-[#A32A2A]" strokeWidth={1.75} />
+                        ) : (
+                          <Eye className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Add Grade Modal */}
       <BottomSheet

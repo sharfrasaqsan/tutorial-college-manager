@@ -110,20 +110,21 @@ export default function OwnerRequestsPage() {
 
   return (
     <OwnerShell pageTitle="Requests Inbox" maxWidth="wide">
-      {toastMessage && (
-        <div className="mb-4">
-          <Toast
-            message={toastMessage.text}
-            variant={toastMessage.variant}
-            onDismiss={() => setToastMessage(null)}
-          />
-        </div>
-      )}
+      <div className="max-w-5xl mx-auto space-y-5 pb-12">
+        {toastMessage && (
+          <div>
+            <Toast
+              message={toastMessage.text}
+              variant={toastMessage.variant}
+              onDismiss={() => setToastMessage(null)}
+            />
+          </div>
+        )}
 
-      <PageHeader
-        title="Session Correction Requests"
-        subtitle="Review faculty requests to update attendance on locked session records"
-      />
+        <PageHeader
+          title="Session Correction Requests"
+          subtitle="Review faculty requests to update attendance on locked session records"
+        />
 
       {/* Tabs */}
       <div className="flex border-b border-[#E4E1DA] mb-4 text-xs font-semibold">
@@ -202,33 +203,34 @@ export default function OwnerRequestsPage() {
         </div>
       )}
 
-      {/* Confirmation Dialog */}
-      <ConfirmDialog
-        open={confirmOpen}
-        title={
-          resolutionAction === "approve"
-            ? "Approve Correction Request?"
-            : "Reject Correction Request?"
-        }
-        description={
-          selectedRequest
-            ? resolutionAction === "approve"
-              ? `Approving will change ${selectedRequest.className} on ${formatDateDisplay(
-                  selectedRequest.sessionDate
-                )} to "${selectedRequest.requestedStatus}". This will be logged in the college audit records.`
-              : `Rejecting will leave the session in its current "${selectedRequest.currentStatus}" status.`
-            : ""
-        }
-        confirmLabel={resolutionAction === "approve" ? "Approve & Update Mark" : "Reject Request"}
-        cancelLabel="Cancel"
-        variant={resolutionAction === "approve" ? "primary" : "danger"}
-        loading={isResolving}
-        onConfirm={handleConfirmResolution}
-        onClose={() => {
-          setConfirmOpen(false);
-          setSelectedRequest(null);
-        }}
-      />
+        {/* Confirmation Dialog */}
+        <ConfirmDialog
+          open={confirmOpen}
+          title={
+            resolutionAction === "approve"
+              ? "Approve Correction Request?"
+              : "Reject Correction Request?"
+          }
+          description={
+            selectedRequest
+              ? resolutionAction === "approve"
+                ? `Approving will change ${selectedRequest.className} on ${formatDateDisplay(
+                    selectedRequest.sessionDate
+                  )} to "${selectedRequest.requestedStatus}". This will be logged in the college audit records.`
+                : `Rejecting will leave the session in its current "${selectedRequest.currentStatus}" status.`
+              : ""
+          }
+          confirmLabel={resolutionAction === "approve" ? "Approve & Update Mark" : "Reject Request"}
+          cancelLabel="Cancel"
+          variant={resolutionAction === "approve" ? "primary" : "danger"}
+          loading={isResolving}
+          onConfirm={handleConfirmResolution}
+          onClose={() => {
+            setConfirmOpen(false);
+            setSelectedRequest(null);
+          }}
+        />
+      </div>
     </OwnerShell>
   );
 }
