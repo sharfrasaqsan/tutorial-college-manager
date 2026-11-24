@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Toast, type ToastVariant } from "@/components/ui/Toast";
+import { DataTable, type DataTableColumn } from "@/components/ui/DataTable";
 import {
   Users,
   Plus,
@@ -319,26 +320,153 @@ export default function OwnerTeachersPage() {
           <Skeleton height="88px" />
           <Skeleton height="88px" />
         </div>
-      ) : filteredTeachers.length === 0 ? (
-        <EmptyState
-          title={search ? "No matching teachers found" : "No teachers registered yet"}
-          description={
-            search
-              ? "Try adjusting your search query."
-              : "Add your first teacher account to begin assigning classes and schedules."
-          }
-          icon={<Users className="w-8 h-8" strokeWidth={1.75} />}
-          action={
-            !search ? (
-              <Button variant="primary" onClick={openAddSheet}>
-                Add Teacher
-              </Button>
-            ) : undefined
-          }
-        />
       ) : (
-        <div className="flex flex-col gap-3">
-          {filteredTeachers.map((teacher) => (
+        <DataTable
+          data={filteredTeachers}
+          keyExtractor={(t) => t.id}
+          columns={[
+            {
+              key: "name",
+              header: "Faculty Member",
+              render: (teacher) => (
+                <div className="flex items-center gap-3">
+                  {teacher.photoUrl ? (
+                    <img
+                      src={teacher.photoUrl}
+                      alt={teacher.name}
+                      className="w-10 h-10 rounded-full object-cover border border-[#E4E1DA] shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-[#E6F0EC] text-[#1F5C4D] flex items-center justify-center font-semibold text-sm border border-[#E4E1DA] shrink-0">
+                      {teacher.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <div className="font-semibold text-sm text-[#1C1F23]">{teacher.name}</div>
+                    {teacher.bio && (
+                      <div className="text-[11px] text-[#5F6670] line-clamp-1 italic max-w-xs">
+                        {teacher.bio}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ),
+            },
+            {
+              key: "subjects",
+              header: "Curriculum Subjects",
+              render: (teacher) => (
+                <div className="flex flex-wrap gap-1 max-w-xs">
+                  {teacher.subjects && teacher.subjects.length > 0 ? (
+                    teacher.subjects.map((subj) => (
+                      <span
+                        key={subj}
+                        className="px-2 py-0.5 text-[11px] rounded bg-[#FAF9F6] border border-[#E4E1DA] text-[#1C1F23]"
+                      >
+                        {subj}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-[#5F6670] italic">No subjects assigned</span>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: "contact",
+              header: "Contact",
+              render: (teacher) => (
+                <div className="text-xs">
+                  <div className="text-[#1C1F23]">{teacher.email}</div>
+                  {teacher.phone && (
+                    <div className="text-[#5F6670] tabular-nums mt-0.5">{teacher.phone}</div>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: "visibility",
+              header: "Public Site",
+              render: (teacher) => (
+                teacher.showOnPublicSite ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#1F5C4D] bg-[#E6F0EC] px-2 py-0.5 rounded">
+                    <Globe className="w-3 h-3" />
+                    Visible
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#5F6670] bg-[#FAF9F6] border border-[#E4E1DA] px-2 py-0.5 rounded">
+                    <EyeOff className="w-3 h-3" />
+                    Hidden
+                  </span>
+                )
+              ),
+            },
+            {
+              key: "status",
+              header: "Status",
+              render: (teacher) => (
+                <StatusChip
+                  status={teacher.active ? "success" : "danger"}
+                  label={teacher.active ? "Active" : "Deactivated"}
+                />
+              ),
+            },
+            {
+              key: "actions",
+              header: "Actions",
+              align: "right",
+              render: (teacher) => (
+                <div className="flex items-center justify-end gap-1.5">
+                  <Button
+                    variant="quiet"
+                    onClick={() => openEditSheet(teacher)}
+                    className="text-xs h-7 px-2.5 gap-1"
+                  >
+                    <Edit className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    <span>Edit</span>
+                  </Button>
+                  <Button
+                    variant={teacher.active ? "quiet" : "secondary"}
+                    onClick={() => setStatusDialogTeacher(teacher)}
+                    className={`text-xs h-7 px-2.5 gap-1 ${
+                      teacher.active ? "text-[#A32A2A] hover:bg-[#FBE9E7]" : "text-[#1F5C4D]"
+                    }`}
+                  >
+                    {teacher.active ? (
+                      <>
+                        <UserX className="w-3.5 h-3.5" strokeWidth={1.75} />
+                        <span>Deactivate</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
+                        <span>Activate</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ),
+            },
+          ]}
+          emptyState={
+            <EmptyState
+              title={search ? "No matching teachers found" : "No teachers registered yet"}
+              description={
+                search
+                  ? "Try adjusting your search query."
+                  : "Add your first teacher account to begin assigning classes and schedules."
+              }
+              icon={<Users className="w-8 h-8" strokeWidth={1.75} />}
+              action={
+                !search ? (
+                  <Button variant="primary" onClick={openAddSheet}>
+                    Add Teacher
+                  </Button>
+                ) : undefined
+              }
+            />
+          }
+          renderCard={(teacher) => (
             <Card key={teacher.id} className="p-4 flex flex-col gap-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-3">
@@ -396,7 +524,7 @@ export default function OwnerTeachersPage() {
               {/* Bio summary */}
               {teacher.bio && (
                 <p className="text-xs text-[#5F6670] line-clamp-2 italic bg-[#FAF9F6] p-2 rounded border border-[#E4E1DA]">
-                  "{teacher.bio}"
+                  &ldquo;{teacher.bio}&rdquo;
                 </p>
               )}
 
@@ -450,8 +578,8 @@ export default function OwnerTeachersPage() {
                 </Button>
               </div>
             </Card>
-          ))}
-        </div>
+          )}
+        />
       )}
 
       {/* Add / Edit Teacher Bottom Sheet */}

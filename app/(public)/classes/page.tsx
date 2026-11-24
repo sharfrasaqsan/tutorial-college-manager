@@ -42,7 +42,7 @@ export default async function ClassesPage() {
   const telUrl = college.phone ? `tel:${college.phone.replace(/\s+/g, "")}` : "";
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       {/* Header */}
       <div className="max-w-2xl mb-10">
         <span className="text-xs font-semibold uppercase tracking-wider text-[#1F5C4D]">
@@ -67,15 +67,15 @@ export default async function ClassesPage() {
         </div>
       )}
 
-      {/* Grade Selector Pills */}
+      {/* Grade Selector Pills (Sticky on desktop) */}
       {sortedGrades.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 mb-8 pb-4 border-b border-[#E4E1DA]">
+        <div className="sticky top-16 z-20 bg-[#FAF9F6]/95 backdrop-blur-xs flex flex-wrap items-center gap-2 mb-8 py-3 border-b border-[#E4E1DA]">
           <span className="text-xs font-medium text-[#5F6670] mr-2">Jump to grade:</span>
           {sortedGrades.map((grade) => (
             <a
               key={grade}
               href={`#${encodeURIComponent(grade)}`}
-              className="px-3 py-1 rounded-[4px] bg-[#FFFFFF] border border-[#E4E1DA] hover:border-[#1F5C4D] text-xs font-medium text-[#1C1F23] hover:text-[#1F5C4D] transition-colors"
+              className="px-3 py-1 rounded-[4px] bg-[#FFFFFF] border border-[#E4E1DA] hover:border-[#1F5C4D] text-xs font-medium text-[#1C1F23] hover:text-[#1F5C4D] transition-colors shadow-2xs"
             >
               {grade}
             </a>

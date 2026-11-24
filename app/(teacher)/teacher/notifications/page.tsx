@@ -5,7 +5,7 @@ import { NotificationsClientView } from "@/components/notifications/Notification
 
 export default function TeacherNotificationsPage() {
   return (
-    <TeacherShell pageTitle="Notifications">
+    <TeacherShell pageTitle="Notifications" maxWidth="wide">
       <PageHeader
         title="Notifications"
         subtitle="Timetable updates, salary payments, correction decisions, and session reminders"

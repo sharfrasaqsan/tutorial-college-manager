@@ -274,7 +274,7 @@ export default function TeacherTodayPage() {
   }, []);
 
   return (
-    <TeacherShell pageTitle="Today's Sessions">
+    <TeacherShell pageTitle="Today's Sessions" maxWidth="wide">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="mb-4">
@@ -308,108 +308,133 @@ export default function TeacherTodayPage() {
           <Skeleton className="h-32 w-full" />
         </div>
       ) : (
-        <div className="flex flex-col gap-5">
-          {/* SECTION 1: UNMARKED URGENT SESSIONS FROM LAST 3 DAYS (APPEARS FIRST) */}
-          {unmarkedUrgent.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-2 px-1">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#9A5B00] uppercase tracking-wider">
-                  <AlertTriangle className="w-4 h-4 text-[#9A5B00]" strokeWidth={2} />
-                  <span>Unmarked Sessions (Action Required)</span>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left Column: Urgent & Today's Sessions */}
+          <div className="lg:col-span-7 flex flex-col gap-5">
+            {/* SECTION 1: UNMARKED URGENT SESSIONS FROM LAST 3 DAYS (APPEARS FIRST) */}
+            {unmarkedUrgent.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[#9A5B00] uppercase tracking-wider">
+                    <AlertTriangle className="w-4 h-4 text-[#9A5B00]" strokeWidth={2} />
+                    <span>Unmarked Sessions (Action Required)</span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-[#9A5B00] bg-[#FBF1DE] px-2 py-0.5 rounded">
+                    {unmarkedUrgent.length} pending
+                  </span>
                 </div>
-                <span className="text-[11px] font-semibold text-[#9A5B00] bg-[#FBF1DE] px-2 py-0.5 rounded">
-                  {unmarkedUrgent.length} pending
-                </span>
-              </div>
 
-              <div className="flex flex-col gap-2.5">
-                {unmarkedUrgent.map((session) => (
-                  <SessionMarkCard
-                    key={session.id}
-                    session={session}
-                    isUrgent
-                    isMarking={markingSessionId === session.id}
-                    onMarkHeld={() => handleMarkSession(session.id, "held")}
-                    onMarkMissed={() => handleMarkSession(session.id, "missed")}
-                    onRequestCorrection={() => handleOpenCorrection(session)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* SECTION 2: TODAY'S SESSIONS */}
-          <div>
-            <div className="flex items-center justify-between mb-2 px-1">
-              <span className="text-xs font-semibold text-[#5F6670] uppercase tracking-wider">
-                Today ({todayDateStr ? formatDateDisplay(todayDateStr) : "Today"})
-              </span>
-              <span className="text-[11px] text-[#5F6670]">
-                {todaySessions.length} classes scheduled
-              </span>
-            </div>
-
-            {todaySessions.length === 0 ? (
-              <Card className="p-6 text-center text-xs text-[#5F6670] bg-white border border-[#E4E1DA]">
-                No classes scheduled for today.
-              </Card>
-            ) : (
-              <div className="flex flex-col gap-2.5">
-                {todaySessions.map((session) => (
-                  <SessionMarkCard
-                    key={session.id}
-                    session={session}
-                    isMarking={markingSessionId === session.id}
-                    onMarkHeld={() => handleMarkSession(session.id, "held")}
-                    onMarkMissed={() => handleMarkSession(session.id, "missed")}
-                    onRequestCorrection={() => handleOpenCorrection(session)}
-                  />
-                ))}
+                <div className="flex flex-col gap-2.5">
+                  {unmarkedUrgent.map((session) => (
+                    <SessionMarkCard
+                      key={session.id}
+                      session={session}
+                      isUrgent
+                      isMarking={markingSessionId === session.id}
+                      onMarkHeld={() => handleMarkSession(session.id, "held")}
+                      onMarkMissed={() => handleMarkSession(session.id, "missed")}
+                      onRequestCorrection={() => handleOpenCorrection(session)}
+                    />
+                  ))}
+                </div>
               </div>
             )}
-          </div>
 
-          {/* SECTION 3: UPCOMING SESSIONS */}
-          {upcomingSessions.length > 0 && (
+            {/* SECTION 2: TODAY'S SESSIONS */}
             <div>
               <div className="flex items-center justify-between mb-2 px-1">
                 <span className="text-xs font-semibold text-[#5F6670] uppercase tracking-wider">
-                  Upcoming Classes
+                  Today ({todayDateStr ? formatDateDisplay(todayDateStr) : "Today"})
                 </span>
                 <span className="text-[11px] text-[#5F6670]">
-                  Next {upcomingSessions.length} sessions
+                  {todaySessions.length} classes scheduled
                 </span>
               </div>
 
-              <div className="flex flex-col gap-2">
-                {upcomingSessions.map((session) => (
-                  <Card key={session.id} className="p-3 bg-white border border-[#E4E1DA] flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-xs text-[#1C1F23]">
-                          {session.className}
-                        </span>
-                        {session.type === "makeup" && (
-                          <span className="text-[10px] font-semibold text-[#1F5C4D] bg-[#E6F0EC] px-1.5 py-0.2 rounded border border-[#1F5C4D]/20">
-                            Make-up
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px] text-[#5F6670] mt-0.5">
-                        <span>{formatDateDisplay(session.date)}</span>
-                        <span>•</span>
-                        <span className="tabular-nums">
-                          {formatTimeDisplay(session.startTime)} - {formatTimeDisplay(session.endTime)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <StatusChip status="neutral" label="Scheduled" />
-                  </Card>
-                ))}
-              </div>
+              {todaySessions.length === 0 ? (
+                <Card className="p-6 text-center text-xs text-[#5F6670] bg-white border border-[#E4E1DA]">
+                  No classes scheduled for today.
+                </Card>
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  {todaySessions.map((session) => (
+                    <SessionMarkCard
+                      key={session.id}
+                      session={session}
+                      isMarking={markingSessionId === session.id}
+                      onMarkHeld={() => handleMarkSession(session.id, "held")}
+                      onMarkMissed={() => handleMarkSession(session.id, "missed")}
+                      onRequestCorrection={() => handleOpenCorrection(session)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+          </div>
+
+          {/* Right Column: Upcoming Sessions & Guidelines */}
+          <div className="lg:col-span-5 flex flex-col gap-5">
+            {/* SECTION 3: UPCOMING SESSIONS */}
+            {upcomingSessions.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <span className="text-xs font-semibold text-[#5F6670] uppercase tracking-wider">
+                    Upcoming Classes
+                  </span>
+                  <span className="text-[11px] text-[#5F6670]">
+                    Next {upcomingSessions.length} sessions
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {upcomingSessions.map((session) => (
+                    <Card key={session.id} className="p-3 bg-white border border-[#E4E1DA] flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-xs text-[#1C1F23]">
+                            {session.className}
+                          </span>
+                          {session.type === "makeup" && (
+                            <span className="text-[10px] font-semibold text-[#1F5C4D] bg-[#E6F0EC] px-1.5 py-0.2 rounded border border-[#1F5C4D]/20">
+                              Make-up
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] text-[#5F6670] mt-0.5">
+                          <span>{formatDateDisplay(session.date)}</span>
+                          <span>•</span>
+                          <span className="tabular-nums">
+                            {formatTimeDisplay(session.startTime)} - {formatTimeDisplay(session.endTime)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <StatusChip status="neutral" label="Scheduled" />
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Attendance & Salary Guidelines Card */}
+            <Card className="p-4 bg-[#FAF9F6] border border-[#E4E1DA]">
+              <div className="flex items-center gap-2 text-xs font-semibold text-[#1C1F23] mb-2">
+                <Sparkles className="w-4 h-4 text-[#1F5C4D]" />
+                <span>Attendance &amp; Salary Rules</span>
+              </div>
+              <ul className="text-[11px] text-[#5F6670] space-y-2 list-disc list-inside leading-relaxed">
+                <li>
+                  <strong className="text-[#1C1F23]">3-day marking window:</strong> Sessions can be marked as Held or Missed starting at scheduled start time and up to 3 days after.
+                </li>
+                <li>
+                  <strong className="text-[#1C1F23]">Locked sessions:</strong> Once past the 3-day window, submit a correction request to the college owner.
+                </li>
+                <li>
+                  <strong className="text-[#1C1F23]">Payout eligibility:</strong> Salaries are calculated per class once all scheduled monthly sessions are completed.
+                </li>
+              </ul>
+            </Card>
+          </div>
         </div>
       )}
 

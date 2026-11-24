@@ -269,7 +269,7 @@ export default function TeacherTimetablePage() {
   }
 
   return (
-    <TeacherShell pageTitle="Weekly Timetable">
+    <TeacherShell pageTitle="Weekly Timetable" maxWidth="wide">
       {toastMessage && (
         <div className="mb-4">
           <Toast
@@ -317,87 +317,165 @@ export default function TeacherTimetablePage() {
         />
       ) : (
         <>
-          {/* Day Tabs (Phone View) */}
-          <div className="flex overflow-x-auto gap-1 pb-2 border-b border-[#E4E1DA] mb-3 no-scrollbar">
-            {SHORT_WEEKDAY_NAMES.map((name, index) => {
-              const count = slotsByDay[index]?.length || 0;
-              const isSelected = activeDayTab === index;
-              return (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() => setActiveDayTab(index)}
-                  className={`min-h-[44px] flex-1 min-w-[48px] py-2 px-1 flex flex-col items-center justify-center rounded-[6px] border transition-colors select-none ${
-                    isSelected
-                      ? "bg-[#1F5C4D] text-white border-[#1F5C4D] font-semibold"
-                      : "bg-white text-[#1C1F23] border-[#E4E1DA] hover:bg-[#FAF9F6]"
-                  }`}
-                >
-                  <span className="text-xs uppercase tracking-wider">{name}</span>
-                  <span
-                    className={`text-[10px] mt-0.5 px-1.5 rounded-full ${
-                      isSelected ? "bg-[#17463A] text-white" : "bg-[#FAF9F6] text-[#5F6670]"
+          {/* PHONE & TABLET VIEW: Day Tabs (hidden on lg screens and wider) */}
+          <div className="block lg:hidden">
+            <div className="flex overflow-x-auto gap-1 pb-2 border-b border-[#E4E1DA] mb-3 no-scrollbar">
+              {SHORT_WEEKDAY_NAMES.map((name, index) => {
+                const count = slotsByDay[index]?.length || 0;
+                const isSelected = activeDayTab === index;
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => setActiveDayTab(index)}
+                    className={`min-h-[44px] flex-1 min-w-[48px] py-2 px-1 flex flex-col items-center justify-center rounded-[6px] border transition-colors select-none ${
+                      isSelected
+                        ? "bg-[#1F5C4D] text-white border-[#1F5C4D] font-semibold"
+                        : "bg-white text-[#1C1F23] border-[#E4E1DA] hover:bg-[#FAF9F6]"
                     }`}
                   >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Slots list for selected day */}
-          <div className="flex flex-col gap-2.5">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#5F6670]">
-                {WEEKDAY_NAMES[activeDayTab]} Schedule
-              </span>
-              <span className="text-[11px] text-[#5F6670]">
-                {slotsByDay[activeDayTab]?.length || 0} classes
-              </span>
+                    <span className="text-xs uppercase tracking-wider">{name}</span>
+                    <span
+                      className={`text-[10px] mt-0.5 px-1.5 rounded-full ${
+                        isSelected ? "bg-[#17463A] text-white" : "bg-[#FAF9F6] text-[#5F6670]"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
-            {slotsByDay[activeDayTab]?.length === 0 ? (
-              <div className="bg-white border border-[#E4E1DA] rounded-[6px] p-6 text-center text-xs text-[#5F6670]">
-                No classes scheduled on {WEEKDAY_NAMES[activeDayTab]}.
+            {/* Slots list for selected day */}
+            <div className="flex flex-col gap-2.5">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#5F6670]">
+                  {WEEKDAY_NAMES[activeDayTab]} Schedule
+                </span>
+                <span className="text-[11px] text-[#5F6670]">
+                  {slotsByDay[activeDayTab]?.length || 0} classes
+                </span>
               </div>
-            ) : (
-              slotsByDay[activeDayTab].map((slot) => (
-                <Card
-                  key={slot.id}
-                  className="p-3 bg-white border border-[#E4E1DA] flex items-center justify-between"
-                >
-                  <div>
-                    <h4 className="font-semibold text-xs text-[#1C1F23]">{slot.className}</h4>
-                    <div className="flex items-center gap-1.5 text-[11px] text-[#1F5C4D] font-semibold mt-0.5 tabular-nums">
-                      <Clock className="w-3 h-3" strokeWidth={2} />
-                      <span>
-                        {formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}
-                      </span>
+
+              {slotsByDay[activeDayTab]?.length === 0 ? (
+                <div className="bg-white border border-[#E4E1DA] rounded-[6px] p-6 text-center text-xs text-[#5F6670]">
+                  No classes scheduled on {WEEKDAY_NAMES[activeDayTab]}.
+                </div>
+              ) : (
+                slotsByDay[activeDayTab].map((slot) => (
+                  <Card
+                    key={slot.id}
+                    className="p-3 bg-white border border-[#E4E1DA] flex items-center justify-between"
+                  >
+                    <div>
+                      <h4 className="font-semibold text-xs text-[#1C1F23]">{slot.className}</h4>
+                      <div className="flex items-center gap-1.5 text-[11px] text-[#1F5C4D] font-semibold mt-0.5 tabular-nums">
+                        <Clock className="w-3 h-3" strokeWidth={2} />
+                        <span>
+                          {formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}
+                        </span>
+                      </div>
                     </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(slot)}
+                        title="Edit Slot"
+                        className="min-h-[36px] min-w-[36px] flex items-center justify-center p-1 text-[#5F6670] hover:text-[#1F5C4D] rounded"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDelete(slot)}
+                        title="Delete Slot"
+                        className="min-h-[36px] min-w-[36px] flex items-center justify-center p-1 text-[#5F6670] hover:text-[#A32A2A] rounded"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      </button>
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* DESKTOP VIEW: 7-Column Weekly Grid (from lg screens up) */}
+          <div className="hidden lg:grid lg:grid-cols-7 gap-3 items-start">
+            {WEEKDAY_NAMES.map((dayName, dayIndex) => {
+              const daySlots = slotsByDay[dayIndex] || [];
+              const isToday = currentWeekday === dayIndex;
+
+              return (
+                <div
+                  key={dayIndex}
+                  className={`flex flex-col gap-2 bg-[#FAF9F6] rounded-[6px] border p-2 min-h-[480px] ${
+                    isToday ? "border-[#1F5C4D] ring-1 ring-[#1F5C4D]" : "border-[#E4E1DA]"
+                  }`}
+                >
+                  {/* Column Header */}
+                  <div className="flex items-center justify-between pb-1.5 border-b border-[#E4E1DA]">
+                    <div className="flex items-center gap-1">
+                      <span className="font-semibold text-xs text-[#1C1F23]">
+                        {SHORT_WEEKDAY_NAMES[dayIndex]}
+                      </span>
+                      {isToday && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#1F5C4D]" title="Today" />
+                      )}
+                    </div>
+                    <span className="text-[10px] font-medium text-[#5F6670] bg-white px-1.5 py-0.5 rounded border border-[#E4E1DA]">
+                      {daySlots.length}
+                    </span>
                   </div>
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEdit(slot)}
-                      title="Edit Slot"
-                      className="min-h-[36px] min-w-[36px] flex items-center justify-center p-1 text-[#5F6670] hover:text-[#1F5C4D] rounded"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenDelete(slot)}
-                      title="Delete Slot"
-                      className="min-h-[36px] min-w-[36px] flex items-center justify-center p-1 text-[#5F6670] hover:text-[#A32A2A] rounded"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                    </button>
+                  {/* Day Slots List */}
+                  <div className="flex flex-col gap-2 flex-1">
+                    {daySlots.length === 0 ? (
+                      <div className="text-[11px] text-[#5F6670] text-center py-6 italic">
+                        No classes
+                      </div>
+                    ) : (
+                      daySlots.map((slot) => (
+                        <div
+                          key={slot.id}
+                          className="bg-white border border-[#E4E1DA] rounded p-2.5 flex flex-col gap-1.5 shadow-2xs hover:border-[#1F5C4D] transition-colors"
+                        >
+                          <div className="font-semibold text-xs text-[#1C1F23] line-clamp-1">
+                            {slot.className}
+                          </div>
+                          <div className="flex items-center gap-1 text-[11px] text-[#1F5C4D] font-medium tabular-nums">
+                            <Clock className="w-3 h-3 shrink-0" strokeWidth={2} />
+                            <span>
+                              {formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-end gap-1 pt-1 border-t border-[#E4E1DA]/60">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(slot)}
+                              title="Edit Slot"
+                              className="p-1 text-[#5F6670] hover:text-[#1F5C4D] rounded"
+                            >
+                              <Edit2 className="w-3 h-3" strokeWidth={1.75} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDelete(slot)}
+                              title="Delete Slot"
+                              className="p-1 text-[#5F6670] hover:text-[#A32A2A] rounded"
+                            >
+                              <Trash2 className="w-3 h-3" strokeWidth={1.75} />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
-                </Card>
-              ))
-            )}
+                </div>
+              );
+            })}
           </div>
         </>
       )}

@@ -93,7 +93,7 @@ export default function AcademicSettingsPage() {
   }
 
   return (
-    <OwnerShell pageTitle="Grades & Subjects">
+    <OwnerShell pageTitle="Grades & Subjects" maxWidth="wide">
       <div className="mb-2">
         <Link
           href="/owner/more"
@@ -169,11 +169,11 @@ export default function AcademicSettingsPage() {
             </Button>
           </div>
 
-          <Card className="p-0 overflow-hidden divide-y divide-[#E4E1DA]">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {grades.map((grade) => (
               <div
                 key={grade.id}
-                className="flex items-center justify-between p-3 min-h-[48px] hover:bg-[#FAF9F6] transition-colors"
+                className="bg-white border border-[#E4E1DA] rounded-[6px] flex items-center justify-between p-3.5 min-h-[48px] hover:bg-[#FAF9F6] transition-colors shadow-xs"
               >
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-[#1C1F23]">
@@ -192,7 +192,7 @@ export default function AcademicSettingsPage() {
                       setRenameGradeValue(grade.name);
                       setRenameGradeModal(true);
                     }}
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
+                    className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
                     aria-label={`Rename ${grade.name}`}
                   >
                     <Edit2 className="w-4 h-4" strokeWidth={1.75} />
@@ -210,7 +210,7 @@ export default function AcademicSettingsPage() {
                         `${grade.name} ${grade.hidden ? "unhidden" : "hidden"} successfully.`
                       )
                     }
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
+                    className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
                     aria-label={grade.hidden ? `Unhide ${grade.name}` : `Hide ${grade.name}`}
                   >
                     {grade.hidden ? (
@@ -222,7 +222,7 @@ export default function AcademicSettingsPage() {
                 </div>
               </div>
             ))}
-          </Card>
+          </div>
         </div>
       )}
 
@@ -251,11 +251,11 @@ export default function AcademicSettingsPage() {
               No subjects created yet. Click "Add Subject" to begin adding your curriculum courses (e.g. Mathematics, Science, English).
             </Card>
           ) : (
-            <Card className="p-0 overflow-hidden divide-y divide-[#E4E1DA]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {subjects.map((subject) => (
                 <div
                   key={subject.id}
-                  className="flex items-center justify-between p-3 min-h-[48px] hover:bg-[#FAF9F6] transition-colors"
+                  className="bg-white border border-[#E4E1DA] rounded-[6px] flex items-center justify-between p-3.5 min-h-[48px] hover:bg-[#FAF9F6] transition-colors shadow-xs"
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-[#1C1F23]">
@@ -274,7 +274,7 @@ export default function AcademicSettingsPage() {
                         setRenameSubjectValue(subject.name);
                         setRenameSubjectModal(true);
                       }}
-                      className="min-h-[44px] min-w-[44px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
+                      className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
                       aria-label={`Rename ${subject.name}`}
                     >
                       <Edit2 className="w-4 h-4" strokeWidth={1.75} />
@@ -292,7 +292,7 @@ export default function AcademicSettingsPage() {
                           `${subject.name} ${subject.hidden ? "unhidden" : "hidden"} successfully.`
                         )
                       }
-                      className="min-h-[44px] min-w-[44px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
+                      className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
                       aria-label={subject.hidden ? `Unhide ${subject.name}` : `Hide ${subject.name}`}
                     >
                       {subject.hidden ? (
@@ -304,7 +304,7 @@ export default function AcademicSettingsPage() {
                   </div>
                 </div>
               ))}
-            </Card>
+            </div>
           )}
         </div>
       )}

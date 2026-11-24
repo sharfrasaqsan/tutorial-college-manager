@@ -10,7 +10,7 @@ export default async function OwnerSalaryPage() {
   const selectedYear = cookieStore.get(YEAR_COOKIE_NAME)?.value || "2026";
 
   return (
-    <OwnerShell pageTitle={`Teacher Salaries (${selectedYear})`}>
+    <OwnerShell pageTitle={`Teacher Salaries (${selectedYear})`} maxWidth="wide">
       <PageHeader
         title={`Teacher Salaries (${selectedYear})`}
         subtitle={`Session progress, monthly teacher share calculations, and salary payment invoices for ${selectedYear}`}

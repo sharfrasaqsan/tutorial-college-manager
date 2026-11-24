@@ -84,7 +84,7 @@ export default function TeacherClassesPage() {
   });
 
   return (
-    <TeacherShell pageTitle="My Classes">
+    <TeacherShell pageTitle="My Classes" maxWidth="wide">
       <PageHeader
         title="My Classes &amp; Students"
         subtitle="View enrolled student rosters, schools and guardian contact numbers"
@@ -157,7 +157,7 @@ export default function TeacherClassesPage() {
                         {search ? "No matching students found." : "No students enrolled in this class yet."}
                       </div>
                     ) : (
-                      <div className="flex flex-col gap-2">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
                         {cls.students.map((student, idx) => (
                           <div
                             key={student.id}

@@ -10,7 +10,7 @@ export default async function OwnerFeesPage() {
   const selectedYear = cookieStore.get(YEAR_COOKIE_NAME)?.value || "2026";
 
   return (
-    <OwnerShell pageTitle={`Student Fees (${selectedYear})`}>
+    <OwnerShell pageTitle={`Student Fees (${selectedYear})`} maxWidth="wide">
       <PageHeader
         title={`Fee Collections (${selectedYear})`}
         subtitle={`Track and record student class fees & admission fee payments for ${selectedYear}`}

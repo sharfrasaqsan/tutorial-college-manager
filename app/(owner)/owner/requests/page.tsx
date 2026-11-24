@@ -109,7 +109,7 @@ export default function OwnerRequestsPage() {
   }
 
   return (
-    <OwnerShell pageTitle="Requests Inbox">
+    <OwnerShell pageTitle="Requests Inbox" maxWidth="wide">
       {toastMessage && (
         <div className="mb-4">
           <Toast
@@ -177,7 +177,7 @@ export default function OwnerRequestsPage() {
             description="All teacher session correction requests have been resolved."
           />
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {pendingRequests.map((req) => (
               <RequestCard
                 key={req.id}
@@ -195,7 +195,7 @@ export default function OwnerRequestsPage() {
           description="Approved and rejected correction requests will appear here in the history log."
         />
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {resolvedRequests.map((req) => (
             <RequestCard key={req.id} request={req} />
           ))}

@@ -253,9 +253,11 @@ export default function StudentDetailPage() {
         }
       />
 
-      <div className="flex flex-col gap-4">
-        {/* Profile Card */}
-        <Card className="p-4 flex flex-col gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Profile & Admission Fee */}
+        <div className="lg:col-span-5 space-y-4">
+          {/* Profile Card */}
+          <Card className="p-4 flex flex-col gap-3">
           <CardHeader className="p-0 border-b border-[#E4E1DA] pb-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -377,7 +379,10 @@ export default function StudentDetailPage() {
             )}
           </div>
         </Card>
+      </div>
 
+      {/* Right Column: Enrolled Classes & Fee History */}
+      <div className="lg:col-span-7 space-y-4">
         {/* Current Classes in Active Year */}
         <Card className="p-4 flex flex-col gap-3">
           <CardHeader className="p-0 border-b border-[#E4E1DA] pb-2.5">
@@ -500,6 +505,7 @@ export default function StudentDetailPage() {
           )}
         </Card>
       </div>
+    </div>
 
       {/* Edit Student Bottom Sheet */}
       <BottomSheet

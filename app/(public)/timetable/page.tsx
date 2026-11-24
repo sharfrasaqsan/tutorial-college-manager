@@ -25,7 +25,7 @@ export default async function TimetablePage() {
   const grades = Array.from(gradeSet).sort();
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       {/* Page Title & Context */}
       <div className="max-w-2xl mb-8 print:hidden">
         <span className="text-xs font-semibold uppercase tracking-wider text-[#1F5C4D]">

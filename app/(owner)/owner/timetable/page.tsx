@@ -345,7 +345,7 @@ export default function OwnerTimetablePage() {
   }
 
   return (
-    <OwnerShell pageTitle="Weekly Timetable" maxWidth="5xl">
+    <OwnerShell pageTitle="Weekly Timetable" maxWidth="wide">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="mb-4">
@@ -459,8 +459,8 @@ export default function OwnerTimetablePage() {
         />
       ) : (
         <>
-          {/* PHONE VIEW: Horizontal Day Tabs (hidden on md screens and wider) */}
-          <div className="block md:hidden">
+          {/* PHONE & TABLET VIEW: Horizontal Day Tabs (hidden on lg screens and wider) */}
+          <div className="block lg:hidden">
             <div className="flex overflow-x-auto gap-1 pb-2 border-b border-[#E4E1DA] mb-3 no-scrollbar">
               {SHORT_WEEKDAY_NAMES.map((name, index) => {
                 const count = slotsByDay[index]?.length || 0;
@@ -517,8 +517,8 @@ export default function OwnerTimetablePage() {
             </div>
           </div>
 
-          {/* WIDE SCREEN VIEW: 7-Column Weekly Grid (hidden on mobile) */}
-          <div className="hidden md:grid md:grid-cols-7 gap-2.5 items-start">
+          {/* DESKTOP VIEW: 7-Column Weekly Grid (from lg screens up) */}
+          <div className="hidden lg:grid lg:grid-cols-7 gap-3 items-start">
             {WEEKDAY_NAMES.map((dayName, dayIndex) => {
               const daySlots = slotsByDay[dayIndex] || [];
               const isToday = currentWeekday === dayIndex;

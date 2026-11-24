@@ -252,10 +252,13 @@ export default function OwnerClassesPage() {
 
       {/* Classes List */}
       {loading ? (
-        <div className="flex flex-col gap-3">
-          <Skeleton height="108px" />
-          <Skeleton height="108px" />
-          <Skeleton height="108px" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Skeleton height="140px" />
+          <Skeleton height="140px" />
+          <Skeleton height="140px" />
+          <Skeleton height="140px" />
+          <Skeleton height="140px" />
+          <Skeleton height="140px" />
         </div>
       ) : filteredClasses.length === 0 ? (
         <EmptyState
@@ -275,7 +278,7 @@ export default function OwnerClassesPage() {
           }
         />
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredClasses.map((cls) => {
             const terms = cls.currentTerms || {
               monthlyFee: 0,

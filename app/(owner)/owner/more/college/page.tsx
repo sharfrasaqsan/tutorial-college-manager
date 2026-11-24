@@ -142,109 +142,118 @@ export default function CollegeProfilePage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        {/* Logo Card */}
-        <Card className="p-4 flex flex-col items-center gap-3">
-          <div className="w-20 h-20 rounded-[6px] border border-[#E4E1DA] bg-[#FAF9F6] flex items-center justify-center overflow-hidden relative">
-            {profile.logoUrl ? (
-              <Image
-                src={profile.logoUrl}
-                alt="College Logo"
-                fill
-                className="object-contain p-1"
-                unoptimized
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Logo Card */}
+        <div className="lg:col-span-4 flex flex-col gap-4">
+          <Card className="p-5 flex flex-col items-center text-center gap-3">
+            <div className="w-24 h-24 rounded-[6px] border border-[#E4E1DA] bg-[#FAF9F6] flex items-center justify-center overflow-hidden relative">
+              {profile.logoUrl ? (
+                <Image
+                  src={profile.logoUrl}
+                  alt="College Logo"
+                  fill
+                  className="object-contain p-1.5"
+                  unoptimized
+                />
+              ) : (
+                <Building2 className="w-10 h-10 text-[#5F6670]" strokeWidth={1.75} />
+              )}
+            </div>
+
+            <label className="cursor-pointer">
+              <span className="inline-flex items-center px-3.5 py-1.5 text-xs font-medium border border-[#E4E1DA] bg-[#FFFFFF] text-[#1C1F23] rounded-[6px] hover:bg-[#FAF9F6] transition-colors min-h-[44px]">
+                <Upload className="w-3.5 h-3.5 mr-1.5" strokeWidth={1.75} />
+                {uploadingLogo ? "Uploading..." : "Upload Logo"}
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleLogoUpload}
+                disabled={uploadingLogo}
               />
-            ) : (
-              <Building2 className="w-8 h-8 text-[#5F6670]" strokeWidth={1.75} />
-            )}
+            </label>
+            <p className="text-[11px] text-[#5F6670] leading-relaxed">
+              Square or horizontal logo PNG / JPG. Displayed on salary payment vouchers, student receipts, and the public college website.
+            </p>
+          </Card>
+        </div>
+
+        {/* Right Column: Basic Info & Save Action */}
+        <div className="lg:col-span-8 flex flex-col gap-4">
+          <Card className="flex flex-col gap-3.5 p-5">
+            <Field id="college-name" label="College Name" required>
+              <Input
+                value={profile.name}
+                onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                placeholder="e.g. Apex Academic Institute"
+                disabled={loading || saving}
+              />
+            </Field>
+
+            <Field id="college-address" label="Campus Address" required>
+              <Input
+                value={profile.address}
+                onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                placeholder="e.g. 142 Galle Road, Colombo 03"
+                disabled={loading || saving}
+              />
+            </Field>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <Field id="college-phone" label="Contact Telephone" required>
+                <Input
+                  type="tel"
+                  value={profile.phone}
+                  onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                  placeholder="e.g. +94 11 234 5678"
+                  disabled={loading || saving}
+                />
+              </Field>
+
+              <Field id="college-email" label="Official Email Address" required>
+                <Input
+                  type="email"
+                  value={profile.email}
+                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                  placeholder="e.g. info@apexcollege.lk"
+                  disabled={loading || saving}
+                />
+              </Field>
+            </div>
+
+            <Field id="opening-hours" label="Opening Hours" hint="Weekly operational schedule">
+              <Input
+                value={profile.openingHours}
+                onChange={(e) => setProfile({ ...profile, openingHours: e.target.value })}
+                placeholder="e.g. Mon-Sat: 8:00 AM - 6:00 PM, Sun: 8:00 AM - 1:00 PM"
+                disabled={loading || saving}
+              />
+            </Field>
+
+            <Field id="college-about" label="Short About Text" hint="Brief overview shown on the public site">
+              <Textarea
+                rows={3}
+                value={profile.aboutText}
+                onChange={(e) => setProfile({ ...profile, aboutText: e.target.value })}
+                placeholder="State the college mission, faculties, and academic goals..."
+                disabled={loading || saving}
+              />
+            </Field>
+          </Card>
+
+          <div className="flex justify-end">
+            <Button
+              type="submit"
+              variant="primary"
+              className="w-full sm:w-auto px-6 h-10"
+              loading={saving}
+              disabled={loading || saving}
+            >
+              Save College Profile
+            </Button>
           </div>
-
-          <label className="cursor-pointer">
-            <span className="inline-flex items-center px-3 py-1.5 text-xs font-medium border border-[#E4E1DA] bg-[#FFFFFF] text-[#1C1F23] rounded-[6px] hover:bg-[#FAF9F6] transition-colors min-h-[44px]">
-              <Upload className="w-3.5 h-3.5 mr-1.5" strokeWidth={1.75} />
-              {uploadingLogo ? "Uploading..." : "Upload Logo"}
-            </span>
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleLogoUpload}
-              disabled={uploadingLogo}
-            />
-          </label>
-          <p className="text-[11px] text-[#5F6670]">
-            Displayed on salary invoices and the public website.
-          </p>
-        </Card>
-
-        {/* Basic Info Card */}
-        <Card className="flex flex-col gap-3.5">
-          <Field id="college-name" label="College Name" required>
-            <Input
-              value={profile.name}
-              onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-              placeholder="e.g. Apex Academic Institute"
-              disabled={loading || saving}
-            />
-          </Field>
-
-          <Field id="college-address" label="Campus Address" required>
-            <Input
-              value={profile.address}
-              onChange={(e) => setProfile({ ...profile, address: e.target.value })}
-              placeholder="e.g. 142 Galle Road, Colombo 03"
-              disabled={loading || saving}
-            />
-          </Field>
-
-          <Field id="college-phone" label="Contact Telephone" required>
-            <Input
-              type="tel"
-              value={profile.phone}
-              onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-              placeholder="e.g. +94 11 234 5678"
-              disabled={loading || saving}
-            />
-          </Field>
-
-          <Field id="college-email" label="Official Email Address" required>
-            <Input
-              type="email"
-              value={profile.email}
-              onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-              placeholder="e.g. info@apexcollege.lk"
-              disabled={loading || saving}
-            />
-          </Field>
-
-          <Field id="opening-hours" label="Opening Hours" hint="Weekly operational schedule">
-            <Input
-              value={profile.openingHours}
-              onChange={(e) => setProfile({ ...profile, openingHours: e.target.value })}
-              placeholder="e.g. Mon-Sat: 8:00 AM - 6:00 PM, Sun: 8:00 AM - 1:00 PM"
-              disabled={loading || saving}
-            />
-          </Field>
-
-          <Field id="college-about" label="Short About Text" hint="Brief overview shown on the public site">
-            <Textarea
-              value={profile.aboutText}
-              onChange={(e) => setProfile({ ...profile, aboutText: e.target.value })}
-              placeholder="State the college mission, faculties, and academic goals..."
-              disabled={loading || saving}
-            />
-          </Field>
-        </Card>
-
-        <Button
-          type="submit"
-          variant="primary"
-          fullWidth
-          loading={saving}
-          disabled={loading || saving}
-        >
-          Save College Profile
-        </Button>
+        </div>
       </form>
     </OwnerShell>
   );

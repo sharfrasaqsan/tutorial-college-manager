@@ -31,7 +31,7 @@ export default async function ContactPage() {
   const telUrl = college.phone ? `tel:${college.phone.replace(/\s+/g, "")}` : "";
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       {/* Header */}
       <div className="max-w-2xl mb-10">
         <span className="text-xs font-semibold uppercase tracking-wider text-[#1F5C4D]">
@@ -45,9 +45,9 @@ export default async function ContactPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Direct Contact Info & Actions */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-7 space-y-6">
           <div className="border border-[#E4E1DA] rounded-[6px] bg-[#FFFFFF] p-6 sm:p-8 shadow-xs">
             <h2 className="font-serif text-2xl font-semibold text-[#1C1F23] mb-6">
               College Administrative Office
@@ -183,7 +183,7 @@ export default async function ContactPage() {
         </div>
 
         {/* Right Column: Admission Guidelines & Visiting Notice */}
-        <div className="space-y-6">
+        <div className="lg:col-span-5 space-y-6">
           <div className="border border-[#E4E1DA] rounded-[6px] bg-[#FAF9F6] p-6">
             <div className="flex items-center gap-2 text-xs font-semibold text-[#1F5C4D] uppercase tracking-wider mb-2">
               <ShieldCheck className="w-4 h-4" />

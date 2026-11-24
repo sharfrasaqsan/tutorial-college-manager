@@ -5,7 +5,7 @@ import { NotificationsClientView } from "@/components/notifications/Notification
 
 export default function OwnerNotificationsPage() {
   return (
-    <OwnerShell pageTitle="Notifications">
+    <OwnerShell pageTitle="Notifications" maxWidth="wide">
       <PageHeader
         title="Notifications"
         subtitle="Make-up classes, salary milestones, correction requests, and fee reminders"

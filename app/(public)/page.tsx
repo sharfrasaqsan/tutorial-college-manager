@@ -128,8 +128,8 @@ export default async function HomePage() {
 
       {/* 2. Key Facts Section */}
       {sections.showKeyFacts && (
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 w-full">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6">
             <div className="border border-[#E4E1DA] rounded-[6px] bg-[#FFFFFF] p-5 shadow-xs flex items-start gap-4">
               <div className="w-10 h-10 rounded-[6px] bg-[#E6F0EC] text-[#1F5C4D] flex items-center justify-center shrink-0">
                 <MapPin className="w-5 h-5" />
@@ -186,7 +186,7 @@ export default async function HomePage() {
 
       {/* 3. Classes Preview by Grade */}
       {sections.showClasses && (
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 w-full">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-6 border-b border-[#E4E1DA] pb-4">
             <div>
               <span className="text-xs font-semibold uppercase tracking-wider text-[#1F5C4D]">
@@ -270,7 +270,7 @@ export default async function HomePage() {
       {/* 4. Teacher Strip Section */}
       {sections.showTeacherStrip && teachers.length > 0 && (
         <section className="bg-[#FFFFFF] border-y border-[#E4E1DA] py-12">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-8">
               <div>
                 <span className="text-xs font-semibold uppercase tracking-wider text-[#1F5C4D]">
@@ -289,7 +289,7 @@ export default async function HomePage() {
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {teachers.slice(0, 4).map((t) => (
                 <div
                   key={t.id}
@@ -336,44 +336,46 @@ export default async function HomePage() {
 
       {/* 5. Contact & Campus Hours Block */}
       {sections.showContactBlock && (
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 w-full">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <div className="border border-[#E4E1DA] rounded-[6px] bg-[#FFFFFF] p-6 sm:p-8 shadow-xs">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-[#1F5C4D]">
-                  Campus &amp; Admissions
-                </span>
-                <h2 className="font-serif text-2xl sm:text-3xl font-semibold text-[#1C1F23] mt-1 mb-4">
-                  Visit Us or Connect Today
-                </h2>
-                <p className="text-xs sm:text-sm text-[#5F6670] leading-relaxed mb-6">
-                  {college.aboutText ||
-                    "Our administrative office is open for parent inquiries, student registrations, syllabus questions, and timetable consultations."}
-                </p>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+              <div className="lg:col-span-7 flex flex-col justify-between">
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-[#1F5C4D]">
+                    Campus &amp; Admissions
+                  </span>
+                  <h2 className="font-serif text-2xl sm:text-3xl font-semibold text-[#1C1F23] mt-1 mb-4">
+                    Visit Us or Connect Today
+                  </h2>
+                  <p className="text-xs sm:text-sm text-[#5F6670] leading-relaxed mb-6">
+                    {college.aboutText ||
+                      "Our administrative office is open for parent inquiries, student registrations, syllabus questions, and timetable consultations."}
+                  </p>
 
-                <div className="flex flex-col gap-3 text-xs text-[#5F6670]">
-                  {college.address && (
-                    <div className="flex items-start gap-3">
-                      <MapPin className="w-4 h-4 text-[#1F5C4D] shrink-0 mt-0.5" />
-                      <div>
-                        <div className="font-medium text-[#1C1F23]">Address</div>
-                        <div>{college.address}</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-[#5F6670] mb-6">
+                    {college.address && (
+                      <div className="flex items-start gap-3">
+                        <MapPin className="w-4 h-4 text-[#1F5C4D] shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-medium text-[#1C1F23]">Address</div>
+                          <div>{college.address}</div>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {college.openingHours && (
-                    <div className="flex items-start gap-3">
-                      <Clock className="w-4 h-4 text-[#1F5C4D] shrink-0 mt-0.5" />
-                      <div>
-                        <div className="font-medium text-[#1C1F23]">Office &amp; Classroom Hours</div>
-                        <div>{college.openingHours}</div>
+                    {college.openingHours && (
+                      <div className="flex items-start gap-3">
+                        <Clock className="w-4 h-4 text-[#1F5C4D] shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-medium text-[#1C1F23]">Office &amp; Classroom Hours</div>
+                          <div>{college.openingHours}</div>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 mt-6">
+                <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-[#E4E1DA]">
                   {waUrl && (
                     <a
                       href={waUrl}
@@ -411,7 +413,7 @@ export default async function HomePage() {
               </div>
 
               {/* Weekly Timetable Callout Card */}
-              <div className="bg-[#FAF9F6] border border-[#E4E1DA] rounded-[6px] p-6 flex flex-col justify-between">
+              <div className="lg:col-span-5 bg-[#FAF9F6] border border-[#E4E1DA] rounded-[6px] p-6 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center gap-2 text-xs font-semibold text-[#1F5C4D] uppercase tracking-wider mb-2">
                     <Calendar className="w-4 h-4" />

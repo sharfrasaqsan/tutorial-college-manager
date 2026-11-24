@@ -132,16 +132,16 @@ function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-[375px] mx-auto flex flex-col gap-5">
+    <div className="w-full max-w-[375px] sm:max-w-md mx-auto flex flex-col gap-6">
       {/* College Header */}
       <div className="text-center">
         <span className="text-xs font-semibold uppercase tracking-wider text-[#1F5C4D]">
           Tutorial College Manager
         </span>
-        <h1 className="text-xl font-semibold text-[#1C1F23] mt-1 tracking-tight">
+        <h1 className="text-2xl font-serif font-semibold text-[#1C1F23] mt-1.5 tracking-tight">
           Sign In
         </h1>
-        <p className="text-xs text-[#5F6670] mt-0.5">
+        <p className="text-xs text-[#5F6670] mt-1">
           Owner and teacher portal access
         </p>
       </div>
@@ -150,7 +150,7 @@ function LoginForm() {
       {errorMessage && <Toast message={errorMessage} variant="danger" />}
 
       {/* Login Card */}
-      <Card className="p-5">
+      <Card className="p-6 sm:p-7 shadow-xs">
         <form onSubmit={handleLogin} className="flex flex-col gap-4">
           <Field id="login-email" label="Email Address" required>
             <Input
@@ -260,7 +260,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#FAF9F6] text-[#1C1F23] flex flex-col justify-center px-4 py-8">
       <Suspense
         fallback={
-          <div className="w-full max-w-[375px] mx-auto p-4 flex flex-col gap-4">
+          <div className="w-full max-w-[375px] sm:max-w-md mx-auto p-4 flex flex-col gap-4">
             <Skeleton variant="rectangular" height={40} />
             <Skeleton variant="rectangular" height={180} />
           </div>

@@ -168,75 +168,132 @@ export function PublicTimetableClient({
           </p>
         </div>
       ) : (
-        <div className="space-y-8 print:space-y-6">
-          {WEEKDAYS.map((day) => {
-            const daySlots = slotsByWeekday[day.index] || [];
-            if (activeDayTab !== "all" && activeDayTab !== day.index) return null;
-            if (daySlots.length === 0) return null;
-
-            return (
-              <div
-                key={day.index}
-                className="border border-[#E4E1DA] rounded-[6px] bg-[#FFFFFF] overflow-hidden shadow-xs print:border print:border-[#1C1F23] print:shadow-none break-inside-avoid"
-              >
-                {/* Day Header */}
-                <div className="bg-[#FAF9F6] border-b border-[#E4E1DA] px-4 py-3 flex items-center justify-between print:bg-transparent print:border-b-2 print:border-[#1C1F23]">
-                  <div className="flex items-center gap-2">
-                    <span className="font-serif font-semibold text-base text-[#1C1F23]">
+        <>
+          {/* DESKTOP CALENDAR MATRIX (>=1024px, hidden during print) */}
+          <div className="hidden lg:grid print:hidden lg:grid-cols-7 gap-3 items-start">
+            {WEEKDAYS.map((day) => {
+              const daySlots = slotsByWeekday[day.index] || [];
+              return (
+                <div
+                  key={day.index}
+                  className="bg-[#FAF9F6] border border-[#E4E1DA] rounded-[6px] p-2.5 flex flex-col gap-2 min-h-[480px]"
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-[#E4E1DA]">
+                    <span className="font-semibold text-xs text-[#1C1F23]">
                       {day.name}
                     </span>
-                    <span className="text-xs text-[#5F6670]">
-                      ({daySlots.length} {daySlots.length === 1 ? "Class" : "Classes"})
+                    <span className="text-[10px] font-medium text-[#5F6670] bg-white px-1.5 py-0.5 rounded border border-[#E4E1DA]">
+                      {daySlots.length}
                     </span>
                   </div>
-                  <span className="text-[11px] font-medium text-[#1F5C4D] bg-[#E6F0EC] px-2 py-0.5 rounded-[4px] print:hidden">
-                    Weekly Regular Slot
-                  </span>
-                </div>
 
-                {/* Day Slots List / Table */}
-                <div className="divide-y divide-[#E4E1DA]">
-                  {daySlots.map((slot) => (
-                    <div
-                      key={slot.id}
-                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF9F6]/50 transition-colors"
-                    >
-                      {/* Left: Time & Class details */}
-                      <div className="flex items-start gap-4">
-                        <div className="w-24 shrink-0 font-mono text-xs font-semibold text-[#1F5C4D] bg-[#E6F0EC]/80 px-2.5 py-1.5 rounded-[4px] text-center border border-[#E4E1DA]/50 print:bg-transparent print:border-[#1C1F23]">
-                          {slot.startTime} – {slot.endTime}
-                        </div>
-
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-serif font-semibold text-base text-[#1C1F23]">
+                  <div className="flex flex-col gap-2 flex-1">
+                    {daySlots.length === 0 ? (
+                      <div className="text-[11px] text-[#5F6670] text-center py-8 italic">
+                        No classes
+                      </div>
+                    ) : (
+                      daySlots.map((slot) => (
+                        <div
+                          key={slot.id}
+                          className="bg-white border border-[#E4E1DA] rounded p-2.5 flex flex-col gap-1.5 shadow-2xs hover:border-[#1F5C4D] transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-1">
+                            <span className="font-serif font-semibold text-xs text-[#1C1F23]">
                               {slot.subject}
                             </span>
-                            <span className="text-[11px] font-medium bg-[#FAF9F6] border border-[#E4E1DA] text-[#1C1F23] px-2 py-0.5 rounded-[4px]">
+                            <span className="text-[10px] bg-[#FAF9F6] border border-[#E4E1DA] text-[#1C1F23] px-1.5 py-0.2 rounded shrink-0">
                               {slot.grade}
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-1.5 text-xs text-[#5F6670] mt-1">
-                            <User className="w-3.5 h-3.5 text-[#1F5C4D]" />
-                            <span>Faculty: <strong className="text-[#1C1F23] font-medium">{slot.teacherName}</strong></span>
+                          <div className="text-[11px] font-mono font-medium text-[#1F5C4D] bg-[#E6F0EC]/60 px-1.5 py-0.5 rounded text-center">
+                            {slot.startTime} – {slot.endTime}
+                          </div>
+
+                          <div className="text-[11px] text-[#5F6670] truncate">
+                            {slot.teacherName}
                           </div>
                         </div>
-                      </div>
-
-                      {/* Right: Badge */}
-                      <div className="text-right shrink-0 print:hidden">
-                        <span className="text-[11px] text-[#5F6670]">
-                          Recurring weekly
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+
+          {/* MOBILE & PRINT VIEW: List by Day (<1024px or Print) */}
+          <div className="block lg:hidden print:block space-y-8 print:space-y-6">
+            {WEEKDAYS.map((day) => {
+              const daySlots = slotsByWeekday[day.index] || [];
+              if (activeDayTab !== "all" && activeDayTab !== day.index) return null;
+              if (daySlots.length === 0) return null;
+
+              return (
+                <div
+                  key={day.index}
+                  className="border border-[#E4E1DA] rounded-[6px] bg-[#FFFFFF] overflow-hidden shadow-xs print:border print:border-[#1C1F23] print:shadow-none break-inside-avoid"
+                >
+                  {/* Day Header */}
+                  <div className="bg-[#FAF9F6] border-b border-[#E4E1DA] px-4 py-3 flex items-center justify-between print:bg-transparent print:border-b-2 print:border-[#1C1F23]">
+                    <div className="flex items-center gap-2">
+                      <span className="font-serif font-semibold text-base text-[#1C1F23]">
+                        {day.name}
+                      </span>
+                      <span className="text-xs text-[#5F6670]">
+                        ({daySlots.length} {daySlots.length === 1 ? "Class" : "Classes"})
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-medium text-[#1F5C4D] bg-[#E6F0EC] px-2 py-0.5 rounded-[4px] print:hidden">
+                      Weekly Regular Slot
+                    </span>
+                  </div>
+
+                  {/* Day Slots List / Table */}
+                  <div className="divide-y divide-[#E4E1DA]">
+                    {daySlots.map((slot) => (
+                      <div
+                        key={slot.id}
+                        className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF9F6]/50 transition-colors"
+                      >
+                        {/* Left: Time & Class details */}
+                        <div className="flex items-start gap-4">
+                          <div className="w-24 shrink-0 font-mono text-xs font-semibold text-[#1F5C4D] bg-[#E6F0EC]/80 px-2.5 py-1.5 rounded-[4px] text-center border border-[#E4E1DA]/50 print:bg-transparent print:border-[#1C1F23]">
+                            {slot.startTime} – {slot.endTime}
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-serif font-semibold text-base text-[#1C1F23]">
+                                {slot.subject}
+                              </span>
+                              <span className="text-[11px] font-medium bg-[#FAF9F6] border border-[#E4E1DA] text-[#1C1F23] px-2 py-0.5 rounded-[4px]">
+                                {slot.grade}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 text-xs text-[#5F6670] mt-1">
+                              <User className="w-3.5 h-3.5 text-[#1F5C4D]" />
+                              <span>Faculty: <strong className="text-[#1C1F23] font-medium">{slot.teacherName}</strong></span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right: Badge */}
+                        <div className="text-right shrink-0 print:hidden">
+                          <span className="text-[11px] text-[#5F6670]">
+                            Recurring weekly
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {/* Note footer */}

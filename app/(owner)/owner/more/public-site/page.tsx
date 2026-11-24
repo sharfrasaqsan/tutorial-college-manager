@@ -125,7 +125,7 @@ export default function PublicSiteEditorPage() {
   }
 
   return (
-    <OwnerShell pageTitle="Public Site Settings">
+    <OwnerShell pageTitle="Public Site Settings" maxWidth="wide">
       <div className="flex items-center justify-between mb-2">
         <Link
           href="/owner/more"
@@ -154,8 +154,10 @@ export default function PublicSiteEditorPage() {
           Loading public site settings...
         </Card>
       ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          {/* Section 1: Hero & Promise */}
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left Column: Content Cards */}
+          <div className="lg:col-span-7 flex flex-col gap-6">
+            {/* Section 1: Hero & Promise */}
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -300,8 +302,11 @@ export default function PublicSiteEditorPage() {
               </Field>
             </div>
           </Card>
+          </div>
 
-          {/* Section 4: Section Visibility Toggles */}
+          {/* Right Column: Controls & Visibility */}
+          <div className="lg:col-span-5 flex flex-col gap-6">
+            {/* Section 4: Section Visibility Toggles */}
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -435,15 +440,17 @@ export default function PublicSiteEditorPage() {
             )}
           </Card>
 
-          {/* Action Bar */}
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={saving}
-            >
-              {saving ? "Publishing Changes..." : "Save & Publish Public Site"}
-            </Button>
+            {/* Action Bar */}
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                type="submit"
+                variant="primary"
+                className="w-full sm:w-auto"
+                disabled={saving}
+              >
+                {saving ? "Publishing Changes..." : "Save & Publish Public Site"}
+              </Button>
+            </div>
           </div>
         </form>
       )}

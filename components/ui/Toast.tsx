@@ -10,6 +10,7 @@ export interface ToastProps {
   variant?: ToastVariant;
   onDismiss?: () => void;
   className?: string;
+  inline?: boolean;
 }
 
 export function Toast({
@@ -17,6 +18,7 @@ export function Toast({
   variant = "info",
   onDismiss,
   className = "",
+  inline = false,
 }: ToastProps) {
   const variantStyles = {
     info: "bg-[#FFFFFF] text-[#1C1F23] border-[#E4E1DA]",
@@ -32,11 +34,15 @@ export function Toast({
     danger: AlertCircle,
   }[variant];
 
+  const positionClass = inline
+    ? ""
+    : "md:fixed md:top-5 md:right-5 md:z-50 md:min-w-[320px] md:max-w-md md:shadow-md";
+
   return (
     <div
       role="status"
       aria-live="polite"
-      className={`flex items-center justify-between gap-3 px-3 py-2.5 text-xs border rounded-[6px] ${variantStyles} ${className}`}
+      className={`flex items-center justify-between gap-3 px-3.5 py-2.5 text-xs border rounded-[6px] ${variantStyles} ${positionClass} ${className}`}
     >
       <div className="flex items-center gap-2">
         <IconComponent className="w-4 h-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />

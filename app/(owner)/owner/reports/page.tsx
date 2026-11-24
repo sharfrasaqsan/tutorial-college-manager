@@ -10,7 +10,7 @@ export default async function OwnerReportsPage() {
   const selectedYear = cookieStore.get(YEAR_COOKIE_NAME)?.value || "2026";
 
   return (
-    <OwnerShell pageTitle={`Reports & Statements (${selectedYear})`}>
+    <OwnerShell pageTitle={`Reports & Statements (${selectedYear})`} maxWidth="wide">
       <PageHeader
         title={`Reports & Statements (${selectedYear})`}
         subtitle="Monthly financial statements, student payments, arrears & teacher salary reports"
