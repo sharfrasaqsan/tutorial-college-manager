@@ -90,10 +90,10 @@ export default function OwnerMorePage() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       await signOut(auth);
-      router.push("/login");
+      window.location.replace("/login");
     } catch (err) {
       console.error("Logout error:", err);
-      router.push("/login");
+      window.location.replace("/login");
     }
   }
 

@@ -70,24 +70,20 @@ function LoginForm() {
 
       // 3. Determine redirect based on custom claim role
       const userRole = data.role;
+      let targetUrl = userRole === "owner" ? "/owner" : "/teacher";
       if (fromParam) {
         if (fromParam.startsWith("/owner") && userRole === "owner") {
-          router.push(fromParam);
-          return;
-        }
-        if (fromParam.startsWith("/teacher") && userRole === "teacher") {
-          router.push(fromParam);
-          return;
+          targetUrl = fromParam;
+        } else if (fromParam.startsWith("/teacher") && userRole === "teacher") {
+          targetUrl = fromParam;
         }
       }
 
-      // Default redirect
-      if (userRole === "owner") {
-        router.push("/owner");
-      } else {
-        router.push("/teacher");
-      }
+      // Hard redirect to ensure clean server session hydration & prevent loading stall
+      window.location.replace(targetUrl);
+      return;
     } catch (err: any) {
+      setLoading(false);
       console.error("Login error:", err);
       const code = err.code || "";
       if (
@@ -104,8 +100,6 @@ function LoginForm() {
       } else {
         setErrorMessage(err.message || "An error occurred during sign-in. Please try again.");
       }
-    } finally {
-      setLoading(false);
     }
   }
 

@@ -80,9 +80,9 @@ export function TeacherShell({
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       await signOut(auth);
-      router.push("/login");
+      window.location.replace("/login");
     } catch {
-      router.push("/login");
+      window.location.replace("/login");
     }
   }
 
