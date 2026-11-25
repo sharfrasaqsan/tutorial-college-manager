@@ -26,8 +26,12 @@ import {
   ShieldCheck,
   ExternalLink,
   Menu,
+  Edit2,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -74,6 +78,17 @@ export function OwnerShell({
   const [collegeName, setCollegeName] = useState("Tutorial College");
   const [collegeLogo, setCollegeLogo] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+
+  // Edit & Delete Academic Year states (with double confirmation on delete)
+  const [editingYear, setEditingYear] = useState<AcademicYear | null>(null);
+  const [editYearName, setEditYearName] = useState("");
+  const [editYearStatus, setEditYearStatus] = useState<"active" | "archived">("active");
+  const [isUpdatingYear, setIsUpdatingYear] = useState(false);
+
+  const [deleteStep1Year, setDeleteStep1Year] = useState<AcademicYear | null>(null);
+  const [deleteStep2Year, setDeleteStep2Year] = useState<AcademicYear | null>(null);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
+  const [isDeletingYear, setIsDeletingYear] = useState(false);
 
   useEffect(() => {
     async function loadNotifications() {
@@ -171,11 +186,94 @@ export function OwnerShell({
       setNewYearInput("");
       setSheetOpen(false);
       setFirstTimeModal(false);
+      window.dispatchEvent(new CustomEvent("tcm-year-changed", { detail: { year: data.year.id } }));
       router.refresh();
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to create academic year.");
     } finally {
       setIsCreating(false);
+    }
+  }
+
+  function startEditingYear(yearItem: AcademicYear) {
+    setErrorMessage("");
+    setEditingYear(yearItem);
+    setEditYearName(yearItem.name || yearItem.id);
+    setEditYearStatus(yearItem.status || "active");
+  }
+
+  async function handleSaveEditYear(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingYear) return;
+    setErrorMessage("");
+
+    const trimmedName = editYearName.trim();
+    if (!trimmedName) {
+      setErrorMessage("Display name cannot be empty.");
+      return;
+    }
+
+    setIsUpdatingYear(true);
+    try {
+      const res = await fetch(`/api/owner/years/${editingYear.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmedName, status: editYearStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update academic year.");
+      }
+
+      setYears((prev) =>
+        prev.map((y) => (y.id === editingYear.id ? data.year : y))
+      );
+      setEditingYear(null);
+      router.refresh();
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to update academic year.");
+    } finally {
+      setIsUpdatingYear(false);
+    }
+  }
+
+  async function handleConfirmDeleteYear(e: React.FormEvent) {
+    e.preventDefault();
+    if (!deleteStep2Year) return;
+    setErrorMessage("");
+
+    if (deleteConfirmInput.trim() !== deleteStep2Year.id) {
+      setErrorMessage(`Please type "${deleteStep2Year.id}" exactly to confirm deletion.`);
+      return;
+    }
+
+    setIsDeletingYear(true);
+    try {
+      const res = await fetch(`/api/owner/years/${deleteStep2Year.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmYear: deleteConfirmInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete academic year.");
+      }
+
+      const remaining: AcademicYear[] = data.years || years.filter((y) => y.id !== deleteStep2Year.id);
+      setYears(remaining);
+      if (data.nextSelectedYear && data.nextSelectedYear !== selectedYear) {
+        setSelectedYear(data.nextSelectedYear);
+        window.dispatchEvent(
+          new CustomEvent("tcm-year-changed", { detail: { year: data.nextSelectedYear } })
+        );
+      }
+      setDeleteStep2Year(null);
+      setDeleteConfirmInput("");
+      router.refresh();
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to delete academic year.");
+    } finally {
+      setIsDeletingYear(false);
     }
   }
 
@@ -483,15 +581,16 @@ export function OwnerShell({
         </div>
       </nav>
 
-      {/* Year Selection Sheet / Drawer */}
+      {/* Year Selection & Management Sheet / Drawer */}
       <BottomSheet
         open={sheetOpen}
         onClose={() => {
           setSheetOpen(false);
+          setEditingYear(null);
           setErrorMessage("");
         }}
-        title="Select Academic Year"
-        description="Choose the active academic year to view classes, fees, timetable, and salaries."
+        title="Manage Academic Years"
+        description="Select, edit, create, or remove academic years."
       >
         <div className="flex flex-col gap-4 py-2">
           {errorMessage && <Toast message={errorMessage} variant="danger" />}
@@ -500,30 +599,160 @@ export function OwnerShell({
           <div className="flex flex-col divide-y divide-[#E4E1DA] border border-[#E4E1DA] rounded-[6px] overflow-hidden">
             {years.map((yearItem) => {
               const isCurrent = yearItem.id === selectedYear;
+              const isOnlyYear = years.length <= 1;
+
               return (
-                <button
+                <div
                   key={yearItem.id}
-                  type="button"
-                  onClick={() => handleSelectYear(yearItem.id)}
-                  className={`min-h-[44px] w-full px-4 py-3 text-left flex items-center justify-between text-xs transition-colors ${
+                  className={`min-h-[48px] w-full px-3 py-2 flex items-center justify-between gap-2 text-xs transition-colors ${
                     isCurrent
-                      ? "bg-[#E6F0EC] text-[#1F5C4D] font-semibold"
+                      ? "bg-[#E6F0EC] text-[#1F5C4D]"
                       : "bg-[#FFFFFF] text-[#1C1F23] hover:bg-[#FAF9F6]"
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="tabular-nums text-sm">{yearItem.name || yearItem.id}</span>
-                    {yearItem.status === "active" && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FAF9F6] border border-[#E4E1DA] text-[#5F6670]">
-                        Active
+                  <button
+                    type="button"
+                    onClick={() => handleSelectYear(yearItem.id)}
+                    className="flex-1 min-w-0 text-left flex items-center gap-2 py-1"
+                  >
+                    <span className={`tabular-nums text-sm truncate ${isCurrent ? "font-semibold" : "font-medium"}`}>
+                      {yearItem.name || yearItem.id}
+                    </span>
+                    {yearItem.name && yearItem.name !== yearItem.id && (
+                      <span className="text-[10px] text-[#5F6670] tabular-nums">
+                        ({yearItem.id})
                       </span>
                     )}
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                        yearItem.status === "archived"
+                          ? "bg-[#F0EFEB] border-[#E4E1DA] text-[#5F6670]"
+                          : "bg-[#FAF9F6] border-[#E4E1DA] text-[#1F5C4D]"
+                      }`}
+                    >
+                      {yearItem.status === "archived" ? "Archived" : "Active"}
+                    </span>
+                    {isCurrent && <Check className="w-4 h-4 text-[#1F5C4D] shrink-0" />}
+                  </button>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEditingYear(yearItem);
+                      }}
+                      title={`Edit ${yearItem.id}`}
+                      aria-label={`Edit academic year ${yearItem.id}`}
+                      className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-[4px] text-[#5F6670] hover:text-[#1F5C4D] hover:bg-[#FAF9F6] transition-colors"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isOnlyYear}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setErrorMessage("");
+                        setDeleteStep1Year(yearItem);
+                      }}
+                      title={
+                        isOnlyYear
+                          ? "Cannot delete the only academic year"
+                          : `Delete ${yearItem.id}`
+                      }
+                      aria-label={`Delete academic year ${yearItem.id}`}
+                      className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-[4px] text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7]/50 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    </button>
                   </div>
-                  {isCurrent && <Check className="w-4 h-4 text-[#1F5C4D]" />}
-                </button>
+                </div>
               );
             })}
           </div>
+
+          {/* Inline Edit Year Form */}
+          {editingYear && (
+            <form
+              onSubmit={handleSaveEditYear}
+              className="p-3.5 rounded-[6px] border border-[#1F5C4D]/40 bg-[#FAF9F6] flex flex-col gap-3"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#1C1F23]">
+                  Edit Academic Year ({editingYear.id})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEditingYear(null)}
+                  className="text-[11px] text-[#5F6670] hover:text-[#1C1F23]"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <Field id="editYearName" label="Display Name" required>
+                <Input
+                  type="text"
+                  value={editYearName}
+                  onChange={(e) => setEditYearName(e.target.value)}
+                  placeholder={editingYear.id}
+                  maxLength={50}
+                  disabled={isUpdatingYear}
+                />
+              </Field>
+
+              <Field id="editYearStatus" label="Year Status">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditYearStatus("active")}
+                    disabled={isUpdatingYear}
+                    className={`min-h-[38px] rounded-[6px] border text-xs font-medium transition-colors ${
+                      editYearStatus === "active"
+                        ? "bg-[#E6F0EC] border-[#1F5C4D] text-[#1F5C4D]"
+                        : "bg-[#FFFFFF] border-[#E4E1DA] text-[#5F6670]"
+                    }`}
+                  >
+                    Active
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditYearStatus("archived")}
+                    disabled={isUpdatingYear}
+                    className={`min-h-[38px] rounded-[6px] border text-xs font-medium transition-colors ${
+                      editYearStatus === "archived"
+                        ? "bg-[#F0EFEB] border-[#1C1F23] text-[#1C1F23]"
+                        : "bg-[#FFFFFF] border-[#E4E1DA] text-[#5F6670]"
+                    }`}
+                  >
+                    Archived
+                  </button>
+                </div>
+              </Field>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setEditingYear(null)}
+                  disabled={isUpdatingYear}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  loading={isUpdatingYear}
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          )}
 
           {/* Create New Year Form */}
           <form onSubmit={handleCreateYear} className="pt-2 border-t border-[#E4E1DA] flex flex-col gap-3">
@@ -547,6 +776,84 @@ export function OwnerShell({
             </Button>
           </form>
         </div>
+      </BottomSheet>
+
+      {/* Delete Academic Year - Step 1 Confirmation */}
+      <ConfirmDialog
+        open={Boolean(deleteStep1Year)}
+        onClose={() => setDeleteStep1Year(null)}
+        onConfirm={() => {
+          const target = deleteStep1Year;
+          setDeleteStep1Year(null);
+          setDeleteConfirmInput("");
+          setDeleteStep2Year(target);
+        }}
+        title={`Delete Academic Year ${deleteStep1Year?.id || ""}?`}
+        description={`This will permanently remove Academic Year ${deleteStep1Year?.id || ""} along with all classes, enrolments, timetable slots, sessions, fee records, and salary invoices inside this year. Permanent student and teacher profiles are kept.`}
+        confirmLabel="Continue"
+        cancelLabel="Cancel"
+        variant="danger"
+      />
+
+      {/* Delete Academic Year - Step 2 Final Typed Confirmation */}
+      <BottomSheet
+        open={Boolean(deleteStep2Year)}
+        onClose={() => {
+          if (!isDeletingYear) {
+            setDeleteStep2Year(null);
+            setDeleteConfirmInput("");
+          }
+        }}
+        title="Final Delete Confirmation"
+        description={`Type "${deleteStep2Year?.id || ""}" below to permanently delete this academic year. This cannot be undone.`}
+      >
+        <form onSubmit={handleConfirmDeleteYear} className="flex flex-col gap-4 py-2">
+          <div className="p-3 rounded-[6px] bg-[#FBE9E7]/60 border border-[#A32A2A]/30 flex items-start gap-2.5 text-xs text-[#A32A2A]">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} />
+            <div>
+              <strong>Permanent Action:</strong> All classes, timetable schedules, fee collections, and salary records for{" "}
+              <span className="font-semibold">{deleteStep2Year?.id}</span> will be erased permanently.
+            </div>
+          </div>
+
+          <Field
+            id="confirmDeleteYearInput"
+            label={`Type ${deleteStep2Year?.id || ""} to confirm`}
+            required
+          >
+            <Input
+              type="text"
+              placeholder={deleteStep2Year?.id || ""}
+              value={deleteConfirmInput}
+              onChange={(e) => setDeleteConfirmInput(e.target.value)}
+              maxLength={4}
+              disabled={isDeletingYear}
+              autoFocus
+            />
+          </Field>
+
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setDeleteStep2Year(null);
+                setDeleteConfirmInput("");
+              }}
+              disabled={isDeletingYear}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="danger"
+              loading={isDeletingYear}
+              disabled={isDeletingYear || deleteConfirmInput.trim() !== deleteStep2Year?.id}
+            >
+              Permanently Delete {deleteStep2Year?.id}
+            </Button>
+          </div>
+        </form>
       </BottomSheet>
     </div>
   );
