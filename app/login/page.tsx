@@ -20,6 +20,7 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState<"idle" | "verifying" | "redirecting">("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
   // Forgot password state
@@ -39,6 +40,7 @@ function LoginForm() {
     }
 
     setLoading(true);
+    setLoadingStatus("verifying");
 
     try {
       // 1. Sign in with Firebase Client Auth
@@ -79,11 +81,14 @@ function LoginForm() {
         }
       }
 
-      // Hard redirect to ensure clean server session hydration & prevent loading stall
-      window.location.replace(targetUrl);
+      // 4. Update status and initiate seamless client transition
+      setLoadingStatus("redirecting");
+      router.replace(targetUrl);
+
       return;
     } catch (err: any) {
       setLoading(false);
+      setLoadingStatus("idle");
       console.error("Login error:", err);
       const code = err.code || "";
       if (
@@ -198,7 +203,11 @@ function LoginForm() {
             loading={loading}
             disabled={loading}
           >
-            Sign In
+            {loadingStatus === "redirecting"
+              ? "Opening dashboard..."
+              : loadingStatus === "verifying"
+              ? "Signing in..."
+              : "Sign In"}
           </Button>
         </form>
       </Card>
