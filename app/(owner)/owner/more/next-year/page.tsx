@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Toast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { ArrowLeft, AlertCircle, CheckCircle2, CalendarPlus } from "lucide-react";
 import type { AcademicYear } from "@/types";
 
@@ -116,7 +117,22 @@ export default function StartNextYearPage() {
           </div>
         )}
 
-        {alreadyPromoted ? (
+        {loading ? (
+          <div className="space-y-4">
+            <Card className="p-5 space-y-4">
+              <Skeleton className="h-6 w-56" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Skeleton height="72px" />
+                <Skeleton height="72px" />
+                <Skeleton height="72px" />
+                <Skeleton height="72px" />
+              </div>
+            </Card>
+            <div className="flex justify-end">
+              <Skeleton className="h-10 w-full sm:w-52" />
+            </div>
+          </div>
+        ) : alreadyPromoted ? (
           <Card className="flex flex-col gap-3">
             <div className="flex items-center gap-2 text-[#1F5C4D]">
               <CheckCircle2 className="w-5 h-5 shrink-0" strokeWidth={1.75} />

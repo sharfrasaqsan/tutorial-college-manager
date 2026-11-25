@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Toast } from "@/components/ui/Toast";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { ArrowLeft, Plus, Edit2, Eye, EyeOff, BookOpen, GraduationCap } from "lucide-react";
 import type { AcademicGrade, AcademicSubject } from "@/types";
 
@@ -151,7 +152,13 @@ export default function AcademicSettingsPage() {
         </div>
 
         {/* TAB 1: GRADES */}
-        {activeTab === "grades" && (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Skeleton key={i} height="52px" />
+            ))}
+          </div>
+        ) : activeTab === "grades" && (
           <div className="flex flex-col gap-4">
             <div className="flex justify-between items-center">
               <p className="text-xs text-[#5F6670]">
@@ -228,7 +235,7 @@ export default function AcademicSettingsPage() {
         )}
 
         {/* TAB 2: SUBJECTS */}
-        {activeTab === "subjects" && (
+        {!loading && activeTab === "subjects" && (
           <div className="flex flex-col gap-4">
             <div className="flex justify-between items-center">
               <p className="text-xs text-[#5F6670]">

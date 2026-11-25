@@ -7,9 +7,9 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   updatePassword,
-  signOut,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { performSignOut } from "@/lib/client-auth";
 import { TeacherShell } from "@/components/layout/TeacherShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -36,6 +36,7 @@ export default function TeacherMorePage() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -92,10 +93,10 @@ export default function TeacherMorePage() {
   }
 
   async function handleSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      await signOut(auth);
-      window.location.replace("/login");
+      await performSignOut(router);
     } catch (err) {
       console.error("Logout error:", err);
       window.location.replace("/login");
@@ -304,11 +305,13 @@ export default function TeacherMorePage() {
                 type="button"
                 variant="secondary"
                 fullWidth
+                loading={signingOut}
+                disabled={signingOut}
                 onClick={handleSignOut}
                 className="text-xs h-9"
               >
-                <LogOut className="w-4 h-4 mr-2 text-[#5F6670]" strokeWidth={1.75} aria-hidden="true" />
-                Sign Out
+                {!signingOut && <LogOut className="w-4 h-4 mr-2 text-[#5F6670]" strokeWidth={1.75} aria-hidden="true" />}
+                {signingOut ? "Signing out..." : "Sign Out"}
               </Button>
             </div>
           </Card>

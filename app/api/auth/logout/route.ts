@@ -1,13 +1,23 @@
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE_NAME } from "@/lib/auth";
-import { cookies } from "next/headers";
+
+const SESSION_COOKIE_NAME = "__session";
+
+export const dynamic = "force-dynamic";
 
 export async function POST() {
-  const cookieStore = await cookies();
-  cookieStore.delete(SESSION_COOKIE_NAME);
-
-  return NextResponse.json({
+  const response = NextResponse.json({
     status: "ok",
     message: "Logged out successfully.",
   });
+
+  // Delete session cookie directly on the response headers (no firebase-admin needed)
+  response.cookies.set(SESSION_COOKIE_NAME, "", {
+    maxAge: 0,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    sameSite: "lax",
+  });
+
+  return response;
 }

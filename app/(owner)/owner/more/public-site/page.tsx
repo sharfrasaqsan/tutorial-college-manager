@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { Toast } from "@/components/ui/Toast";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { ArrowLeft, Globe, Eye, Phone, MessageSquare, MapPin, Award, CheckCircle2, ExternalLink } from "lucide-react";
 import type { PublicSiteSettings } from "@/types";
 
@@ -150,9 +151,32 @@ export default function PublicSiteEditorPage() {
       />
 
       {loading ? (
-        <Card className="p-8 text-center text-xs text-[#5F6670]">
-          Loading public site settings...
-        </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="lg:col-span-7 flex flex-col gap-6">
+            <Card className="p-5 space-y-4">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-11 w-full" />
+              <Skeleton className="h-11 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </Card>
+            <Card className="p-5 space-y-4">
+              <Skeleton className="h-6 w-40" />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Skeleton className="h-11 w-full" />
+                <Skeleton className="h-11 w-full" />
+                <Skeleton className="h-11 w-full" />
+              </div>
+            </Card>
+          </div>
+          <div className="lg:col-span-5 flex flex-col gap-6">
+            <Card className="p-5 space-y-3">
+              <Skeleton className="h-6 w-44" />
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} height="48px" />
+              ))}
+            </Card>
+          </div>
+        </div>
       ) : (
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Content Cards */}

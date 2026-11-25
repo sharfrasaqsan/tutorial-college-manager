@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -22,6 +22,15 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState<"idle" | "verifying" | "redirecting">("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+    };
+  }, []);
 
   // Forgot password state
   const [forgotOpen, setForgotOpen] = useState(false);
@@ -45,7 +54,7 @@ function LoginForm() {
     try {
       // 1. Sign in with Firebase Client Auth
       const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
-      const idToken = await userCredential.user.getIdToken(true);
+      const idToken = await userCredential.user.getIdToken();
 
       // 2. Exchange ID token for a secure HTTP-only session cookie
       const response = await fetch("/api/auth/session", {
@@ -84,6 +93,13 @@ function LoginForm() {
       // 4. Update status and initiate seamless client transition
       setLoadingStatus("redirecting");
       router.replace(targetUrl);
+
+      // Safety fallback: if client router hasn't left /login within 800ms, force browser navigation
+      redirectTimerRef.current = setTimeout(() => {
+        if (window.location.pathname === "/login") {
+          window.location.replace(targetUrl);
+        }
+      }, 800);
 
       return;
     } catch (err: any) {

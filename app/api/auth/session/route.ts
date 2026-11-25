@@ -22,8 +22,8 @@ export async function POST(request: NextRequest) {
 
     const { idToken } = parsed.data;
 
-    // 1. Strictly verify ID token with Firebase Admin
-    const decodedIdToken = await adminAuth.verifyIdToken(idToken, true);
+    // 1. Verify ID token with Firebase Admin (using cached public keys)
+    const decodedIdToken = await adminAuth.verifyIdToken(idToken);
     const uid = decodedIdToken.uid;
     const email = decodedIdToken.email || "";
 

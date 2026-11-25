@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { performSignOut } from "@/lib/client-auth";
 import {
   CalendarDays,
   Clock,
@@ -13,6 +12,7 @@ import {
   Bell,
   User,
   LogOut,
+  Loader2,
   ChevronDown,
   Menu,
   GraduationCap,
@@ -48,6 +48,7 @@ export function TeacherShell({
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [collegeName, setCollegeName] = useState("Tutorial College");
   const [collegeLogo, setCollegeLogo] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     async function loadNotifications() {
@@ -77,10 +78,10 @@ export function TeacherShell({
   }, []);
 
   async function handleSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      await signOut(auth);
-      window.location.replace("/login");
+      await performSignOut(router);
     } catch {
       window.location.replace("/login");
     }
@@ -162,11 +163,16 @@ export function TeacherShell({
         <button
           type="button"
           onClick={handleSignOut}
-          title="Sign Out"
-          className="mt-auto w-11 h-11 flex items-center justify-center text-[#5F6670] hover:text-[#A32A2A] rounded-[6px] transition-colors"
+          disabled={signingOut}
+          title={signingOut ? "Signing out..." : "Sign Out"}
+          className="mt-auto w-11 h-11 flex items-center justify-center text-[#5F6670] hover:text-[#A32A2A] rounded-[6px] transition-colors disabled:opacity-50"
           aria-label="Sign Out"
         >
-          <LogOut className="w-5 h-5" strokeWidth={1.75} />
+          {signingOut ? (
+            <Loader2 className="w-5 h-5 animate-spin text-[#A32A2A]" strokeWidth={1.75} />
+          ) : (
+            <LogOut className="w-5 h-5" strokeWidth={1.75} />
+          )}
         </button>
       </aside>
 
@@ -235,10 +241,15 @@ export function TeacherShell({
           <button
             type="button"
             onClick={handleSignOut}
-            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-[6px] text-xs text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7]/50 transition-colors"
+            disabled={signingOut}
+            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-[6px] text-xs text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7]/50 transition-colors disabled:opacity-50"
           >
-            <LogOut className="w-4 h-4 text-[#A32A2A]" strokeWidth={1.75} />
-            <span className="font-medium">Sign Out</span>
+            {signingOut ? (
+              <Loader2 className="w-4 h-4 text-[#A32A2A] animate-spin" strokeWidth={1.75} />
+            ) : (
+              <LogOut className="w-4 h-4 text-[#A32A2A]" strokeWidth={1.75} />
+            )}
+            <span className="font-medium">{signingOut ? "Signing out..." : "Sign Out"}</span>
           </button>
         </div>
       </aside>

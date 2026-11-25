@@ -3,8 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { performSignOut } from "@/lib/client-auth";
 import { OwnerShell } from "@/components/layout/OwnerShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -85,12 +84,13 @@ const adminSections = [
 
 export default function OwnerMorePage() {
   const router = useRouter();
+  const [signingOut, setSigningOut] = React.useState(false);
 
   async function handleSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      await signOut(auth);
-      window.location.replace("/login");
+      await performSignOut(router);
     } catch (err) {
       console.error("Logout error:", err);
       window.location.replace("/login");
@@ -172,11 +172,13 @@ export default function OwnerMorePage() {
           <Button
             type="button"
             variant="secondary"
+            loading={signingOut}
+            disabled={signingOut}
             onClick={handleSignOut}
             className="w-full sm:w-auto text-xs px-5 h-9"
           >
-            <LogOut className="w-4 h-4 mr-2 text-[#5F6670]" strokeWidth={1.75} />
-            <span>Sign Out of Owner Account</span>
+            {!signingOut && <LogOut className="w-4 h-4 mr-2 text-[#5F6670]" strokeWidth={1.75} />}
+            <span>{signingOut ? "Signing out..." : "Sign Out of Owner Account"}</span>
           </Button>
         </div>
       </div>

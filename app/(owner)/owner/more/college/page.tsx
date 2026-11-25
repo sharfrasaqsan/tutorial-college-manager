@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { Toast } from "@/components/ui/Toast";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { ArrowLeft, Upload, Building2 } from "lucide-react";
 import type { CollegeProfile } from "@/types";
 
@@ -142,7 +143,30 @@ export default function CollegeProfilePage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {loading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="lg:col-span-4">
+            <Card className="p-5 flex flex-col items-center gap-3">
+              <Skeleton className="w-24 h-24" />
+              <Skeleton className="h-10 w-32" />
+              <Skeleton variant="text" className="w-48" />
+            </Card>
+          </div>
+          <div className="lg:col-span-8 space-y-4">
+            <Card className="p-5 space-y-4">
+              <Skeleton className="h-11 w-full" />
+              <Skeleton className="h-11 w-full" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <Skeleton className="h-11 w-full" />
+                <Skeleton className="h-11 w-full" />
+              </div>
+              <Skeleton className="h-11 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </Card>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Logo Card */}
         <div className="lg:col-span-4 flex flex-col gap-4">
           <Card className="p-5 flex flex-col items-center text-center gap-3">
@@ -255,6 +279,7 @@ export default function CollegeProfilePage() {
           </div>
         </div>
       </form>
+      )}
     </OwnerShell>
   );
 }
