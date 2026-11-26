@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getPublicSiteData } from "@/lib/public-data";
 import { PublicTimetableClient } from "@/components/public/PublicTimetableClient";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { college } = await getPublicSiteData();

@@ -11,8 +11,9 @@ import { Button } from "@/components/ui/Button";
 import { Toast } from "@/components/ui/Toast";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { ArrowLeft, Plus, Edit2, Eye, EyeOff, BookOpen, GraduationCap } from "lucide-react";
+import { ArrowLeft, Plus, Edit2, Eye, EyeOff, BookOpen, GraduationCap, Trash2 } from "lucide-react";
 import type { AcademicGrade, AcademicSubject } from "@/types";
 
 export default function AcademicSettingsPage() {
@@ -35,6 +36,10 @@ export default function AcademicSettingsPage() {
   const [renameSubjectModal, setRenameSubjectModal] = useState(false);
   const [targetSubject, setTargetSubject] = useState<AcademicSubject | null>(null);
   const [renameSubjectValue, setRenameSubjectValue] = useState("");
+
+  // Delete targets
+  const [deleteGradeTarget, setDeleteGradeTarget] = useState<AcademicGrade | null>(null);
+  const [deleteSubjectTarget, setDeleteSubjectTarget] = useState<AcademicSubject | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -59,10 +64,50 @@ export default function AcademicSettingsPage() {
   }, []);
 
   async function handleAction(payload: any, successText: string) {
-    setSaving(true);
-    setErrorMessage("");
-    setSuccessMessage("");
+    // 1. Snapshot previous state for rollback on error
+    const previousGrades = grades;
+    const previousSubjects = subjects;
 
+    // 2. Instant Optimistic UI Update (<16ms, 0 latency)
+    if (payload.action === "deleteGrade") {
+      setGrades((prev) => {
+        const next = prev.filter((g) => g.id !== payload.id);
+        return next.map((g, idx) => ({ ...g, order: idx + 1 }));
+      });
+    } else if (payload.action === "deleteSubject") {
+      setSubjects((prev) => prev.filter((s) => s.id !== payload.id));
+    } else if (payload.action === "toggleGradeHidden") {
+      setGrades((prev) =>
+        prev.map((g) => (g.id === payload.id ? { ...g, hidden: payload.hidden } : g))
+      );
+    } else if (payload.action === "toggleSubjectHidden") {
+      setSubjects((prev) =>
+        prev.map((s) => (s.id === payload.id ? { ...s, hidden: payload.hidden } : s))
+      );
+    } else if (payload.action === "renameGrade") {
+      setGrades((prev) =>
+        prev.map((g) => (g.id === payload.id ? { ...g, name: payload.name.trim() } : g))
+      );
+    } else if (payload.action === "renameSubject") {
+      setSubjects((prev) =>
+        prev.map((s) => (s.id === payload.id ? { ...s, name: payload.name.trim() } : s))
+      );
+    }
+
+    // Instantly close modals and reset input fields
+    setAddGradeModal(false);
+    setRenameGradeModal(false);
+    setAddSubjectModal(false);
+    setRenameSubjectModal(false);
+    setDeleteGradeTarget(null);
+    setDeleteSubjectTarget(null);
+    setNewGradeName("");
+    setNewSubjectName("");
+
+    setSuccessMessage(successText);
+    setErrorMessage("");
+
+    // 3. Asynchronous Database Persistence
     try {
       const res = await fetch("/api/owner/settings/academic", {
         method: "POST",
@@ -75,19 +120,15 @@ export default function AcademicSettingsPage() {
         throw new Error(data.error || "Action failed.");
       }
 
-      setGrades(data.grades);
-      setSubjects(data.subjects);
-      setSuccessMessage(successText);
-
-      // Close all modals
-      setAddGradeModal(false);
-      setRenameGradeModal(false);
-      setAddSubjectModal(false);
-      setRenameSubjectModal(false);
-      setNewGradeName("");
-      setNewSubjectName("");
+      // Reconcile with verified server state
+      if (Array.isArray(data.grades)) setGrades(data.grades);
+      if (Array.isArray(data.subjects)) setSubjects(data.subjects);
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to update settings.");
+      // Revert optimistic updates if server errors
+      setGrades(previousGrades);
+      setSubjects(previousSubjects);
+      setSuccessMessage("");
+      setErrorMessage(err.message || "Failed to update settings. Changes reverted.");
     } finally {
       setSaving(false);
     }
@@ -162,7 +203,7 @@ export default function AcademicSettingsPage() {
           <div className="flex flex-col gap-4">
             <div className="flex justify-between items-center">
               <p className="text-xs text-[#5F6670]">
-                Default Grade 1 to 13 seeded. You can rename or hide grades.
+                Configure the academic grade tiers offered by your institution.
               </p>
               <Button
                 size="sm"
@@ -177,60 +218,76 @@ export default function AcademicSettingsPage() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {grades.map((grade) => (
-                <div
-                  key={grade.id}
-                  className="bg-white border border-[#E4E1DA] rounded-[6px] flex items-center justify-between p-3.5 min-h-[48px] hover:bg-[#FAF9F6] transition-colors shadow-xs"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-[#1C1F23]">
-                      {grade.name}
-                    </span>
-                    {grade.hidden && (
-                      <StatusChip status="notApplicable" label="Hidden" />
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTargetGrade(grade);
-                        setRenameGradeValue(grade.name);
-                        setRenameGradeModal(true);
-                      }}
-                      className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
-                      aria-label={`Rename ${grade.name}`}
-                    >
-                      <Edit2 className="w-4 h-4" strokeWidth={1.75} />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleAction(
-                          {
-                            action: "toggleGradeHidden",
-                            id: grade.id,
-                            hidden: !grade.hidden,
-                          },
-                          `${grade.name} ${grade.hidden ? "unhidden" : "hidden"} successfully.`
-                        )
-                      }
-                      className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
-                      aria-label={grade.hidden ? `Unhide ${grade.name}` : `Hide ${grade.name}`}
-                    >
-                      {grade.hidden ? (
-                        <EyeOff className="w-4 h-4 text-[#A32A2A]" strokeWidth={1.75} />
-                      ) : (
-                        <Eye className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
+            {grades.length === 0 ? (
+              <Card className="text-center p-6 text-xs text-[#5F6670]">
+                No grade tiers configured yet. Click &quot;Add Grade&quot; to create your first academic grade level (e.g. Grade 1, Grade 10, O/L, A/L).
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {grades.map((grade) => (
+                  <div
+                    key={grade.id}
+                    className="bg-white border border-[#E4E1DA] rounded-[6px] flex items-center justify-between p-3.5 min-h-[48px] hover:bg-[#FAF9F6] transition-colors shadow-xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-[#1C1F23]">
+                        {grade.name}
+                      </span>
+                      {grade.hidden && (
+                        <StatusChip status="notApplicable" label="Hidden" />
                       )}
-                    </button>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTargetGrade(grade);
+                          setRenameGradeValue(grade.name);
+                          setRenameGradeModal(true);
+                        }}
+                        className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
+                        aria-label={`Rename ${grade.name}`}
+                      >
+                        <Edit2 className="w-4 h-4" strokeWidth={1.75} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleAction(
+                            {
+                              action: "toggleGradeHidden",
+                              id: grade.id,
+                              hidden: !grade.hidden,
+                            },
+                            `${grade.name} ${grade.hidden ? "unhidden" : "hidden"} successfully.`
+                          )
+                        }
+                        className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23]"
+                        aria-label={grade.hidden ? `Unhide ${grade.name}` : `Hide ${grade.name}`}
+                      >
+                        {grade.hidden ? (
+                          <EyeOff className="w-4 h-4 text-[#A32A2A]" strokeWidth={1.75} />
+                        ) : (
+                          <Eye className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setDeleteGradeTarget(grade)}
+                        className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7]/60 rounded-[4px] transition-colors"
+                        aria-label={`Delete ${grade.name}`}
+                        title={`Delete ${grade.name}`}
+                      >
+                        <Trash2 className="w-4 h-4 text-[#A32A2A]" strokeWidth={1.75} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -308,6 +365,16 @@ export default function AcademicSettingsPage() {
                         ) : (
                           <Eye className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
                         )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setDeleteSubjectTarget(subject)}
+                        className="min-h-[40px] min-w-[40px] flex items-center justify-center text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7]/60 rounded-[4px] transition-colors"
+                        aria-label={`Delete ${subject.name}`}
+                        title={`Delete ${subject.name}`}
+                      >
+                        <Trash2 className="w-4 h-4 text-[#A32A2A]" strokeWidth={1.75} />
                       </button>
                     </div>
                   </div>
@@ -445,6 +512,48 @@ export default function AcademicSettingsPage() {
           </Button>
         </form>
       </BottomSheet>
+
+      {/* Delete Grade Confirm Dialog */}
+      <ConfirmDialog
+        open={Boolean(deleteGradeTarget)}
+        onClose={() => setDeleteGradeTarget(null)}
+        onConfirm={() => {
+          if (!deleteGradeTarget) return;
+          const target = deleteGradeTarget;
+          setDeleteGradeTarget(null);
+          handleAction(
+            { action: "deleteGrade", id: target.id },
+            `${target.name} deleted successfully.`
+          );
+        }}
+        title={`Delete ${deleteGradeTarget?.name || "Grade"}?`}
+        description={`Are you sure you want to permanently delete ${deleteGradeTarget?.name}? It will be removed from future grade selections. Existing classes and student records will not be altered.`}
+        confirmLabel="Delete Grade"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={saving}
+      />
+
+      {/* Delete Subject Confirm Dialog */}
+      <ConfirmDialog
+        open={Boolean(deleteSubjectTarget)}
+        onClose={() => setDeleteSubjectTarget(null)}
+        onConfirm={() => {
+          if (!deleteSubjectTarget) return;
+          const target = deleteSubjectTarget;
+          setDeleteSubjectTarget(null);
+          handleAction(
+            { action: "deleteSubject", id: target.id },
+            `${target.name} deleted successfully.`
+          );
+        }}
+        title={`Delete ${deleteSubjectTarget?.name || "Subject"}?`}
+        description={`Are you sure you want to permanently delete ${deleteSubjectTarget?.name}? It will be removed from future subject selections. Existing classes and teacher assignments will not be altered.`}
+        confirmLabel="Delete Subject"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={saving}
+      />
     </OwnerShell>
   );
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyApiAuth } from "@/lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
-import { DEFAULT_PUBLIC_SETTINGS } from "@/lib/public-data";
+import { DEFAULT_PUBLIC_SETTINGS, invalidatePublicSiteDataCache } from "@/lib/public-data";
 import type { PublicSiteSettings } from "@/types";
 
 const PublicSiteSchema = z.object({
@@ -103,6 +103,8 @@ export async function POST(request: NextRequest) {
       }
       await batch.commit();
     }
+
+    invalidatePublicSiteDataCache();
 
     return NextResponse.json({
       status: "ok",

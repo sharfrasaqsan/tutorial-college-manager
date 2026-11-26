@@ -8,6 +8,7 @@ export const CreateTeacherSchema = z.object({
   bio: z.string().trim().max(1000, "Bio cannot exceed 1000 characters.").optional().or(z.literal("")),
   subjects: z.array(z.string().trim()).default([]),
   showOnPublicSite: z.boolean().default(true),
+  password: z.string().min(6, "Password must be at least 6 characters.").optional().or(z.literal("")),
 });
 
 export const UpdateTeacherSchema = z.object({

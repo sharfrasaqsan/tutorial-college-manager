@@ -286,29 +286,38 @@ export default function TeacherTodayPage() {
         </div>
       )}
 
-      {/* Header with Make-up CTA */}
-      <PageHeader
-        title="Today's Schedule"
-        subtitle={`Welcome, ${teacherName}. Mark attendance for held and missed sessions.`}
-        action={
-          <Button
-            variant="primary"
-            onClick={handleOpenMakeupModal}
-            className="gap-1.5 text-xs h-9 shadow-none"
-          >
-            <Plus className="w-4 h-4" strokeWidth={2} />
-            <span>Schedule Make-up</span>
-          </Button>
-        }
-      />
-
       {loading ? (
-        <div className="flex flex-col gap-4">
-          <Skeleton className="h-28 w-full" />
-          <Skeleton className="h-32 w-full" />
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-48" />
+              <Skeleton variant="text" className="w-72 max-w-full" />
+            </div>
+            <Skeleton className="h-8 w-32" />
+          </div>
+          <div className="flex flex-col gap-4">
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <>
+          <PageHeader
+            title="Today's Schedule"
+            subtitle={`Welcome, ${teacherName}. Mark attendance for held and missed sessions.`}
+            action={
+              <Button
+                variant="primary"
+                onClick={handleOpenMakeupModal}
+                className="gap-1.5 text-xs h-9 shadow-none"
+              >
+                <Plus className="w-4 h-4" strokeWidth={2} />
+                <span>Schedule Make-up</span>
+              </Button>
+            }
+          />
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Today's Scheduled Sessions & Upcoming */}
           <div className="lg:col-span-7 flex flex-col gap-5">
             {/* SECTION 1: TODAY'S SESSIONS */}
@@ -444,6 +453,7 @@ export default function TeacherTodayPage() {
             </Card>
           </div>
         </div>
+        </>
       )}
 
       {/* Make-up Class BottomSheet Modal */}

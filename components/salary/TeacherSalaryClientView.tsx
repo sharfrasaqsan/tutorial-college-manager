@@ -205,9 +205,24 @@ export function TeacherSalaryClientView({ initialYearId }: TeacherSalaryClientVi
       )}
 
       {loading && (
-        <div className="space-y-4">
-          <Skeleton className="h-28 w-full" />
-          <Skeleton className="h-64 w-full" />
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="p-4 space-y-2">
+                <Skeleton variant="text" className="w-20" />
+                <Skeleton className="h-7 w-28" />
+              </Card>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div className="lg:col-span-7 xl:col-span-8 space-y-3">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+            <div className="lg:col-span-5 xl:col-span-4">
+              <Skeleton className="h-44 w-full" />
+            </div>
+          </div>
         </div>
       )}
 

@@ -1,17 +1,27 @@
 "use client";
 
-import React, { useState } from "react";
-import { Printer, Calendar, Clock, User, Filter, AlertCircle } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import {
+  Printer,
+  Calendar,
+  Clock,
+  User,
+  Filter,
+  AlertCircle,
+  LayoutGrid,
+  List,
+} from "lucide-react";
 import type { PublicSafeSlot } from "@/types";
+import { formatTimeDisplay, calculateDuration } from "@/lib/dates";
 
 const WEEKDAYS = [
-  { index: 1, name: "Monday" },
-  { index: 2, name: "Tuesday" },
-  { index: 3, name: "Wednesday" },
-  { index: 4, name: "Thursday" },
-  { index: 5, name: "Friday" },
-  { index: 6, name: "Saturday" },
-  { index: 0, name: "Sunday" },
+  { index: 1, name: "Mon", full: "Monday" },
+  { index: 2, name: "Tue", full: "Tuesday" },
+  { index: 3, name: "Wed", full: "Wednesday" },
+  { index: 4, name: "Thu", full: "Thursday" },
+  { index: 5, name: "Fri", full: "Friday" },
+  { index: 6, name: "Sat", full: "Saturday" },
+  { index: 0, name: "Sun", full: "Sunday" },
 ];
 
 interface PublicTimetableClientProps {
@@ -29,31 +39,62 @@ export function PublicTimetableClient({
 }: PublicTimetableClientProps) {
   const [selectedGrade, setSelectedGrade] = useState<string>("all");
   const [activeDayTab, setActiveDayTab] = useState<number | "all">("all");
+  const [viewMode, setViewMode] = useState<"grid" | "day">("grid");
 
   // Filter slots
-  const filteredSlots = slots.filter((slot) => {
-    const matchGrade = selectedGrade === "all" || slot.grade === selectedGrade;
-    const matchDay = activeDayTab === "all" || slot.weekday === activeDayTab;
-    return matchGrade && matchDay;
-  });
+  const filteredSlots = useMemo(() => {
+    return slots.filter((slot) => {
+      const matchGrade = selectedGrade === "all" || slot.grade === selectedGrade;
+      const matchDay = activeDayTab === "all" || Number(slot.weekday) === activeDayTab;
+      return matchGrade && matchDay;
+    });
+  }, [slots, selectedGrade, activeDayTab]);
+
+  // Extract unique scheduled time bands
+  const timeBands = useMemo(() => {
+    const map = new Map<string, { startTime: string; endTime: string }>();
+    filteredSlots.forEach((slot) => {
+      const key = `${slot.startTime}-${slot.endTime}`;
+      if (!map.has(key)) {
+        map.set(key, { startTime: slot.startTime, endTime: slot.endTime });
+      }
+    });
+
+    const sorted = Array.from(map.values()).sort((a, b) => {
+      const cmp = a.startTime.localeCompare(b.startTime);
+      if (cmp !== 0) return cmp;
+      return a.endTime.localeCompare(b.endTime);
+    });
+
+    return sorted.map((b) => ({
+      id: `${b.startTime}-${b.endTime}`,
+      startTime: b.startTime,
+      endTime: b.endTime,
+      label: `${formatTimeDisplay(b.startTime)} - ${formatTimeDisplay(b.endTime)}`,
+      duration: calculateDuration(b.startTime, b.endTime),
+    }));
+  }, [filteredSlots]);
 
   // Group filtered slots by weekday
-  const slotsByWeekday: Record<number, PublicSafeSlot[]> = {};
-  WEEKDAYS.forEach((w) => {
-    slotsByWeekday[w.index] = [];
-  });
+  const slotsByWeekday: Record<number, PublicSafeSlot[]> = useMemo(() => {
+    const map: Record<number, PublicSafeSlot[]> = {};
+    WEEKDAYS.forEach((w) => {
+      map[w.index] = [];
+    });
 
-  filteredSlots.forEach((slot) => {
-    const d = slot.weekday ?? 0;
-    if (!slotsByWeekday[d]) slotsByWeekday[d] = [];
-    slotsByWeekday[d].push(slot);
-  });
+    filteredSlots.forEach((slot) => {
+      const d = Number(slot.weekday ?? 0);
+      if (!map[d]) map[d] = [];
+      map[d].push(slot);
+    });
 
-  // Sort slots inside each day by start time
-  Object.keys(slotsByWeekday).forEach((dayKey) => {
-    const d = Number(dayKey);
-    slotsByWeekday[d].sort((a, b) => a.startTime.localeCompare(b.startTime));
-  });
+    Object.keys(map).forEach((dayKey) => {
+      const d = Number(dayKey);
+      map[d].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    });
+
+    return map;
+  }, [filteredSlots]);
 
   function handlePrint() {
     window.print();
@@ -62,7 +103,7 @@ export function PublicTimetableClient({
   return (
     <div>
       {/* Controls Bar (Hidden during print) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 bg-[#FFFFFF] border border-[#E4E1DA] rounded-[6px] p-4 shadow-xs print:hidden">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 bg-[#FFFFFF] border border-[#E4E1DA] rounded-[8px] p-4 shadow-xs print:hidden">
         {/* Grade Filter */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 text-xs text-[#5F6670] font-medium mr-1">
@@ -98,15 +139,44 @@ export function PublicTimetableClient({
           ))}
         </div>
 
-        {/* Print Button */}
-        <button
-          type="button"
-          onClick={handlePrint}
-          className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-[6px] bg-[#FFFFFF] border border-[#E4E1DA] hover:bg-[#FAF9F6] text-xs font-medium text-[#1C1F23] transition-colors shadow-xs"
-        >
-          <Printer className="w-3.5 h-3.5 text-[#1F5C4D]" />
-          <span>Print Timetable</span>
-        </button>
+        {/* View Switcher & Print Button */}
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="hidden sm:flex items-center border border-[#E4E1DA] rounded-[6px] p-0.5 bg-[#FAF9F6]">
+            <button
+              type="button"
+              onClick={() => setViewMode("grid")}
+              className={`px-2.5 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 ${
+                viewMode === "grid"
+                  ? "bg-white text-[#1C1F23] shadow-2xs font-semibold"
+                  : "text-[#5F6670] hover:text-[#1C1F23]"
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Weekly Grid</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("day")}
+              className={`px-2.5 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 ${
+                viewMode === "day"
+                  ? "bg-white text-[#1C1F23] shadow-2xs font-semibold"
+                  : "text-[#5F6670] hover:text-[#1C1F23]"
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              <span>Day View</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-[6px] bg-[#FFFFFF] border border-[#E4E1DA] hover:bg-[#FAF9F6] text-xs font-medium text-[#1C1F23] transition-colors shadow-xs"
+          >
+            <Printer className="w-3.5 h-3.5 text-[#1F5C4D]" />
+            <span>Print Timetable</span>
+          </button>
+        </div>
       </div>
 
       {/* Weekday Tab Selector for Mobile (Hidden during print) */}
@@ -133,7 +203,7 @@ export function PublicTimetableClient({
                 : "bg-[#FFFFFF] border border-[#E4E1DA] text-[#5F6670]"
             }`}
           >
-            {w.name}
+            {w.full}
           </button>
         ))}
       </div>
@@ -158,7 +228,7 @@ export function PublicTimetableClient({
 
       {/* Timetable Days Display */}
       {filteredSlots.length === 0 ? (
-        <div className="border border-[#E4E1DA] rounded-[6px] bg-[#FFFFFF] p-12 text-center text-xs text-[#5F6670]">
+        <div className="border border-[#E4E1DA] rounded-[8px] bg-[#FFFFFF] p-12 text-center text-xs text-[#5F6670]">
           <Calendar className="w-8 h-8 text-[#5F6670]/60 mx-auto mb-3" />
           <p className="font-medium text-[#1C1F23]">No class slots found</p>
           <p className="mt-1">
@@ -169,62 +239,121 @@ export function PublicTimetableClient({
         </div>
       ) : (
         <>
-          {/* DESKTOP CALENDAR MATRIX (>=1024px, hidden during print) */}
-          <div className="hidden lg:grid print:hidden lg:grid-cols-7 gap-3 items-start">
-            {WEEKDAYS.map((day) => {
-              const daySlots = slotsByWeekday[day.index] || [];
-              return (
-                <div
-                  key={day.index}
-                  className="bg-[#FAF9F6] border border-[#E4E1DA] rounded-[6px] p-2.5 flex flex-col gap-2 min-h-[480px]"
-                >
-                  <div className="flex items-center justify-between pb-2 border-b border-[#E4E1DA]">
-                    <span className="font-semibold text-xs text-[#1C1F23]">
-                      {day.name}
-                    </span>
-                    <span className="text-[10px] font-medium text-[#5F6670] bg-white px-1.5 py-0.5 rounded border border-[#E4E1DA]">
-                      {daySlots.length}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col gap-2 flex-1">
-                    {daySlots.length === 0 ? (
-                      <div className="text-[11px] text-[#5F6670] text-center py-8 italic">
-                        No classes
-                      </div>
-                    ) : (
-                      daySlots.map((slot) => (
-                        <div
-                          key={slot.id}
-                          className="bg-white border border-[#E4E1DA] rounded p-2.5 flex flex-col gap-1.5 shadow-2xs hover:border-[#1F5C4D] transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-1">
-                            <span className="font-serif font-semibold text-xs text-[#1C1F23]">
-                              {slot.subject}
-                            </span>
-                            <span className="text-[10px] bg-[#FAF9F6] border border-[#E4E1DA] text-[#1C1F23] px-1.5 py-0.2 rounded shrink-0">
-                              {slot.grade}
-                            </span>
-                          </div>
-
-                          <div className="text-[11px] font-mono font-medium text-[#1F5C4D] bg-[#E6F0EC]/60 px-1.5 py-0.5 rounded text-center">
-                            {slot.startTime} – {slot.endTime}
-                          </div>
-
-                          <div className="text-[11px] text-[#5F6670] truncate">
-                            {slot.teacherName}
-                          </div>
+          {/* DESKTOP CALENDAR MATRIX (Weekly Grid with Time Column at starting) */}
+          {viewMode === "grid" && (
+            <div className="hidden sm:block print:hidden w-full border border-[#E4E1DA] rounded-[8px] bg-white overflow-hidden shadow-2xs mb-6">
+              <div className="overflow-x-auto no-scrollbar">
+                <table className="w-full text-left border-collapse min-w-[960px]">
+                  <thead>
+                    <tr className="border-b border-[#E4E1DA] bg-[#FAF9F6]">
+                      {/* TIME COLUMN HEADER AT STARTING */}
+                      <th className="sticky left-0 z-20 bg-[#FAF9F6] p-3 border-r border-[#E4E1DA] w-40 min-w-[150px] max-w-[170px] text-xs font-semibold uppercase tracking-wider text-[#5F6670]">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-[#1F5C4D]" strokeWidth={2} />
+                          <span>Time</span>
                         </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                      </th>
 
-          {/* MOBILE & PRINT VIEW: List by Day (<1024px or Print) */}
-          <div className="block lg:hidden print:block space-y-8 print:space-y-6">
+                      {/* DAY HEADERS: Monday to Sunday */}
+                      {WEEKDAYS.map((day) => {
+                        const count = slotsByWeekday[day.index]?.length || 0;
+                        return (
+                          <th
+                            key={day.index}
+                            className="p-3 border-r last:border-r-0 border-[#E4E1DA] text-xs font-semibold text-[#1C1F23]"
+                          >
+                            <div className="flex items-center justify-between gap-1.5">
+                              <span className="font-bold text-xs">{day.full}</span>
+                              <span
+                                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                                  count > 0
+                                    ? "bg-white text-[#1C1F23] border border-[#E4E1DA]"
+                                    : "text-[#8E95A0]"
+                                }`}
+                              >
+                                {count}
+                              </span>
+                            </div>
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E4E1DA]">
+                    {timeBands.map((band) => (
+                      <tr key={band.id} className="hover:bg-[#FAF9F6]/30 transition-colors">
+                        {/* TIME COLUMN CELL (STICKY LEFT) */}
+                        <td className="sticky left-0 z-10 bg-[#FAF9F6] p-3 border-r border-[#E4E1DA] align-top w-40 min-w-[150px] max-w-[170px]">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-semibold text-xs text-[#1C1F23] tabular-nums whitespace-nowrap">
+                              {band.label}
+                            </span>
+                            {band.duration && (
+                              <span className="text-[10px] font-medium text-[#5F6670] uppercase tracking-wider">
+                                {band.duration}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* DAY CELLS */}
+                        {WEEKDAYS.map((day) => {
+                          const cellSlots = filteredSlots.filter(
+                            (s) =>
+                              Number(s.weekday) === day.index &&
+                              s.startTime === band.startTime &&
+                              s.endTime === band.endTime
+                          );
+
+                          return (
+                            <td
+                              key={day.index}
+                              className="p-2 border-r last:border-r-0 border-[#E4E1DA] align-top min-w-[125px]"
+                            >
+                              {cellSlots.length > 0 ? (
+                                <div className="flex flex-col gap-2">
+                                  {cellSlots.map((slot) => (
+                                    <div
+                                      key={slot.id}
+                                      className="bg-white border border-[#E4E1DA] rounded-[6px] p-2.5 flex flex-col gap-1 shadow-2xs hover:border-[#1F5C4D] transition-colors"
+                                    >
+                                      <div className="flex items-start justify-between gap-1">
+                                        <span className="font-serif font-semibold text-xs text-[#1C1F23] leading-tight">
+                                          {slot.subject}
+                                        </span>
+                                        <span className="text-[10px] font-medium bg-[#FAF9F6] border border-[#E4E1DA] text-[#1C1F23] px-1.5 py-0.2 rounded shrink-0">
+                                          {slot.grade}
+                                        </span>
+                                      </div>
+
+                                      <div className="text-[11px] text-[#5F6670] truncate mt-0.5">
+                                        {slot.teacherName}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="h-10 flex items-center justify-center text-xs text-[#5F6670]/40 select-none">
+                                  —
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* DAY VIEW & MOBILE / PRINT VIEW */}
+          <div
+            className={`${
+              viewMode === "grid" ? "block sm:hidden" : "block"
+            } print:block space-y-6`}
+          >
             {WEEKDAYS.map((day) => {
               const daySlots = slotsByWeekday[day.index] || [];
               if (activeDayTab !== "all" && activeDayTab !== day.index) return null;
@@ -233,34 +362,33 @@ export function PublicTimetableClient({
               return (
                 <div
                   key={day.index}
-                  className="border border-[#E4E1DA] rounded-[6px] bg-[#FFFFFF] overflow-hidden shadow-xs print:border print:border-[#1C1F23] print:shadow-none break-inside-avoid"
+                  className="border border-[#E4E1DA] rounded-[8px] bg-[#FFFFFF] overflow-hidden shadow-xs print:border print:border-[#1C1F23] print:shadow-none break-inside-avoid"
                 >
                   {/* Day Header */}
                   <div className="bg-[#FAF9F6] border-b border-[#E4E1DA] px-4 py-3 flex items-center justify-between print:bg-transparent print:border-b-2 print:border-[#1C1F23]">
                     <div className="flex items-center gap-2">
                       <span className="font-serif font-semibold text-base text-[#1C1F23]">
-                        {day.name}
+                        {day.full}
                       </span>
                       <span className="text-xs text-[#5F6670]">
                         ({daySlots.length} {daySlots.length === 1 ? "Class" : "Classes"})
                       </span>
                     </div>
                     <span className="text-[11px] font-medium text-[#1F5C4D] bg-[#E6F0EC] px-2 py-0.5 rounded-[4px] print:hidden">
-                      Weekly Regular Slot
+                      Weekly Regular
                     </span>
                   </div>
 
-                  {/* Day Slots List / Table */}
+                  {/* Day Slots List */}
                   <div className="divide-y divide-[#E4E1DA]">
                     {daySlots.map((slot) => (
                       <div
                         key={slot.id}
                         className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF9F6]/50 transition-colors"
                       >
-                        {/* Left: Time & Class details */}
                         <div className="flex items-start gap-4">
-                          <div className="w-24 shrink-0 font-mono text-xs font-semibold text-[#1F5C4D] bg-[#E6F0EC]/80 px-2.5 py-1.5 rounded-[4px] text-center border border-[#E4E1DA]/50 print:bg-transparent print:border-[#1C1F23]">
-                            {slot.startTime} – {slot.endTime}
+                          <div className="w-28 shrink-0 font-mono text-xs font-semibold text-[#1F5C4D] bg-[#E6F0EC]/80 px-2.5 py-1.5 rounded-[4px] text-center border border-[#E4E1DA]/50 print:bg-transparent print:border-[#1C1F23]">
+                            {formatTimeDisplay(slot.startTime)} – {formatTimeDisplay(slot.endTime)}
                           </div>
 
                           <div>
@@ -275,16 +403,18 @@ export function PublicTimetableClient({
 
                             <div className="flex items-center gap-1.5 text-xs text-[#5F6670] mt-1">
                               <User className="w-3.5 h-3.5 text-[#1F5C4D]" />
-                              <span>Faculty: <strong className="text-[#1C1F23] font-medium">{slot.teacherName}</strong></span>
+                              <span>
+                                Faculty:{" "}
+                                <strong className="text-[#1C1F23] font-medium">
+                                  {slot.teacherName}
+                                </strong>
+                              </span>
                             </div>
                           </div>
                         </div>
 
-                        {/* Right: Badge */}
-                        <div className="text-right shrink-0 print:hidden">
-                          <span className="text-[11px] text-[#5F6670]">
-                            Recurring weekly
-                          </span>
+                        <div className="text-right shrink-0 print:hidden text-[11px] text-[#5F6670]">
+                          Recurring weekly
                         </div>
                       </div>
                     ))}
@@ -300,7 +430,7 @@ export function PublicTimetableClient({
       <div className="mt-8 p-3 rounded-[6px] bg-[#FAF9F6] border border-[#E4E1DA] text-xs text-[#5F6670] flex items-center gap-2 print:border-[#1C1F23]">
         <AlertCircle className="w-4 h-4 text-[#1F5C4D] shrink-0" />
         <span>
-          Note: All slots reflect regular weekly classes. Make-up sessions and special exam workshops are communicated separately to enrolled students.
+          Note: All slots reflect regular weekly classes for Academic Year {activeYear}. Special workshops and exam review sessions are announced separately.
         </span>
       </div>
     </div>

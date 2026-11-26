@@ -346,9 +346,21 @@ export function ReportsClientView({ initialYearId }: ReportsClientViewProps) {
           </div>
 
       {loading && (
-        <div className="space-y-4">
-          <Skeleton className="h-28 w-full" />
-          <Skeleton className="h-64 w-full" />
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="p-4 space-y-2">
+                <Skeleton variant="text" className="w-20" />
+                <Skeleton className="h-6 w-24" />
+              </Card>
+            ))}
+          </div>
+          <Card className="p-5 space-y-3">
+            <Skeleton className="h-5 w-44" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </Card>
         </div>
       )}
 

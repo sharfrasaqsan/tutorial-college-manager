@@ -8,12 +8,22 @@ import {
   calculateOwnerShare,
   validateClassTerms,
 } from "@/lib/classes";
+import { checkClash, doIntervalsOverlap } from "@/lib/clash";
+import {
+  generateSessionsForSlot,
+  slotToTimeInterval,
+} from "@/lib/timetable";
+import {
+  notifyTeacherTimetableChange,
+  notifyOwnerConcurrentGradeSchedule,
+} from "@/lib/notifications";
 import { YEAR_COOKIE_NAME } from "@/lib/academic-year";
-import type { ClassItem } from "@/types";
+import { invalidatePublicSiteDataCache } from "@/lib/public-data";
+import type { ClassItem, TimetableSlot, TimeInterval, Session } from "@/types";
 
 /**
  * GET /api/owner/classes
- * Lists all classes for the active academic year with student counts.
+ * Lists all classes for the active academic year with student counts and all timetable slots.
  */
 export async function GET(request: NextRequest) {
   const { errorResponse } = await verifyApiAuth(request, ["owner"]);
@@ -24,46 +34,78 @@ export async function GET(request: NextRequest) {
     const cookieYear = request.cookies.get(YEAR_COOKIE_NAME)?.value;
     const yearId = searchParams.get("yearId") || cookieYear || "2026";
 
-    const classesSnap = await adminDb
-      .collection("years")
-      .doc(yearId)
-      .collection("classes")
-      .get();
+    // 1. Fetch all slots and classes for this academic year in parallel
+    const [slotsSnap, classesSnap] = await Promise.all([
+      adminDb
+        .collection("years")
+        .doc(yearId)
+        .collection("slots")
+        .get(),
+      adminDb
+        .collection("years")
+        .doc(yearId)
+        .collection("classes")
+        .get(),
+    ]);
 
-    const classes: ClassItem[] = [];
-
-    for (const doc of classesSnap.docs) {
-      const data = doc.data();
-
-      // Count enrolled students
-      const enrolmentsSnap = await doc.ref.collection("enrolments").get();
-      const studentCount = enrolmentsSnap.size;
-
-      const monthlyFee = data.currentTerms?.monthlyFee ?? 0;
-      const teacherShare = data.currentTerms?.teacherSharePerStudent ?? 0;
-
-      classes.push({
+    const slotsByClassId = new Map<string, TimetableSlot[]>();
+    slotsSnap.docs.forEach((doc) => {
+      const data = doc.data() as TimetableSlot;
+      const item: TimetableSlot = {
+        ...data,
         id: doc.id,
-        yearId,
-        grade: data.grade || "",
-        subject: data.subject || "",
-        teacherId: data.teacherId || "",
-        teacherName: data.teacherName || "Unassigned",
-        name: data.name || `${data.grade} ${data.subject}`,
-        currentTerms: {
-          monthlyFee,
-          teacherSharePerStudent: teacherShare,
-          ownerShare: calculateOwnerShare(monthlyFee, teacherShare),
-          requiredSessionsPerMonth: data.currentTerms?.requiredSessionsPerMonth ?? 8,
-          effectiveFromMonth: data.currentTerms?.effectiveFromMonth ?? `${yearId}-01`,
-        },
-        termsHistory: data.termsHistory || [],
-        enrolledStudentCount: studentCount,
-        active: data.active !== false,
-        createdAt: data.createdAt || new Date().toISOString(),
-        updatedAt: data.updatedAt,
-      });
-    }
+      };
+      const list = slotsByClassId.get(data.classId) || [];
+      list.push(item);
+      slotsByClassId.set(data.classId, list);
+    });
+
+    // 2. Build class records with enrolment counts in parallel
+    const classes: ClassItem[] = await Promise.all(
+      classesSnap.docs.map(async (doc) => {
+        const data = doc.data();
+
+        // Count enrolled students in parallel
+        const enrolmentsSnap = await doc.ref.collection("enrolments").get();
+        const studentCount = enrolmentsSnap.size;
+
+        const monthlyFee = data.currentTerms?.monthlyFee ?? 0;
+        const teacherShare = data.currentTerms?.teacherSharePerStudent ?? 0;
+
+        const classSlots = slotsByClassId.get(doc.id) || [];
+        // Sort slots by Monday-first weekday order (1..6 then 0) then startTime
+        classSlots.sort((a, b) => {
+          const orderA = a.weekday === 0 ? 7 : a.weekday;
+          const orderB = b.weekday === 0 ? 7 : b.weekday;
+          if (orderA !== orderB) return orderA - orderB;
+          return a.startTime.localeCompare(b.startTime);
+        });
+
+        return {
+          id: doc.id,
+          yearId,
+          grade: data.grade || "",
+          subject: data.subject || "",
+          teacherId: data.teacherId || "",
+          teacherName: data.teacherName || "Unassigned",
+          name: data.name || `${data.grade} ${data.subject}`,
+          currentTerms: {
+            monthlyFee,
+            teacherSharePerStudent: teacherShare,
+            ownerShare: calculateOwnerShare(monthlyFee, teacherShare),
+            requiredSessionsPerMonth: data.currentTerms?.requiredSessionsPerMonth ?? 8,
+            effectiveFromMonth: data.currentTerms?.effectiveFromMonth ?? `${yearId}-01`,
+          },
+          termsHistory: data.termsHistory || [],
+          enrolledStudentCount: studentCount,
+          active: data.active !== false,
+          slot: classSlots[0],
+          slots: classSlots,
+          createdAt: data.createdAt || new Date().toISOString(),
+          updatedAt: data.updatedAt,
+        };
+      })
+    );
 
     // Sort by name
     classes.sort((a, b) => a.name.localeCompare(b.name));
@@ -79,12 +121,14 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/owner/classes
- * Creates a class:
+ * Creates a class and optionally one or multiple weekly timetable sessions:
  * 1. Checks duplicate grade + subject in the same year (refuses duplicates)
  * 2. Validates terms (refuses teacher share > monthly fee)
  * 3. Auto-generates class name (e.g. "Grade 10 Maths")
  * 4. Resolves teacher name
  * 5. Saves class and initial terms record
+ * 6. If schedule(s) provided: checks timetable clashes for all sessions, creates slots in
+ *    years/{yearId}/slots, generates dated sessions in years/{yearId}/sessions, and notifies teacher!
  */
 export async function POST(request: NextRequest) {
   const { errorResponse } = await verifyApiAuth(request, ["owner"]);
@@ -100,6 +144,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { yearId, grade, subject, teacherId, terms } = parsed.data;
+    const rawSchedules = parsed.data.schedules ?? (parsed.data.schedule ? [parsed.data.schedule] : []);
 
     // 1. Term validation
     const termValidation = validateClassTerms(terms.monthlyFee, terms.teacherSharePerStudent);
@@ -119,6 +164,15 @@ export async function POST(request: NextRequest) {
       grade: d.data().grade as string,
       subject: d.data().subject as string,
     }));
+
+    const classTeacherMap = new Map<string, { teacherId: string; teacherName: string }>();
+    existingSnap.forEach((doc) => {
+      const d = doc.data();
+      classTeacherMap.set(doc.id, {
+        teacherId: (d.teacherId || "").trim(),
+        teacherName: d.teacherName || "",
+      });
+    });
 
     const dupCheck = checkDuplicateClass(existingClasses, grade, subject);
     if (dupCheck.isDuplicate) {
@@ -152,8 +206,137 @@ export async function POST(request: NextRequest) {
       .collection("classes")
       .doc();
 
+    const classId = newClassRef.id;
+
+    // 5. Timetable Schedule validation & clash checking (for all proposed weekly sessions)
+    const slotsCol = adminDb.collection("years").doc(yearId).collection("slots");
+    const sessionsCol = adminDb.collection("years").doc(yearId).collection("sessions");
+
+    // Intra-schedule overlap check
+    for (let i = 0; i < rawSchedules.length; i++) {
+      for (let j = i + 1; j < rawSchedules.length; j++) {
+        const a = rawSchedules[i];
+        const b = rawSchedules[j];
+        if (
+          Number(a.weekday) === Number(b.weekday) &&
+          doIntervalsOverlap(a.startTime, a.endTime, b.startTime, b.endTime)
+        ) {
+          return NextResponse.json(
+            { error: `Proposed schedules have overlapping times on the same day.` },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    const existingSlotsSnap = await slotsCol.get();
+    const existingIntervals: TimeInterval[] = [];
+
+    existingSlotsSnap.forEach((doc) => {
+      const d = doc.data() as TimetableSlot;
+      const classInfo = classTeacherMap.get(d.classId);
+      existingIntervals.push(
+        slotToTimeInterval({
+          ...d,
+          id: doc.id,
+          teacherId: d.teacherId?.trim() || classInfo?.teacherId || "",
+          teacherName: d.teacherName || classInfo?.teacherName || "",
+        })
+      );
+    });
+
+    const accumulatedIntervals = [...existingIntervals];
+    const createdSlots: TimetableSlot[] = [];
+    const allGeneratedSessions: Session[] = [];
+    const gradeWarnings: Array<{
+      grade: string;
+      classNameA: string;
+      classNameB: string;
+      weekday: number;
+      startTime: string;
+      endTime: string;
+    }> = [];
+
+    for (const sch of rawSchedules) {
+      const validFrom = sch.validFrom || `${yearId}-01-01`;
+      const validTo = sch.validTo || `${yearId}-12-31`;
+      const slotRef = slotsCol.doc();
+
+      const candidate: TimeInterval = {
+        id: slotRef.id,
+        classId,
+        className: name,
+        grade,
+        teacherId,
+        teacherName,
+        weekday: sch.weekday,
+        startTime: sch.startTime,
+        endTime: sch.endTime,
+      };
+
+      const clash = checkClash(candidate, accumulatedIntervals);
+      if (clash.hasClash) {
+        return NextResponse.json(
+          { error: clash.message || "Timetable schedule conflicts with an existing class." },
+          { status: 400 }
+        );
+      }
+
+      if (clash.hasGradeWarning) {
+        gradeWarnings.push({
+          grade,
+          classNameA: name,
+          classNameB: clash.gradeConflictClass || "Another class",
+          weekday: sch.weekday,
+          startTime: sch.startTime,
+          endTime: sch.endTime,
+        });
+      }
+
+      accumulatedIntervals.push(candidate);
+
+      const slotRecord: TimetableSlot = {
+        id: slotRef.id,
+        yearId,
+        classId,
+        className: name,
+        grade,
+        subject,
+        teacherId,
+        teacherName,
+        weekday: sch.weekday,
+        startTime: sch.startTime,
+        endTime: sch.endTime,
+        validFrom,
+        validTo,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      createdSlots.push(slotRecord);
+
+      const sessions = generateSessionsForSlot({
+        slotId: slotRef.id,
+        yearId,
+        classId,
+        className: name,
+        grade,
+        subject,
+        teacherId,
+        teacherName,
+        weekday: sch.weekday,
+        startTime: sch.startTime,
+        endTime: sch.endTime,
+        validFrom,
+        validTo,
+      });
+
+      allGeneratedSessions.push(...sessions);
+    }
+
+    // 6. Write class and initial terms
     const classData = {
-      id: newClassRef.id,
+      id: classId,
       yearId,
       grade,
       subject,
@@ -168,17 +351,80 @@ export async function POST(request: NextRequest) {
     };
 
     await newClassRef.set(classData);
-
-    // Also store in terms subcollection for permanent version tracking
     await newClassRef.collection("terms").add(initialTerm);
+
+    // 7. Write slots and sessions
+    if (createdSlots.length > 0) {
+      for (const slot of createdSlots) {
+        await slotsCol.doc(slot.id).set(slot);
+      }
+
+      // Batch save sessions in chunks of up to 450
+      const batchSize = 450;
+      for (let i = 0; i < allGeneratedSessions.length; i += batchSize) {
+        const batch = adminDb.batch();
+        const chunk = allGeneratedSessions.slice(i, i + batchSize);
+        for (const session of chunk) {
+          batch.set(sessionsCol.doc(session.id), session);
+        }
+        await batch.commit();
+      }
+
+      // Notify teacher for each created slot
+      for (const slot of createdSlots) {
+        try {
+          await notifyTeacherTimetableChange({
+            teacherId,
+            slotId: slot.id,
+            action: "created",
+            className: name,
+            weekday: slot.weekday,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            yearId,
+          });
+        } catch (err) {
+          console.error("Non-fatal teacher timetable notification error:", err);
+        }
+      }
+
+      // Notify owner for any concurrent same-grade class schedules with push notification
+      for (const gw of gradeWarnings) {
+        try {
+          await notifyOwnerConcurrentGradeSchedule({
+            grade: gw.grade,
+            classNameA: gw.classNameA,
+            classNameB: gw.classNameB,
+            weekday: gw.weekday,
+            startTime: gw.startTime,
+            endTime: gw.endTime,
+            yearId,
+          });
+        } catch (err) {
+          console.error("Non-fatal owner concurrent grade notification error:", err);
+        }
+      }
+    }
+
+    invalidatePublicSiteDataCache();
 
     return NextResponse.json(
       {
         classItem: {
           ...classData,
           enrolledStudentCount: 0,
+          slot: createdSlots[0],
+          slots: createdSlots,
         },
-        message: "Class created successfully.",
+        sessionsCount: allGeneratedSessions.length,
+        hasGradeOverlap: gradeWarnings.length > 0,
+        gradeWarnings,
+        message:
+          gradeWarnings.length > 0
+            ? `Class created with ${createdSlots.length} session(s). Concurrent ${grade} schedule alert dispatched to owner.`
+            : createdSlots.length > 0
+            ? `Class created with ${createdSlots.length} weekly timetable session(s) (${allGeneratedSessions.length} total sessions).`
+            : "Class created successfully.",
       },
       { status: 201 }
     );

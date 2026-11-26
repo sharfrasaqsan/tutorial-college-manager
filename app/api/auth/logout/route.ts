@@ -1,10 +1,14 @@
-import { NextResponse } from "next/server";
-
-const SESSION_COOKIE_NAME = "__session";
+import { NextRequest, NextResponse } from "next/server";
+import { invalidateSessionCache, SESSION_COOKIE_NAME } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  if (sessionCookie) {
+    invalidateSessionCache(sessionCookie);
+  }
+
   const response = NextResponse.json({
     status: "ok",
     message: "Logged out successfully.",

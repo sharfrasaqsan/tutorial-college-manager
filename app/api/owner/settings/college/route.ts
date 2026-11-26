@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyApiAuth } from "@/lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
+import { invalidatePublicSiteDataCache } from "@/lib/public-data";
 import type { CollegeProfile } from "@/types";
 
 const CollegeProfileSchema = z.object({
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
     };
 
     await adminDb.collection("settings").doc("college").set(profileData, { merge: true });
+    invalidatePublicSiteDataCache();
 
     return NextResponse.json({
       status: "ok",

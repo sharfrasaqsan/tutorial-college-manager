@@ -41,7 +41,7 @@ interface DashboardData {
 export default function OwnerHomePage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData>({
-    selectedYear: "2026",
+    selectedYear: "",
     studentCount: 0,
     classCount: 0,
     teacherCount: 0,
@@ -94,24 +94,16 @@ export default function OwnerHomePage() {
 
   return (
     <OwnerShell pageTitle="College Dashboard">
-      <PageHeader
-        title={`Academic Year ${selectedYear}`}
-        subtitle="Institution operations, live class schedules & quick management actions"
-        action={
-          <div className="flex items-center gap-2">
-            <Link
-              href="/owner/fees"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] bg-[#1F5C4D] text-[#FFFFFF] hover:bg-[#17473B] text-xs font-medium transition-colors"
-            >
-              <CreditCard className="w-3.5 h-3.5" />
-              <span>Collect Fees</span>
-            </Link>
-          </div>
-        }
-      />
-
       {loading ? (
         <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-52" />
+              <Skeleton variant="text" className="w-80 max-w-full" />
+            </div>
+            <Skeleton className="h-8 w-28" />
+          </div>
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {[1, 2, 3, 4].map((i) => (
               <Card key={i} className="p-4 h-[108px] flex flex-col justify-between">
@@ -145,7 +137,23 @@ export default function OwnerHomePage() {
           </div>
         </div>
       ) : (
-        <div className="space-y-6">
+        <>
+          <PageHeader
+            title={`Academic Year ${selectedYear}`}
+            subtitle="Institution operations, live class schedules & quick management actions"
+            action={
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/owner/fees"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] bg-[#1F5C4D] text-[#FFFFFF] hover:bg-[#17473B] text-xs font-medium transition-colors"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Collect Fees</span>
+                </Link>
+              </div>
+            }
+          />
+          <div className="space-y-6">
           {/* 1. 4 Summary Tiles in a row on Desktop (2x2 on Mobile/Tablet) */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Tile 1: Students */}
@@ -418,6 +426,7 @@ export default function OwnerHomePage() {
             </div>
           </div>
         </div>
+        </>
       )}
     </OwnerShell>
   );

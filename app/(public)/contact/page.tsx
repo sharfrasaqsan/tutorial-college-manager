@@ -1,6 +1,7 @@
 import React from "react";
 import type { Metadata } from "next";
 import { getPublicSiteData } from "@/lib/public-data";
+import { ContactForm } from "@/components/public/ContactForm";
 import {
   MapPin,
   Phone,
@@ -12,7 +13,7 @@ import {
   Building2,
 } from "lucide-react";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { college } = await getPublicSiteData();
@@ -168,6 +169,9 @@ export default async function ContactPage() {
               )}
             </div>
           </div>
+
+          {/* Interactive Contact & Inquiry Form */}
+          <ContactForm collegeName={college.name} />
 
           {/* About / Institutional Statement */}
           {college.aboutText && (

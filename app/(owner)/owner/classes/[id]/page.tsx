@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { OwnerShell } from "@/components/layout/OwnerShell";
@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Field } from "@/components/ui/Field";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -31,10 +32,38 @@ import {
   AlertCircle,
   School,
   Check,
+  Edit2,
+  Trash2,
+  X,
 } from "lucide-react";
-import type { ClassItem, ClassTerms, ClassEnrolment, Student } from "@/types";
-import { calculateOwnerShare } from "@/lib/classes";
-import { getCurrentMonthKey, formatMonthDisplay } from "@/lib/dates";
+import type {
+  ClassItem,
+  ClassTerms,
+  ClassEnrolment,
+  Student,
+  AcademicGrade,
+  AcademicSubject,
+  Teacher,
+  TimetableSlot,
+  TimeInterval,
+} from "@/types";
+import { calculateOwnerShare, generateClassName } from "@/lib/classes";
+import { checkClash, doIntervalsOverlap } from "@/lib/clash";
+import {
+  getCurrentMonthKey,
+  formatMonthDisplay,
+  WEEKDAY_ORDER,
+  getWeekdayName,
+  formatTimeDisplay,
+  formatTimeRange,
+} from "@/lib/dates";
+
+interface SessionDraft {
+  id?: string;
+  weekday: number;
+  startTime: string;
+  endTime: string;
+}
 
 export default function OwnerClassDetailPage() {
   const params = useParams();
@@ -50,18 +79,37 @@ export default function OwnerClassDetailPage() {
     status: string;
   } | null>(null);
 
+  const [grades, setGrades] = useState<AcademicGrade[]>([]);
+  const [subjects, setSubjects] = useState<AcademicSubject[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [allClasses, setAllClasses] = useState<ClassItem[]>([]);
+
   const [loading, setLoading] = useState(true);
 
   // Toast
   const [toastMessage, setToastMessage] = useState("");
   const [toastVariant, setToastVariant] = useState<ToastVariant>("info");
 
-  // Update Terms Sheet
-  const [termsSheetOpen, setTermsSheetOpen] = useState(false);
-  const [editFee, setEditFee] = useState<number>(3000);
-  const [editTeacherShare, setEditTeacherShare] = useState<number>(2000);
-  const [editRequiredSessions, setEditRequiredSessions] = useState<number>(8);
+  // Edit Class Sheet
+  const [editClassOpen, setEditClassOpen] = useState(false);
+  const [editGrade, setEditGrade] = useState("");
+  const [editSubject, setEditSubject] = useState("");
+  const [editTeacherId, setEditTeacherId] = useState("");
+  const [editShowAllTeachers, setEditShowAllTeachers] = useState(false);
+  const [editFee, setEditFee] = useState<string>("");
+  const [editTeacherShare, setEditTeacherShare] = useState<string>("");
+  const [editRequiredSessions, setEditRequiredSessions] = useState<string>("");
   const [editEffectiveMonth, setEditEffectiveMonth] = useState<string>(getCurrentMonthKey());
+  const [editSchedules, setEditSchedules] = useState<SessionDraft[]>([]);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  // Update Terms Sheet (standalone)
+  const [termsSheetOpen, setTermsSheetOpen] = useState(false);
+  const [termsFee, setTermsFee] = useState<string>("");
+  const [termsTeacherShare, setTermsTeacherShare] = useState<string>("");
+  const [termsRequiredSessions, setTermsRequiredSessions] = useState<string>("");
+  const [termsEffectiveMonth, setTermsEffectiveMonth] = useState<string>(getCurrentMonthKey());
   const [termsSaving, setTermsSaving] = useState(false);
   const [termsError, setTermsError] = useState("");
 
@@ -78,9 +126,14 @@ export default function OwnerClassDetailPage() {
   const [removeDialogStudent, setRemoveDialogStudent] = useState<ClassEnrolment | null>(null);
   const [removing, setRemoving] = useState(false);
 
+  // Delete Class Dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   useEffect(() => {
     if (classId) {
       loadClassDetail();
+      loadMetadata();
     }
   }, [classId]);
 
@@ -103,6 +156,39 @@ export default function OwnerClassDetailPage() {
     }
   }
 
+  async function loadMetadata() {
+    try {
+      const [acadRes, teachRes, classesRes] = await Promise.all([
+        fetch("/api/owner/settings/academic"),
+        fetch("/api/owner/teachers"),
+        fetch("/api/owner/classes"),
+      ]);
+
+      const [acadData, teachData, classesData] = await Promise.all([
+        acadRes.json(),
+        teachRes.json(),
+        classesRes.json(),
+      ]);
+
+      if (acadRes.ok) {
+        if (acadData.grades) {
+          setGrades(acadData.grades.filter((g: any) => !g.hidden));
+        }
+        if (acadData.subjects) {
+          setSubjects(acadData.subjects.filter((s: any) => !s.hidden));
+        }
+      }
+
+      if (teachRes.ok && teachData.teachers) {
+        setTeachers(teachData.teachers.filter((t: any) => t.active));
+      }
+
+      if (classesRes.ok && classesData.classes) {
+        setAllClasses(classesData.classes);
+      }
+    } catch {}
+  }
+
   async function loadAllStudentsForEnrolment() {
     try {
       const yearId = classItem?.yearId || "2026";
@@ -119,18 +205,61 @@ export default function OwnerClassDetailPage() {
     setToastVariant(variant);
   }
 
+  function openEditSheet() {
+    if (!classItem) return;
+    setEditGrade(classItem.grade);
+    setEditSubject(classItem.subject);
+    setEditTeacherId(classItem.teacherId);
+    setEditShowAllTeachers(false);
+
+    const currentTerms = classItem.currentTerms;
+    setEditFee(currentTerms?.monthlyFee !== undefined ? String(currentTerms.monthlyFee) : "");
+    setEditTeacherShare(currentTerms?.teacherSharePerStudent !== undefined ? String(currentTerms.teacherSharePerStudent) : "");
+    setEditRequiredSessions(currentTerms?.requiredSessionsPerMonth !== undefined ? String(currentTerms.requiredSessionsPerMonth) : "");
+    setEditEffectiveMonth(currentTerms?.effectiveFromMonth || getCurrentMonthKey());
+
+    const existingSlots: TimetableSlot[] = classItem.slots || (classItem.slot ? [classItem.slot] : []);
+    setEditSchedules(
+      existingSlots.map((s) => ({
+        id: s.id,
+        weekday: s.weekday,
+        startTime: s.startTime,
+        endTime: s.endTime,
+      }))
+    );
+
+    setEditError("");
+    setEditClassOpen(true);
+  }
+
+  function addEditScheduleSession() {
+    setEditSchedules([
+      ...editSchedules,
+      {
+        weekday: 1, // Default Monday (1st day of the week)
+        startTime: "",
+        endTime: "",
+      },
+    ]);
+  }
+
+  function updateEditSchedule(index: number, field: keyof SessionDraft, value: any) {
+    const updated = [...editSchedules];
+    updated[index] = { ...updated[index], [field]: value };
+    setEditSchedules(updated);
+  }
+
+  function removeEditSchedule(index: number) {
+    setEditSchedules(editSchedules.filter((_, i) => i !== index));
+  }
+
   function openTermsSheet() {
     if (!classItem) return;
-    const current = classItem.currentTerms || {
-      monthlyFee: 0,
-      teacherSharePerStudent: 0,
-      requiredSessionsPerMonth: 8,
-      effectiveFromMonth: getCurrentMonthKey(),
-    };
-    setEditFee(current.monthlyFee);
-    setEditTeacherShare(current.teacherSharePerStudent);
-    setEditRequiredSessions(current.requiredSessionsPerMonth);
-    setEditEffectiveMonth(getCurrentMonthKey());
+    const current = classItem.currentTerms;
+    setTermsFee(current?.monthlyFee !== undefined ? String(current.monthlyFee) : "");
+    setTermsTeacherShare(current?.teacherSharePerStudent !== undefined ? String(current.teacherSharePerStudent) : "");
+    setTermsRequiredSessions(current?.requiredSessionsPerMonth !== undefined ? String(current.requiredSessionsPerMonth) : "");
+    setTermsEffectiveMonth(getCurrentMonthKey());
     setTermsError("");
     setTermsSheetOpen(true);
   }
@@ -152,30 +281,267 @@ export default function OwnerClassDetailPage() {
     }
   }
 
-  const computedOwnerShare = calculateOwnerShare(Number(editFee) || 0, Number(editTeacherShare) || 0);
-  const isTeacherShareInvalid = Number(editTeacherShare) > Number(editFee);
+  const numEditFee = Number(editFee) || 0;
+  const numEditTeacherShare = Number(editTeacherShare) || 0;
+  const editComputedOwnerShare = calculateOwnerShare(numEditFee, numEditTeacherShare);
+  const isEditTeacherShareInvalid = numEditTeacherShare > numEditFee;
+
+  const numTermsFee = Number(termsFee) || 0;
+  const numTermsTeacherShare = Number(termsTeacherShare) || 0;
+  const termsComputedOwnerShare = calculateOwnerShare(numTermsFee, numTermsTeacherShare);
+  const isTermsTeacherShareInvalid = numTermsTeacherShare > numTermsFee;
+
+  const editMatchingTeachers = useMemo(() => {
+    if (!editSubject) return [];
+    return teachers.filter((t) =>
+      t.subjects?.some((s) => s.toLowerCase() === editSubject.toLowerCase())
+    );
+  }, [teachers, editSubject]);
+
+  const editDisplayedTeachers = useMemo(() => {
+    if (!editSubject) {
+      return editShowAllTeachers ? teachers : [];
+    }
+    if (editShowAllTeachers) {
+      return teachers;
+    }
+    return editMatchingTeachers;
+  }, [editSubject, editShowAllTeachers, teachers, editMatchingTeachers]);
+
+  function handleEditSubjectChange(newSubj: string) {
+    setEditSubject(newSubj);
+    setEditShowAllTeachers(false);
+    if (editTeacherId) {
+      const currentTeacher = teachers.find((t) => t.id === editTeacherId);
+      const teachesNew = currentTeacher?.subjects?.some(
+        (s) => s.toLowerCase() === newSubj.toLowerCase()
+      );
+      if (!teachesNew) {
+        setEditTeacherId("");
+      }
+    }
+  }
+
+  // Intervals from other active classes for clash detection
+  const existingIntervals: TimeInterval[] = useMemo(() => {
+    const list: TimeInterval[] = [];
+    for (const c of allClasses) {
+      if (!c.active || c.id === classId) continue;
+      const classSlots = c.slots || (c.slot ? [c.slot] : []);
+      for (const s of classSlots) {
+        list.push({
+          id: s.id,
+          classId: c.id,
+          className: c.name,
+          grade: c.grade,
+          teacherId: (c.teacherId || s.teacherId || "").trim(),
+          teacherName: c.teacherName || s.teacherName || "",
+          weekday: Number(s.weekday),
+          startTime: s.startTime,
+          endTime: s.endTime,
+        });
+      }
+    }
+    return list;
+  }, [allClasses, classId]);
+
+  // Live clash detection for Edit Class form
+  const editClashes = useMemo(() => {
+    const clashes: Record<number, string> = {};
+    const selectedTeacher = teachers.find((t) => t.id === editTeacherId.trim());
+
+    // 1. Check intra-draft collisions
+    for (let i = 0; i < editSchedules.length; i++) {
+      for (let j = i + 1; j < editSchedules.length; j++) {
+        const a = editSchedules[i];
+        const b = editSchedules[j];
+        if (
+          Number(a.weekday) === Number(b.weekday) &&
+          a.startTime &&
+          a.endTime &&
+          b.startTime &&
+          b.endTime &&
+          doIntervalsOverlap(a.startTime, a.endTime, b.startTime, b.endTime)
+        ) {
+          const msg = `Session #${i + 1} and Session #${j + 1} overlap on ${getWeekdayName(a.weekday)}.`;
+          if (!clashes[i]) clashes[i] = msg;
+          if (!clashes[j]) clashes[j] = msg;
+        }
+      }
+    }
+
+    // 2. Check collisions against other existing classes
+    editSchedules.forEach((sch, idx) => {
+      if (clashes[idx]) return;
+      if (!sch.startTime || !sch.endTime) return;
+      if (sch.startTime >= sch.endTime) {
+        clashes[idx] = "End time must be after start time.";
+        return;
+      }
+      if (!editTeacherId.trim()) return;
+
+      const candidate: TimeInterval = {
+        id: sch.id || `edit-draft-${idx}`,
+        classId,
+        className: generateClassName(editGrade, editSubject) || (classItem?.name ?? "Class"),
+        grade: editGrade,
+        teacherId: editTeacherId.trim(),
+        teacherName: selectedTeacher?.name || "The teacher",
+        weekday: Number(sch.weekday),
+        startTime: sch.startTime,
+        endTime: sch.endTime,
+      };
+
+      const result = checkClash(candidate, existingIntervals);
+      if (result.hasClash && result.message) {
+        clashes[idx] = result.message;
+      }
+    });
+
+    return clashes;
+  }, [editSchedules, editTeacherId, editGrade, editSubject, classId, classItem, teachers, existingIntervals]);
+
+  const hasEditClashes = Object.keys(editClashes).length > 0;
+
+  async function handleEditClass(e: React.FormEvent) {
+    e.preventDefault();
+    if (!classItem) return;
+    setEditError("");
+
+    if (!editGrade.trim() || !editSubject.trim() || !editTeacherId.trim()) {
+      setEditError("Please select grade, subject, and teacher.");
+      return;
+    }
+    if (editFee === "" || isNaN(Number(editFee))) {
+      setEditError("Please enter a valid monthly student fee.");
+      return;
+    }
+    if (editTeacherShare === "" || isNaN(Number(editTeacherShare))) {
+      setEditError("Please enter a valid teacher share.");
+      return;
+    }
+    if (isEditTeacherShareInvalid) {
+      setEditError("Teacher share cannot exceed the monthly class fee.");
+      return;
+    }
+
+    if (hasEditClashes) {
+      setEditError("Please resolve scheduling conflicts before saving this class.");
+      return;
+    }
+
+    // Validate schedule sessions
+    for (let i = 0; i < editSchedules.length; i++) {
+      const s = editSchedules[i];
+      if (!s.startTime || !s.endTime) {
+        setEditError(`Please set start and end time for session #${i + 1}.`);
+        return;
+      }
+      if (s.startTime >= s.endTime) {
+        setEditError(`Session #${i + 1}: Start time must be earlier than end time.`);
+        return;
+      }
+    }
+
+    try {
+      setEditSaving(true);
+      const payload: any = {
+        yearId: classItem.yearId,
+        grade: editGrade.trim(),
+        subject: editSubject.trim(),
+        teacherId: editTeacherId.trim(),
+        terms: {
+          monthlyFee: numEditFee,
+          teacherSharePerStudent: numEditTeacherShare,
+          requiredSessionsPerMonth: Number(editRequiredSessions) || 8,
+          effectiveFromMonth: editEffectiveMonth.trim(),
+        },
+        schedules: editSchedules.map((s) => ({
+          id: s.id,
+          weekday: Number(s.weekday),
+          startTime: s.startTime,
+          endTime: s.endTime,
+        })),
+      };
+
+      const res = await fetch(`/api/owner/classes/${classId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setEditClassOpen(false);
+        showToast(data.message || "Class updated successfully.", "success");
+        loadClassDetail();
+      } else {
+        setEditError(data.error || "Failed to update class.");
+      }
+    } catch {
+      setEditError("Connection error while updating class.");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function handleDeleteClass() {
+    if (!classItem) return;
+
+    try {
+      setDeleting(true);
+      const res = await fetch(
+        `/api/owner/classes/${classId}?yearId=${classItem.yearId}`,
+        { method: "DELETE" }
+      );
+
+      const data = await res.json();
+      if (res.ok) {
+        setDeleteDialogOpen(false);
+        showToast(data.message || "Class deleted successfully.", "success");
+        router.push("/owner/classes");
+      } else {
+        showToast(data.error || "Failed to delete class.", "danger");
+      }
+    } catch {
+      showToast("Connection error while deleting class.", "danger");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   async function handleUpdateTerms(e: React.FormEvent) {
     e.preventDefault();
     setTermsError("");
 
-    if (isTeacherShareInvalid) {
+    if (termsFee === "" || isNaN(Number(termsFee))) {
+      setTermsError("Please enter a valid monthly student fee.");
+      return;
+    }
+    if (termsTeacherShare === "" || isNaN(Number(termsTeacherShare))) {
+      setTermsError("Please enter a valid teacher share.");
+      return;
+    }
+    if (isTermsTeacherShareInvalid) {
       setTermsError("Teacher share cannot exceed the monthly class fee.");
       return;
     }
 
     try {
       setTermsSaving(true);
-      const res = await fetch(`/api/owner/classes/${classId}/terms?yearId=${classItem?.yearId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          monthlyFee: Number(editFee) || 0,
-          teacherSharePerStudent: Number(editTeacherShare) || 0,
-          requiredSessionsPerMonth: Number(editRequiredSessions) || 8,
-          effectiveFromMonth: editEffectiveMonth.trim(),
-        }),
-      });
+      const res = await fetch(
+        `/api/owner/classes/${classId}/terms?yearId=${classItem?.yearId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            monthlyFee: numTermsFee,
+            teacherSharePerStudent: numTermsTeacherShare,
+            requiredSessionsPerMonth: Number(termsRequiredSessions) || 8,
+            effectiveFromMonth: termsEffectiveMonth.trim(),
+          }),
+        }
+      );
 
       const data = await res.json();
       if (res.ok) {
@@ -203,14 +569,17 @@ export default function OwnerClassDetailPage() {
 
     try {
       setEnrolling(true);
-      const res = await fetch(`/api/owner/classes/${classId}/enrolments?yearId=${classItem?.yearId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          studentIds: selectedStudentIds,
-          joinedMonth: enrollJoinedMonth.trim(),
-        }),
-      });
+      const res = await fetch(
+        `/api/owner/classes/${classId}/enrolments?yearId=${classItem?.yearId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            studentIds: selectedStudentIds,
+            joinedMonth: enrollJoinedMonth.trim(),
+          }),
+        }
+      );
 
       const data = await res.json();
       if (res.ok) {
@@ -289,7 +658,6 @@ export default function OwnerClassDetailPage() {
   };
   const enrolledStudentIds = new Set(enrolledStudents.map((e) => e.studentId));
 
-  // Filter students for enrolment modal: matching grade first
   const matchingGradeStudents = allStudents.filter(
     (s) => s.grade.toLowerCase() === classItem.grade.toLowerCase()
   );
@@ -299,6 +667,8 @@ export default function OwnerClassDetailPage() {
   const displayEnrolmentCandidates = showAllGrades
     ? [...matchingGradeStudents, ...otherStudents]
     : matchingGradeStudents;
+
+  const classSlots: TimetableSlot[] = classItem.slots || (classItem.slot ? [classItem.slot] : []);
 
   return (
     <OwnerShell pageTitle={classItem.name}>
@@ -317,10 +687,32 @@ export default function OwnerClassDetailPage() {
         title={classItem.name}
         subtitle={`${classItem.grade} • Teacher: ${classItem.teacherName || "Unassigned"} • Year ${classItem.yearId}`}
         action={
-          <Button variant="primary" onClick={openEnrollSheet} className="gap-1.5">
-            <Plus className="w-4 h-4" strokeWidth={2} />
-            <span>Enroll Students</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={openEditSheet}
+              className="gap-1.5 text-xs h-9"
+            >
+              <Edit2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+              <span>Edit Class</span>
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => setDeleteDialogOpen(true)}
+              className="gap-1.5 text-xs h-9"
+            >
+              <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+              <span>Delete Class</span>
+            </Button>
+            <Button
+              variant="primary"
+              onClick={openEnrollSheet}
+              className="gap-1.5 text-xs h-9"
+            >
+              <Plus className="w-4 h-4" strokeWidth={2} />
+              <span>Enroll Students</span>
+            </Button>
+          </div>
         }
       />
 
@@ -355,6 +747,45 @@ export default function OwnerClassDetailPage() {
                 <span className="font-medium text-[#1C1F23] mt-0.5 block">{classItem.subject}</span>
               </div>
             </div>
+
+            {/* Weekly Timetable Schedule Sessions (Renders all sessions) */}
+            <div className="pt-2.5 border-t border-[#E4E1DA]">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[#5F6670] font-medium text-xs flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-[#1F5C4D]" strokeWidth={1.75} />
+                  Weekly Timetable Sessions
+                </span>
+                <Link
+                  href="/owner/timetable"
+                  className="text-[11px] text-[#1F5C4D] hover:underline font-medium"
+                >
+                  Open Timetable &rarr;
+                </Link>
+              </div>
+
+              {classSlots.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  {classSlots.map((s, idx) => (
+                    <div
+                      key={s.id || idx}
+                      className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded bg-[#FAF9F6] border border-[#E4E1DA]/70 text-[#1C1F23]"
+                    >
+                      <span className="font-medium flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#1F5C4D]" />
+                        {getWeekdayName(s.weekday)}
+                      </span>
+                      <span className="tabular-nums font-mono text-[11px] text-[#5F6670]">
+                        {formatTimeRange(s.startTime, s.endTime)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-2 bg-[#FAF9F6] text-[#5F6670] rounded border border-[#E4E1DA] text-xs italic">
+                  No weekly sessions scheduled yet. Click "Edit Class" to add one.
+                </div>
+              )}
+            </div>
           </Card>
 
           {/* Current Active Terms Card */}
@@ -365,7 +796,11 @@ export default function OwnerClassDetailPage() {
                   <Coins className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
                   <CardTitle>Active Terms ({terms.effectiveFromMonth})</CardTitle>
                 </div>
-                <Button variant="secondary" onClick={openTermsSheet} className="text-xs h-7 px-2.5 gap-1">
+                <Button
+                  variant="secondary"
+                  onClick={openTermsSheet}
+                  className="text-xs h-7 px-2.5 gap-1"
+                >
                   <Edit className="w-3.5 h-3.5" strokeWidth={1.75} />
                   <span>Update Terms</span>
                 </Button>
@@ -390,7 +825,11 @@ export default function OwnerClassDetailPage() {
               <div>
                 <span className="text-[#5F6670] block">College Share / Student</span>
                 <span className="font-semibold text-sm text-[#1F5C4D] tabular-nums mt-0.5 block">
-                  <MoneyText amount={terms.ownerShare ?? (terms.monthlyFee - terms.teacherSharePerStudent)} />
+                  <MoneyText
+                    amount={
+                      terms.ownerShare ?? terms.monthlyFee - terms.teacherSharePerStudent
+                    }
+                  />
                 </span>
               </div>
 
@@ -413,9 +852,13 @@ export default function OwnerClassDetailPage() {
                   {classItem.termsHistory.map((h: ClassTerms, i: number) => (
                     <div key={i} className="py-1.5 flex items-center justify-between">
                       <span>
-                        Effective <strong>{h.effectiveFromMonth}</strong>: Fee <MoneyText amount={h.monthlyFee} /> • Teacher <MoneyText amount={h.teacherSharePerStudent} />
+                        Effective <strong>{h.effectiveFromMonth}</strong>: Fee{" "}
+                        <MoneyText amount={h.monthlyFee} /> • Teacher{" "}
+                        <MoneyText amount={h.teacherSharePerStudent} />
                       </span>
-                      <span className="text-[#5F6670]">Req: {h.requiredSessionsPerMonth} sess</span>
+                      <span className="text-[#5F6670]">
+                        Req: {h.requiredSessionsPerMonth} sess
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -429,7 +872,13 @@ export default function OwnerClassDetailPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
-                  <CardTitle>Session Progress ({sessionProgress ? formatMonthDisplay(sessionProgress.month) : "Current Month"})</CardTitle>
+                  <CardTitle>
+                    Session Progress (
+                    {sessionProgress
+                      ? formatMonthDisplay(sessionProgress.month)
+                      : "Current Month"}
+                    )
+                  </CardTitle>
                 </div>
                 <StatusChip status="neutral" label="Scheduled" />
               </div>
@@ -438,7 +887,8 @@ export default function OwnerClassDetailPage() {
             <div className="flex items-center justify-between text-xs bg-[#FAF9F6] p-3 rounded border border-[#E4E1DA]">
               <div>
                 <span className="font-semibold text-sm text-[#1C1F23]">
-                  {sessionProgress?.heldSessions ?? 0} of {terms.requiredSessionsPerMonth} sessions held
+                  {sessionProgress?.heldSessions ?? 0} of {terms.requiredSessionsPerMonth}{" "}
+                  sessions held
                 </span>
                 <p className="text-[11px] text-[#5F6670] mt-0.5">
                   Monthly timetable sessions and attendance status
@@ -471,7 +921,10 @@ export default function OwnerClassDetailPage() {
 
             {enrolledStudents.length === 0 ? (
               <div className="py-6 text-center text-xs text-[#5F6670]">
-                <Users className="w-6 h-6 mx-auto mb-2 opacity-50 text-[#5F6670]" strokeWidth={1.75} />
+                <Users
+                  className="w-6 h-6 mx-auto mb-2 opacity-50 text-[#5F6670]"
+                  strokeWidth={1.75}
+                />
                 <p className="font-medium text-[#1C1F23]">No students enrolled yet</p>
                 <p className="text-[11px] text-[#5F6670] mt-1">
                   Click "Enroll Students" above to allocate students to this class.
@@ -480,7 +933,10 @@ export default function OwnerClassDetailPage() {
             ) : (
               <div className="divide-y divide-[#E4E1DA]">
                 {enrolledStudents.map((enrolment) => (
-                  <div key={enrolment.studentId} className="py-3 flex items-center justify-between gap-3 text-xs hover:bg-[#FAF9F6]/50 px-1 rounded transition-colors">
+                  <div
+                    key={enrolment.studentId}
+                    className="py-3 flex items-center justify-between gap-3 text-xs hover:bg-[#FAF9F6]/50 px-1 rounded transition-colors"
+                  >
                     <div>
                       <Link
                         href={`/owner/students/${enrolment.studentId}`}
@@ -517,7 +973,352 @@ export default function OwnerClassDetailPage() {
         </div>
       </div>
 
-      {/* Update Terms Bottom Sheet */}
+      {/* Edit Class Bottom Sheet (Multiple Sessions, Monday 1st) */}
+      <BottomSheet
+        open={editClassOpen}
+        onClose={() => setEditClassOpen(false)}
+        title={`Edit Class: ${classItem.name}`}
+      >
+        <form onSubmit={handleEditClass} className="flex flex-col gap-4">
+          {editError && (
+            <div className="p-3 text-xs text-[#A32A2A] bg-[#FBE9E7] border border-[#A32A2A]/20 rounded">
+              {editError}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field id="detail-edit-grade" label="Grade Level" required>
+              <Select value={editGrade} onChange={(e) => setEditGrade(e.target.value)} required>
+                <option value="">-- Choose a grade --</option>
+                {grades.map((g) => (
+                  <option key={g.id} value={g.name}>
+                    {g.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field id="detail-edit-subject" label="Subject" required>
+              <Select
+                value={editSubject}
+                onChange={(e) => handleEditSubjectChange(e.target.value)}
+                required
+              >
+                <option value="">-- Choose a subject --</option>
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+
+          {editGrade && editSubject && (
+            <div className="p-2.5 bg-[#FAF9F6] border border-[#E4E1DA] rounded text-xs">
+              <span className="text-[#5F6670]">Updated Class Name:</span>
+              <strong className="text-[#1C1F23] ml-2 font-semibold">
+                {generateClassName(editGrade, editSubject)}
+              </strong>
+            </div>
+          )}
+
+          {/* Teacher Selection */}
+          <div className="flex flex-col gap-1.5">
+            <Field
+              id="detail-edit-teacher"
+              label="Assigned Teacher"
+              hint={
+                !editSubject
+                  ? "Select a subject above to view qualified teachers."
+                  : editMatchingTeachers.length > 0 && !editShowAllTeachers
+                  ? `Showing ${editMatchingTeachers.length} teacher(s) who teach ${editSubject}.`
+                  : editMatchingTeachers.length === 0 && !editShowAllTeachers
+                  ? `No active teachers currently teach ${editSubject}.`
+                  : `Showing all active teachers (${teachers.length}).`
+              }
+              required
+            >
+              <Select
+                id="detail-edit-teacher"
+                value={editTeacherId}
+                onChange={(e) => setEditTeacherId(e.target.value)}
+                required
+                disabled={!editSubject}
+              >
+                {!editSubject ? (
+                  <option value="">-- Choose a subject first --</option>
+                ) : editDisplayedTeachers.length === 0 ? (
+                  <option value="">-- No teachers registered for {editSubject} --</option>
+                ) : (
+                  <>
+                    <option value="">-- Choose a teacher --</option>
+                    {editDisplayedTeachers.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}{" "}
+                        {t.subjects && t.subjects.length > 0 ? `(${t.subjects.join(", ")})` : ""}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </Select>
+            </Field>
+
+            {editSubject && editMatchingTeachers.length === 0 && !editShowAllTeachers && (
+              <div className="flex items-center justify-between text-xs text-[#A32A2A] bg-[#FAF9F6] p-2 rounded border border-[#E4E1DA]">
+                <span>No registered teachers teach {editSubject}.</span>
+                <button
+                  type="button"
+                  onClick={() => setEditShowAllTeachers(true)}
+                  className="text-[#1F5C4D] font-medium hover:underline shrink-0 ml-2"
+                >
+                  Show all teachers
+                </button>
+              </div>
+            )}
+
+            {editSubject && editMatchingTeachers.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setEditShowAllTeachers(!editShowAllTeachers)}
+                className="text-left text-[11px] text-[#1F5C4D] hover:underline self-start -mt-0.5"
+              >
+                {editShowAllTeachers
+                  ? `Filter to teachers who teach ${editSubject} (${editMatchingTeachers.length})`
+                  : `Show all active teachers (${teachers.length})`}
+              </button>
+            )}
+
+            {editSubject && editMatchingTeachers.length === 0 && editShowAllTeachers && (
+              <button
+                type="button"
+                onClick={() => setEditShowAllTeachers(false)}
+                className="text-left text-[11px] text-[#1F5C4D] hover:underline self-start -mt-0.5"
+              >
+                Filter back to {editSubject} only
+              </button>
+            )}
+          </div>
+
+          {/* Weekly Timetable Sessions Card (Edit/Add/Remove multiple sessions) */}
+          <div className="p-3.5 border border-[#E4E1DA] rounded bg-[#FAF9F6] flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
+                <h4 className="font-semibold text-xs text-[#1C1F23]">Weekly Timetable Sessions</h4>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={addEditScheduleSession}
+                className="text-xs h-7 px-2.5 gap-1 text-[#1F5C4D]"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Session</span>
+              </Button>
+            </div>
+
+            {editSchedules.length === 0 ? (
+              <div className="p-3 bg-white border border-[#E4E1DA] rounded text-xs text-[#5F6670] text-center flex flex-col items-center gap-1.5">
+                <p>No timetable sessions currently scheduled.</p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={addEditScheduleSession}
+                  className="text-xs h-7 px-2.5 gap-1"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Add Weekly Session</span>
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {editSchedules.map((sch, idx) => {
+                  const clashError = editClashes[idx];
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-3 bg-white border rounded-[6px] flex flex-col gap-2.5 transition-colors ${
+                        clashError ? "border-[#A32A2A] bg-[#FFF5F5]/70" : "border-[#E4E1DA]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-[#1C1F23]">
+                          Session #{idx + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeEditSchedule(idx)}
+                          className="text-[#5F6670] hover:text-[#A32A2A] p-1 rounded hover:bg-[#FBE9E7] transition-colors"
+                          title="Remove session"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <Field id={`detail-edit-weekday-${idx}`} label="Day of Week" required>
+                          <Select
+                            value={sch.weekday}
+                            onChange={(e) =>
+                              updateEditSchedule(idx, "weekday", Number(e.target.value))
+                            }
+                            required
+                          >
+                            {WEEKDAY_ORDER.map((w) => (
+                              <option key={w.index} value={w.index}>
+                                {w.name}
+                              </option>
+                            ))}
+                          </Select>
+                        </Field>
+
+                        <Field id={`detail-edit-start-${idx}`} label="Start Time" required>
+                          <Input
+                            type="time"
+                            value={sch.startTime}
+                            onChange={(e) =>
+                              updateEditSchedule(idx, "startTime", e.target.value)
+                            }
+                            required
+                          />
+                        </Field>
+
+                        <Field id={`detail-edit-end-${idx}`} label="End Time" required>
+                          <Input
+                            type="time"
+                            value={sch.endTime}
+                            onChange={(e) =>
+                              updateEditSchedule(idx, "endTime", e.target.value)
+                            }
+                            required
+                          />
+                        </Field>
+                      </div>
+
+                      {sch.startTime && sch.endTime && !clashError && (
+                        <div className="text-[11px] text-[#1F5C4D] bg-[#E6F0EC] px-2 py-1 rounded border border-[#1F5C4D]/20">
+                          {getWeekdayName(sch.weekday)} • {formatTimeRange(sch.startTime, sch.endTime)}
+                        </div>
+                      )}
+
+                      {clashError && (
+                        <div className="flex items-start gap-1.5 p-2 bg-[#FBE9E7] text-[#A32A2A] rounded text-xs border border-[#A32A2A]/20">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.75} />
+                          <span className="font-medium">{clashError}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Class Terms Card */}
+          <div className="p-3.5 border border-[#E4E1DA] rounded bg-[#FAF9F6] flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <Coins className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
+              <h4 className="font-semibold text-xs text-[#1C1F23]">Class Terms &amp; Rates</h4>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field id="detail-edit-fee" label="Monthly Fee (LKR)" required>
+                <Input
+                  type="number"
+                  min="0"
+                  step="100"
+                  placeholder="e.g. 3500"
+                  value={editFee}
+                  onChange={(e) => setEditFee(e.target.value)}
+                  required
+                />
+              </Field>
+
+              <Field id="detail-edit-share" label="Teacher Share (LKR)" required>
+                <Input
+                  type="number"
+                  min="0"
+                  step="100"
+                  placeholder="e.g. 2500"
+                  value={editTeacherShare}
+                  onChange={(e) => setEditTeacherShare(e.target.value)}
+                  required
+                />
+              </Field>
+            </div>
+
+            {editFee !== "" && (
+              <div className="p-2 bg-white rounded border border-[#E4E1DA] text-xs flex items-center justify-between">
+                <span className="text-[#5F6670]">Computed College Share / Student:</span>
+                <strong className="text-[#1F5C4D] tabular-nums font-semibold">
+                  <MoneyText amount={editComputedOwnerShare} />
+                </strong>
+              </div>
+            )}
+
+            {isEditTeacherShareInvalid && (
+              <div className="flex items-center gap-1.5 p-2 bg-[#FBE9E7] text-[#A32A2A] rounded text-xs border border-[#A32A2A]/20">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />
+                <span>Teacher share cannot exceed the monthly class fee.</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#E4E1DA]">
+              <Field id="detail-edit-sessions" label="Sessions / Month" required>
+                <Input
+                  type="number"
+                  min="1"
+                  max="31"
+                  placeholder="e.g. 8"
+                  value={editRequiredSessions}
+                  onChange={(e) => setEditRequiredSessions(e.target.value)}
+                  required
+                />
+              </Field>
+
+              <Field id="detail-edit-effective-month" label="Effective Month" required>
+                <Input
+                  type="month"
+                  value={editEffectiveMonth}
+                  onChange={(e) => setEditEffectiveMonth(e.target.value)}
+                  required
+                />
+              </Field>
+            </div>
+          </div>
+
+          {hasEditClashes && (
+            <div className="flex items-center gap-1.5 p-2.5 bg-[#FBE9E7] text-[#A32A2A] rounded text-xs border border-[#A32A2A]/30">
+              <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={2} />
+              <span className="font-semibold">
+                Scheduling conflict detected. Please resolve overlapping sessions before saving.
+              </span>
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setEditClassOpen(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={editSaving || isEditTeacherShareInvalid || hasEditClashes}
+              className="flex-1"
+            >
+              {editSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </form>
+      </BottomSheet>
+
+      {/* Standalone Update Terms Bottom Sheet */}
       <BottomSheet
         open={termsSheetOpen}
         onClose={() => setTermsSheetOpen(false)}
@@ -532,65 +1333,70 @@ export default function OwnerClassDetailPage() {
 
           <div className="p-2.5 bg-[#FAF9F6] border border-[#E4E1DA] rounded text-xs text-[#5F6670]">
             <p>
-              Changes will apply starting from the chosen effective month. Past months retain their existing terms for historical fees and salaries.
+              Changes will apply starting from the chosen effective month. Past months retain their
+              existing terms for historical fees and salaries.
             </p>
           </div>
 
-          <Field id="edit-terms-month" label="Effective From Month (YYYY-MM)" required>
+          <Field id="edit-terms-month" label="Effective Month" required>
             <Input
               type="month"
-              value={editEffectiveMonth}
-              onChange={(e) => setEditEffectiveMonth(e.target.value)}
+              value={termsEffectiveMonth}
+              onChange={(e) => setTermsEffectiveMonth(e.target.value)}
               required
             />
           </Field>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field id="edit-terms-fee" label="Monthly Fee / Student (LKR)" required>
+            <Field id="edit-terms-fee" label="Monthly Fee (LKR)" required>
               <Input
                 type="number"
                 min="0"
                 step="100"
-                value={editFee}
-                onChange={(e) => setEditFee(Number(e.target.value))}
+                placeholder="e.g. 3500"
+                value={termsFee}
+                onChange={(e) => setTermsFee(e.target.value)}
                 required
               />
             </Field>
 
-            <Field id="edit-terms-share" label="Teacher Share / Student (LKR)" required>
+            <Field id="edit-terms-share" label="Teacher Share (LKR)" required>
               <Input
                 type="number"
                 min="0"
                 step="100"
-                value={editTeacherShare}
-                onChange={(e) => setEditTeacherShare(Number(e.target.value))}
+                placeholder="e.g. 2500"
+                value={termsTeacherShare}
+                onChange={(e) => setTermsTeacherShare(e.target.value)}
                 required
               />
             </Field>
           </div>
 
-          {/* Computed College Share */}
-          <div className="p-2.5 bg-white rounded border border-[#E4E1DA] text-xs flex items-center justify-between">
-            <span className="text-[#5F6670]">Computed College Share / Student:</span>
-            <strong className="text-[#1F5C4D] tabular-nums font-semibold">
-              <MoneyText amount={computedOwnerShare} />
-            </strong>
-          </div>
+          {termsFee !== "" && (
+            <div className="p-2.5 bg-white rounded border border-[#E4E1DA] text-xs flex items-center justify-between">
+              <span className="text-[#5F6670]">Computed College Share / Student:</span>
+              <strong className="text-[#1F5C4D] tabular-nums font-semibold">
+                <MoneyText amount={termsComputedOwnerShare} />
+              </strong>
+            </div>
+          )}
 
-          {isTeacherShareInvalid && (
+          {isTermsTeacherShareInvalid && (
             <div className="flex items-center gap-1.5 p-2 bg-[#FBE9E7] text-[#A32A2A] rounded text-xs border border-[#A32A2A]/20">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />
               <span>Teacher share cannot exceed the monthly class fee.</span>
             </div>
           )}
 
-          <Field id="edit-terms-sessions" label="Required Sessions / Month" required>
+          <Field id="edit-terms-sessions" label="Sessions / Month" required>
             <Input
               type="number"
               min="1"
               max="31"
-              value={editRequiredSessions}
-              onChange={(e) => setEditRequiredSessions(Number(e.target.value))}
+              placeholder="e.g. 8"
+              value={termsRequiredSessions}
+              onChange={(e) => setTermsRequiredSessions(e.target.value)}
               required
             />
           </Field>
@@ -607,7 +1413,7 @@ export default function OwnerClassDetailPage() {
             <Button
               type="submit"
               variant="primary"
-              disabled={termsSaving || isTeacherShareInvalid}
+              disabled={termsSaving || isTermsTeacherShareInvalid}
               className="flex-1"
             >
               {termsSaving ? "Updating..." : "Save Terms Version"}
@@ -746,6 +1552,19 @@ export default function OwnerClassDetailPage() {
         loading={removing}
         onConfirm={handleRemoveStudent}
         onClose={() => setRemoveDialogStudent(null)}
+      />
+
+      {/* Delete Class Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="Delete Class"
+        description={`Are you sure you want to delete ${classItem.name}? If this class has past held sessions or student fee records, it will be safely deactivated and removed from the active timetable to preserve financial history. If it is new with no history, it will be permanently deleted.`}
+        confirmLabel={deleting ? "Deleting..." : "Delete Class"}
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={deleting}
+        onConfirm={handleDeleteClass}
+        onClose={() => setDeleteDialogOpen(false)}
       />
 
       {toastMessage && (

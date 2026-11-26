@@ -86,6 +86,11 @@ class FirestoreRulesSimulator {
         return false;
       }
 
+      // Contact messages: Teacher cannot read directly
+      if (pathStr.startsWith("contact_messages/")) {
+        return false;
+      }
+
       // Years subcollections
       if (pathStr.startsWith("years/")) {
         const parts = pathStr.split("/");

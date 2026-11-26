@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyApiAuth } from "@/lib/auth";
+import { adminDb } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
 import { YEAR_COOKIE_NAME } from "../route";
 
@@ -27,6 +28,16 @@ export async function POST(request: NextRequest) {
       maxAge: 365 * 24 * 60 * 60,
       sameSite: "lax",
     });
+
+    // Also persist activeYear to settings/academic so the public site immediately reflects the active year
+    try {
+      await adminDb.collection("settings").doc("academic").set(
+        { activeYear: year, updatedAt: new Date().toISOString() },
+        { merge: true }
+      );
+    } catch (dbErr) {
+      console.warn("Failed to persist activeYear in settings/academic:", dbErr);
+    }
 
     return NextResponse.json({ status: "ok", selectedYear: year });
   } catch (error) {

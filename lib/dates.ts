@@ -72,6 +72,38 @@ export function formatTimeDisplay(time24: string): string {
 }
 
 /**
+ * Format a start and end time (24h strings like "16:00", "17:00") into a clean, compact range:
+ * e.g. "04:00 - 05:00 PM", "09:00 - 11:00 AM", or "11:00 AM - 01:00 PM"
+ */
+export function formatTimeRange(start24: string, end24: string): string {
+  if (!start24 || !end24) return "";
+  const [sHStr, sMStr] = start24.split(":");
+  const [eHStr, eMStr] = end24.split(":");
+  const sH = parseInt(sHStr, 10);
+  const sM = parseInt(sMStr, 10);
+  const eH = parseInt(eHStr, 10);
+  const eM = parseInt(eMStr, 10);
+
+  if (isNaN(sH) || isNaN(sM) || isNaN(eH) || isNaN(eM)) {
+    return `${start24} - ${end24}`;
+  }
+
+  const sPeriod = sH >= 12 ? "PM" : "AM";
+  const ePeriod = eH >= 12 ? "PM" : "AM";
+  const s12 = sH % 12 === 0 ? 12 : sH % 12;
+  const e12 = eH % 12 === 0 ? 12 : eH % 12;
+  const sMPadded = sM < 10 ? `0${sM}` : `${sM}`;
+  const eMPadded = eM < 10 ? `0${eM}` : `${eM}`;
+  const sHPadded = s12 < 10 ? `0${s12}` : `${s12}`;
+  const eHPadded = e12 < 10 ? `0${e12}` : `${e12}`;
+
+  if (sPeriod === ePeriod) {
+    return `${sHPadded}:${sMPadded} - ${eHPadded}:${eMPadded} ${ePeriod}`;
+  }
+  return `${sHPadded}:${sMPadded} ${sPeriod} - ${eHPadded}:${eMPadded} ${ePeriod}`;
+}
+
+/**
  * Format month key "YYYY-MM" to "November 2026"
  */
 export function formatMonthDisplay(yyyyMm: string): string {
@@ -251,10 +283,45 @@ export const WEEKDAY_NAMES = [
 
 export const SHORT_WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+export interface WeekdayItem {
+  index: number;
+  name: string;
+  shortName: string;
+}
+
+/**
+ * Weekly display order starting on Monday (1 = Monday through 0 = Sunday)
+ */
+export const WEEKDAY_ORDER: WeekdayItem[] = [
+  { index: 1, name: "Monday", shortName: "Mon" },
+  { index: 2, name: "Tuesday", shortName: "Tue" },
+  { index: 3, name: "Wednesday", shortName: "Wed" },
+  { index: 4, name: "Thursday", shortName: "Thu" },
+  { index: 5, name: "Friday", shortName: "Fri" },
+  { index: 6, name: "Saturday", shortName: "Sat" },
+  { index: 0, name: "Sunday", shortName: "Sun" },
+];
+
 export function getWeekdayName(weekday: number): string {
   return WEEKDAY_NAMES[weekday] || "";
 }
 
 export function getShortWeekdayName(weekday: number): string {
   return SHORT_WEEKDAY_NAMES[weekday] || "";
+}
+
+/**
+ * Calculate formatted duration between "HH:mm" start and end times (e.g. "1 hr", "1 hr 30 mins", "2 hrs")
+ */
+export function calculateDuration(startTime: string, endTime: string): string {
+  if (!startTime || !endTime) return "";
+  const [sh, sm] = startTime.split(":").map((x) => parseInt(x, 10));
+  const [eh, em] = endTime.split(":").map((x) => parseInt(x, 10));
+  const totalMin = eh * 60 + em - (sh * 60 + sm);
+  if (totalMin <= 0) return "";
+  const hours = Math.floor(totalMin / 60);
+  const mins = totalMin % 60;
+  if (hours > 0 && mins > 0) return `${hours} hr ${mins} mins`;
+  if (hours > 0) return hours === 1 ? "1 hr" : `${hours} hrs`;
+  return `${mins} mins`;
 }

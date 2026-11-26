@@ -131,6 +131,9 @@ export interface Teacher {
   active: boolean;
   createdAt: string;
   updatedAt?: string;
+  deleted?: boolean;
+  deletedAt?: string;
+  deletedInYear?: string;
 }
 
 export type AdmissionFeeStatus = "unpaid" | "paid" | "notApplicable";
@@ -178,6 +181,8 @@ export interface ClassItem {
   currentTerms?: ClassTerms;
   termsHistory?: ClassTerms[];
   enrolledStudentCount?: number;
+  slot?: TimetableSlot;
+  slots?: TimetableSlot[];
 }
 
 export interface ClassTerms {
@@ -386,4 +391,16 @@ export interface FCMTokenRecord {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  subject?: string;
+  message: string;
+  status: "unread" | "read" | "replied";
+  createdAt: string;
+}
+
 

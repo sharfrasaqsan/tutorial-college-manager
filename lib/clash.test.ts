@@ -111,7 +111,7 @@ describe("Clash Rules", () => {
     assert.strictEqual(result.message, "Three classes already run at that time.");
   });
 
-  test("Rule 3: Classes of the same grade MAY overlap (if rooms <= 3 and different teachers)", () => {
+  test("Rule 4: Classes of the same grade MAY overlap with different teachers, flagging hasGradeWarning", () => {
     const existing: TimeInterval[] = [
       {
         id: "c1",
@@ -140,6 +140,74 @@ describe("Clash Rules", () => {
 
     const result = checkClash(candidate, existing);
     assert.strictEqual(result.hasClash, false);
+    assert.strictEqual(result.hasGradeWarning, true);
+    assert.strictEqual(result.gradeConflictClass, "Grade 10 Science");
+    assert.ok(result.warningMessage?.includes("Grade 10 Maths and Grade 10 Science are both scheduled for Grade 10 on Monday"));
+    assert.ok(result.warningMessage?.includes("cannot attend both classes simultaneously"));
+  });
+
+  test("Different grades overlapping with different teachers do NOT flag a grade warning", () => {
+    const existing: TimeInterval[] = [
+      {
+        id: "c1",
+        teacherId: "t1",
+        teacherName: "Mr. Fernando",
+        classId: "cls1",
+        className: "Grade 10 Science",
+        grade: "Grade 10",
+        weekday: 1,
+        startTime: "09:00",
+        endTime: "11:00",
+      },
+    ];
+
+    const candidate: TimeInterval = {
+      id: "c2",
+      teacherId: "t2",
+      teacherName: "Mrs. Perera",
+      classId: "cls2",
+      className: "Grade 11 Maths",
+      grade: "Grade 11",
+      weekday: 1,
+      startTime: "09:00",
+      endTime: "11:00",
+    };
+
+    const result = checkClash(candidate, existing);
+    assert.strictEqual(result.hasClash, false);
+    assert.strictEqual(result.hasGradeWarning, false);
+  });
+
+  test("Same class overlapping with another session of itself produces a hard clash", () => {
+    const existing: TimeInterval[] = [
+      {
+        id: "c1",
+        teacherId: "t1",
+        teacherName: "Mr. Fernando",
+        classId: "cls1",
+        className: "Grade 10 Science",
+        grade: "Grade 10",
+        weekday: 1,
+        startTime: "09:00",
+        endTime: "11:00",
+      },
+    ];
+
+    const candidate: TimeInterval = {
+      id: "c2",
+      teacherId: "t2",
+      teacherName: "Substitute Teacher",
+      classId: "cls1",
+      className: "Grade 10 Science",
+      grade: "Grade 10",
+      weekday: 1,
+      startTime: "10:00",
+      endTime: "12:00",
+    };
+
+    const result = checkClash(candidate, existing);
+    assert.strictEqual(result.hasClash, true);
+    assert.ok(result.message?.includes("already has a session on Monday from 09:00 AM to 11:00 AM"));
   });
 
   test("End time must be strictly after start time", () => {

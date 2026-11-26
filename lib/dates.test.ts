@@ -3,7 +3,9 @@ import assert from "node:assert";
 import {
   formatDateDisplay,
   formatTimeDisplay,
+  formatTimeRange,
   formatMonthDisplay,
+  calculateDuration,
   timeToMinutes,
   canCountForPreviousMonth,
   isMarkingWindowOpen,
@@ -17,6 +19,13 @@ describe("Dates Library (Asia/Colombo)", () => {
     assert.strictEqual(formatTimeDisplay("14:45"), "02:45 PM");
     assert.strictEqual(formatTimeDisplay("00:00"), "12:00 AM");
     assert.strictEqual(formatTimeDisplay("12:00"), "12:00 PM");
+  });
+
+  test("formats 24h time range to compact single-line display", () => {
+    assert.strictEqual(formatTimeRange("16:00", "17:00"), "04:00 - 05:00 PM");
+    assert.strictEqual(formatTimeRange("09:00", "11:00"), "09:00 - 11:00 AM");
+    assert.strictEqual(formatTimeRange("11:00", "13:00"), "11:00 AM - 01:00 PM");
+    assert.strictEqual(formatTimeRange("12:00", "14:30"), "12:00 - 02:30 PM");
   });
 
   test("formats month string YYYY-MM to full month name and year", () => {
@@ -88,5 +97,13 @@ describe("Dates Library (Asia/Colombo)", () => {
     const invalidJan = validateMakeupMonth("2026-01", mar4);
     assert.strictEqual(invalidJan.valid, false);
     assert.match(invalidJan.error || "", /cannot count toward earlier months/);
+  });
+
+  test("calculateDuration formats difference between times", () => {
+    assert.strictEqual(calculateDuration("15:00", "16:00"), "1 hr");
+    assert.strictEqual(calculateDuration("09:00", "11:00"), "2 hrs");
+    assert.strictEqual(calculateDuration("16:00", "17:30"), "1 hr 30 mins");
+    assert.strictEqual(calculateDuration("10:00", "10:45"), "45 mins");
+    assert.strictEqual(calculateDuration("", ""), "");
   });
 });

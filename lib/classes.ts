@@ -15,12 +15,52 @@ export const ClassTermsSchema = z
     path: ["teacherSharePerStudent"],
   });
 
+export const ClassScheduleSchema = z
+  .object({
+    id: z.string().optional(),
+    weekday: z
+      .number()
+      .int()
+      .min(0, "Weekday must be between 0 (Sunday) and 6 (Saturday).")
+      .max(6, "Weekday must be between 0 (Sunday) and 6 (Saturday)."),
+    startTime: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Start time must be HH:MM in 24h format."),
+    endTime: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "End time must be HH:MM in 24h format."),
+    validFrom: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Valid from must be in YYYY-MM-DD format.")
+      .optional(),
+    validTo: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Valid to must be in YYYY-MM-DD format.")
+      .optional(),
+  })
+  .refine((data) => data.startTime < data.endTime, {
+    message: "Start time must be earlier than end time.",
+    path: ["endTime"],
+  });
+
 export const CreateClassSchema = z.object({
   yearId: z.string().min(4, "Academic year is required."),
   grade: z.string().trim().min(1, "Grade is required."),
   subject: z.string().trim().min(1, "Subject is required."),
   teacherId: z.string().trim().min(1, "Teacher assignment is required."),
   terms: ClassTermsSchema,
+  schedule: ClassScheduleSchema.optional(),
+  schedules: z.array(ClassScheduleSchema).optional(),
+});
+
+export const UpdateClassSchema = z.object({
+  grade: z.string().trim().min(1, "Grade is required.").optional(),
+  subject: z.string().trim().min(1, "Subject is required.").optional(),
+  teacherId: z.string().trim().min(1, "Teacher assignment is required.").optional(),
+  active: z.boolean().optional(),
+  terms: ClassTermsSchema.optional(),
+  schedule: ClassScheduleSchema.optional(),
+  schedules: z.array(ClassScheduleSchema).optional(),
 });
 
 export const UpdateClassTermsSchema = z.object({
@@ -38,7 +78,9 @@ export const BatchEnrollSchema = z.object({
   joinedMonth: z.string().regex(MonthKeyRegex, "Joined month must be in YYYY-MM format."),
 });
 
+export type ClassScheduleInput = z.infer<typeof ClassScheduleSchema>;
 export type CreateClassInput = z.infer<typeof CreateClassSchema>;
+export type UpdateClassInput = z.infer<typeof UpdateClassSchema>;
 export type UpdateClassTermsInput = z.infer<typeof UpdateClassTermsSchema>;
 export type BatchEnrollInput = z.infer<typeof BatchEnrollSchema>;
 

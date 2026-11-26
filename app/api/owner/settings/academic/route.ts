@@ -4,13 +4,6 @@ import { verifyApiAuth } from "@/lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
 import type { AcademicGrade, AcademicSubject } from "@/types";
 
-const INITIAL_GRADES: AcademicGrade[] = Array.from({ length: 13 }, (_, i) => ({
-  id: `grade-${i + 1}`,
-  name: `Grade ${i + 1}`,
-  order: i + 1,
-  hidden: false,
-}));
-
 export async function GET(request: NextRequest) {
   const { errorResponse } = await verifyApiAuth(request, ["owner"]);
   if (errorResponse) return errorResponse;
@@ -22,15 +15,14 @@ export async function GET(request: NextRequest) {
     let grades: AcademicGrade[] = [];
     let subjects: AcademicSubject[] = [];
 
-    if (!docSnap.exists || !docSnap.data()?.grades) {
-      // Seed default Grade 1 through Grade 13
-      grades = INITIAL_GRADES;
+    if (!docSnap.exists) {
+      grades = [];
       subjects = [];
-      await docRef.set({ grades, subjects }, { merge: true });
+      await docRef.set({ grades, subjects, initialized: true }, { merge: true });
     } else {
       const data = docSnap.data();
-      grades = data?.grades || INITIAL_GRADES;
-      subjects = data?.subjects || [];
+      grades = Array.isArray(data?.grades) ? data.grades : [];
+      subjects = Array.isArray(data?.subjects) ? data.subjects : [];
     }
 
     return NextResponse.json({ grades, subjects });
@@ -59,6 +51,10 @@ const AcademicActionSchema = z.discriminatedUnion("action", [
     hidden: z.boolean(),
   }),
   z.object({
+    action: z.literal("deleteGrade"),
+    id: z.string().min(1),
+  }),
+  z.object({
     action: z.literal("addSubject"),
     name: z.string().min(1, "Subject name is required"),
   }),
@@ -71,6 +67,10 @@ const AcademicActionSchema = z.discriminatedUnion("action", [
     action: z.literal("toggleSubjectHidden"),
     id: z.string().min(1),
     hidden: z.boolean(),
+  }),
+  z.object({
+    action: z.literal("deleteSubject"),
+    id: z.string().min(1),
   }),
 ]);
 
@@ -92,8 +92,8 @@ export async function POST(request: NextRequest) {
     const docRef = adminDb.collection("settings").doc("academic");
     const docSnap = await docRef.get();
     const data = docSnap.data() || {};
-    let grades: AcademicGrade[] = data.grades || [...INITIAL_GRADES];
-    let subjects: AcademicSubject[] = data.subjects || [];
+    let grades: AcademicGrade[] = Array.isArray(data.grades) ? data.grades : [];
+    let subjects: AcademicSubject[] = Array.isArray(data.subjects) ? data.subjects : [];
 
     const payload = parsed.data;
 
@@ -122,6 +122,13 @@ export async function POST(request: NextRequest) {
         );
         break;
       }
+      case "deleteGrade": {
+        grades = grades.filter((g) => g.id !== payload.id);
+        grades.forEach((g, idx) => {
+          g.order = idx + 1;
+        });
+        break;
+      }
       case "addSubject": {
         const newSubject: AcademicSubject = {
           id: `sub-${Date.now()}`,
@@ -142,6 +149,10 @@ export async function POST(request: NextRequest) {
         subjects = subjects.map((s) =>
           s.id === payload.id ? { ...s, hidden: payload.hidden } : s
         );
+        break;
+      }
+      case "deleteSubject": {
+        subjects = subjects.filter((s) => s.id !== payload.id);
         break;
       }
     }

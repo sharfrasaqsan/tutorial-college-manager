@@ -21,11 +21,16 @@ import {
   AlertTriangle,
   CheckCircle2,
   Calendar,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import {
   WEEKDAY_NAMES,
   SHORT_WEEKDAY_NAMES,
+  WEEKDAY_ORDER,
   formatTimeDisplay,
+  formatTimeRange,
+  calculateDuration,
   getColomboNow,
 } from "@/lib/dates";
 import type { TimetableSlot } from "@/types";
@@ -48,6 +53,7 @@ export default function TeacherTimetablePage() {
 
   const currentWeekday = getColomboNow().getDay();
   const [activeDayTab, setActiveDayTab] = useState<number>(currentWeekday);
+  const [viewMode, setViewMode] = useState<"grid" | "day">("grid");
 
   // Modal State
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -108,6 +114,45 @@ export default function TeacherTimetablePage() {
     });
     return map;
   }, [slots]);
+
+  // Unique chronological time bands across all teacher slots
+  const timeBands = useMemo(() => {
+    const map = new Map<string, { startTime: string; endTime: string }>();
+    slots.forEach((slot) => {
+      const key = `${slot.startTime}-${slot.endTime}`;
+      if (!map.has(key)) {
+        map.set(key, { startTime: slot.startTime, endTime: slot.endTime });
+      }
+    });
+
+    const sorted = Array.from(map.values()).sort((a, b) => {
+      const cmp = a.startTime.localeCompare(b.startTime);
+      if (cmp !== 0) return cmp;
+      return a.endTime.localeCompare(b.endTime);
+    });
+
+    return sorted.map((b) => ({
+      id: `${b.startTime}-${b.endTime}`,
+      startTime: b.startTime,
+      endTime: b.endTime,
+      label: `${formatTimeDisplay(b.startTime)} - ${formatTimeDisplay(b.endTime)}`,
+      duration: calculateDuration(b.startTime, b.endTime),
+    }));
+  }, [slots]);
+
+  // Open modal with pre-selected day and time slot
+  function handleOpenCreateForCell(weekday: number, startTime?: string, endTime?: string) {
+    setEditingSlot(null);
+    setFormClassId(classes[0]?.id || "");
+    setFormWeekday(weekday);
+    setFormStartTime(startTime || "09:00");
+    setFormEndTime(endTime || "11:00");
+    setFormValidFrom("2026-01-01");
+    setFormValidTo("2026-12-31");
+    setFormError("");
+    setClashStatus({ checking: false, hasClash: false });
+    setSheetOpen(true);
+  }
 
   // Live clash check effect
   useEffect(() => {
@@ -296,6 +341,41 @@ export default function TeacherTimetablePage() {
         }
       />
 
+      {slots.length > 0 && !loading && (
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center border border-[#E4E1DA] rounded-[6px] p-0.5 bg-[#FAF9F6]">
+            <button
+              type="button"
+              onClick={() => setViewMode("grid")}
+              className={`px-2.5 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 ${
+                viewMode === "grid"
+                  ? "bg-white text-[#1C1F23] shadow-2xs font-semibold"
+                  : "text-[#5F6670] hover:text-[#1C1F23]"
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Weekly Grid</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("day")}
+              className={`px-2.5 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 ${
+                viewMode === "day"
+                  ? "bg-white text-[#1C1F23] shadow-2xs font-semibold"
+                  : "text-[#5F6670] hover:text-[#1C1F23]"
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              <span>Day View</span>
+            </button>
+          </div>
+
+          <span className="text-[11px] text-[#5F6670]">
+            {slots.length} assigned slots
+          </span>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex flex-col gap-3">
           <Skeleton className="h-10 w-full" />
@@ -315,169 +395,231 @@ export default function TeacherTimetablePage() {
             ) : undefined
           }
         />
-      ) : (
-        <>
-          {/* PHONE & TABLET VIEW: Day Tabs (hidden on lg screens and wider) */}
-          <div className="block lg:hidden">
-            <div className="flex overflow-x-auto gap-1 pb-2 border-b border-[#E4E1DA] mb-3 no-scrollbar">
-              {SHORT_WEEKDAY_NAMES.map((name, index) => {
-                const count = slotsByDay[index]?.length || 0;
-                const isSelected = activeDayTab === index;
-                return (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => setActiveDayTab(index)}
-                    className={`min-h-[44px] flex-1 min-w-[48px] py-2 px-1 flex flex-col items-center justify-center rounded-[6px] border transition-colors select-none ${
-                      isSelected
-                        ? "bg-[#1F5C4D] text-white border-[#1F5C4D] font-semibold"
-                        : "bg-white text-[#1C1F23] border-[#E4E1DA] hover:bg-[#FAF9F6]"
-                    }`}
-                  >
-                    <span className="text-xs uppercase tracking-wider">{name}</span>
-                    <span
-                      className={`text-[10px] mt-0.5 px-1.5 rounded-full ${
-                        isSelected ? "bg-[#17463A] text-white" : "bg-[#FAF9F6] text-[#5F6670]"
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+      ) : viewMode === "grid" ? (
+        /* PROFESSIONAL MASTER TIMETABLE GRID WITH TIME COLUMN AT STARTING */
+        <div className="w-full border border-[#E4E1DA] rounded-[8px] bg-white overflow-hidden shadow-2xs">
+          <div className="overflow-x-auto no-scrollbar">
+            <table className="w-full text-left border-collapse min-w-[960px]">
+              <thead>
+                <tr className="border-b border-[#E4E1DA] bg-[#FAF9F6]">
+                  {/* TIME COLUMN HEADER AT STARTING */}
+                  <th className="sticky left-0 z-20 bg-[#FAF9F6] p-3 border-r border-[#E4E1DA] w-40 min-w-[150px] max-w-[170px] text-xs font-semibold uppercase tracking-wider text-[#5F6670]">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-[#1F5C4D]" strokeWidth={2} />
+                      <span>Time</span>
+                    </div>
+                  </th>
 
-            {/* Slots list for selected day */}
-            <div className="flex flex-col gap-2.5">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-semibold uppercase tracking-wider text-[#5F6670]">
-                  {WEEKDAY_NAMES[activeDayTab]} Schedule
-                </span>
-                <span className="text-[11px] text-[#5F6670]">
-                  {slotsByDay[activeDayTab]?.length || 0} classes
-                </span>
-              </div>
-
-              {slotsByDay[activeDayTab]?.length === 0 ? (
-                <div className="bg-white border border-[#E4E1DA] rounded-[6px] p-6 text-center text-xs text-[#5F6670]">
-                  No classes scheduled on {WEEKDAY_NAMES[activeDayTab]}.
-                </div>
-              ) : (
-                slotsByDay[activeDayTab].map((slot) => (
-                  <Card
-                    key={slot.id}
-                    className="p-3 bg-white border border-[#E4E1DA] flex items-center justify-between"
-                  >
-                    <div>
-                      <h4 className="font-semibold text-xs text-[#1C1F23]">{slot.className}</h4>
-                      <div className="flex items-center gap-1.5 text-[11px] text-[#1F5C4D] font-semibold mt-0.5 tabular-nums">
-                        <Clock className="w-3 h-3" strokeWidth={2} />
-                        <span>
-                          {formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}
+                  {/* DAY COLUMN HEADERS */}
+                  {WEEKDAY_ORDER.map((item) => {
+                    const count = slotsByDay[item.index]?.length || 0;
+                    const isToday = currentWeekday === item.index;
+                    return (
+                      <th
+                        key={item.index}
+                        className={`p-3 border-r last:border-r-0 border-[#E4E1DA] text-xs font-semibold transition-colors ${
+                          isToday ? "bg-[#E6F0EC]/60 text-[#1F5C4D]" : "text-[#1C1F23]"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-xs">{item.name}</span>
+                            {isToday && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#1F5C4D]" title="Today" />
+                            )}
+                          </div>
+                          <span
+                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                              isToday
+                                ? "bg-[#1F5C4D] text-white"
+                                : count > 0
+                                ? "bg-white text-[#1C1F23] border border-[#E4E1DA]"
+                                : "text-[#8E95A0]"
+                            }`}
+                          >
+                            {count}
+                          </span>
+                        </div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E4E1DA]">
+                {timeBands.map((band) => (
+                  <tr key={band.id} className="hover:bg-[#FAF9F6]/30 transition-colors">
+                    {/* TIME COLUMN CELL (STICKY LEFT) */}
+                    <td className="sticky left-0 z-10 bg-[#FAF9F6] p-3 border-r border-[#E4E1DA] align-top w-40 min-w-[150px] max-w-[170px]">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-semibold text-xs text-[#1C1F23] tabular-nums whitespace-nowrap">
+                          {band.label}
                         </span>
+                        {band.duration && (
+                          <span className="text-[10px] font-medium text-[#5F6670] uppercase tracking-wider">
+                            {band.duration}
+                          </span>
+                        )}
                       </div>
-                    </div>
+                    </td>
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEdit(slot)}
-                        title="Edit Slot"
-                        className="min-h-[36px] min-w-[36px] flex items-center justify-center p-1 text-[#5F6670] hover:text-[#1F5C4D] rounded"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDelete(slot)}
-                        title="Delete Slot"
-                        className="min-h-[36px] min-w-[36px] flex items-center justify-center p-1 text-[#5F6670] hover:text-[#A32A2A] rounded"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                      </button>
-                    </div>
-                  </Card>
-                ))
-              )}
-            </div>
+                    {/* DAY CELLS */}
+                    {WEEKDAY_ORDER.map((item) => {
+                      const cellSlots = slots.filter(
+                        (s) =>
+                          Number(s.weekday) === item.index &&
+                          s.startTime === band.startTime &&
+                          s.endTime === band.endTime
+                      );
+                      const isToday = currentWeekday === item.index;
+
+                      return (
+                        <td
+                          key={item.index}
+                          className={`p-2 border-r last:border-r-0 border-[#E4E1DA] align-top min-w-[125px] ${
+                            isToday ? "bg-[#E6F0EC]/10" : ""
+                          }`}
+                        >
+                          {cellSlots.length > 0 ? (
+                            <div className="flex flex-col gap-2">
+                              {cellSlots.map((slot) => (
+                                <div
+                                  key={slot.id}
+                                  className="bg-white border border-[#E4E1DA] hover:border-[#1F5C4D] hover:shadow-xs rounded-[6px] p-2 transition-all flex flex-col justify-between gap-1.5 group"
+                                >
+                                  <h5
+                                    className="font-semibold text-xs text-[#1C1F23] leading-snug line-clamp-2"
+                                    title={slot.className}
+                                  >
+                                    {slot.className || "Class"}
+                                  </h5>
+
+                                  <div className="flex items-center justify-end gap-1 pt-1 border-t border-[#E4E1DA]/60">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEdit(slot)}
+                                      title="Edit Slot"
+                                      className="p-1 text-[#5F6670] hover:text-[#1F5C4D] hover:bg-[#FAF9F6] rounded transition-colors"
+                                    >
+                                      <Edit2 className="w-3 h-3" strokeWidth={1.75} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenDelete(slot)}
+                                      title="Delete Slot"
+                                      className="p-1 text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7] rounded transition-colors"
+                                    >
+                                      <Trash2 className="w-3 h-3" strokeWidth={1.75} />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenCreateForCell(item.index, band.startTime, band.endTime)
+                              }
+                              className="w-full h-full min-h-[64px] rounded border border-dashed border-transparent hover:border-[#1F5C4D]/30 hover:bg-white flex items-center justify-center text-[#B0B6C0] hover:text-[#1F5C4D] transition-all group"
+                              title={`Add slot on ${item.name} at ${band.label}`}
+                            >
+                              <span className="text-xs group-hover:hidden select-none">—</span>
+                              <span className="hidden group-hover:inline-flex items-center gap-1 text-[11px] font-medium">
+                                <Plus className="w-3 h-3" /> Add
+                              </span>
+                            </button>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-
-          {/* DESKTOP VIEW: 7-Column Weekly Grid (from lg screens up) */}
-          <div className="hidden lg:grid lg:grid-cols-7 gap-3 items-start">
-            {WEEKDAY_NAMES.map((dayName, dayIndex) => {
-              const daySlots = slotsByDay[dayIndex] || [];
-              const isToday = currentWeekday === dayIndex;
-
+        </div>
+      ) : (
+        /* DAY VIEW (CARD LIST BY DAY) */
+        <div className="flex flex-col gap-3">
+          <div className="flex overflow-x-auto gap-1 pb-2 border-b border-[#E4E1DA] no-scrollbar">
+            {WEEKDAY_ORDER.map((item) => {
+              const count = slotsByDay[item.index]?.length || 0;
+              const isSelected = activeDayTab === item.index;
               return (
-                <div
-                  key={dayIndex}
-                  className={`flex flex-col gap-2 bg-[#FAF9F6] rounded-[6px] border p-2 min-h-[480px] ${
-                    isToday ? "border-[#1F5C4D] ring-1 ring-[#1F5C4D]" : "border-[#E4E1DA]"
+                <button
+                  key={item.index}
+                  type="button"
+                  onClick={() => setActiveDayTab(item.index)}
+                  className={`min-h-[44px] flex-1 min-w-[48px] py-2 px-1 flex flex-col items-center justify-center rounded-[6px] border transition-colors select-none ${
+                    isSelected
+                      ? "bg-[#1F5C4D] text-white border-[#1F5C4D] font-semibold"
+                      : "bg-white text-[#1C1F23] border-[#E4E1DA] hover:bg-[#FAF9F6]"
                   }`}
                 >
-                  {/* Column Header */}
-                  <div className="flex items-center justify-between pb-1.5 border-b border-[#E4E1DA]">
-                    <div className="flex items-center gap-1">
-                      <span className="font-semibold text-xs text-[#1C1F23]">
-                        {SHORT_WEEKDAY_NAMES[dayIndex]}
-                      </span>
-                      {isToday && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#1F5C4D]" title="Today" />
-                      )}
-                    </div>
-                    <span className="text-[10px] font-medium text-[#5F6670] bg-white px-1.5 py-0.5 rounded border border-[#E4E1DA]">
-                      {daySlots.length}
-                    </span>
-                  </div>
-
-                  {/* Day Slots List */}
-                  <div className="flex flex-col gap-2 flex-1">
-                    {daySlots.length === 0 ? (
-                      <div className="text-[11px] text-[#5F6670] text-center py-6 italic">
-                        No classes
-                      </div>
-                    ) : (
-                      daySlots.map((slot) => (
-                        <div
-                          key={slot.id}
-                          className="bg-white border border-[#E4E1DA] rounded p-2.5 flex flex-col gap-1.5 shadow-2xs hover:border-[#1F5C4D] transition-colors"
-                        >
-                          <div className="font-semibold text-xs text-[#1C1F23] line-clamp-1">
-                            {slot.className}
-                          </div>
-                          <div className="flex items-center gap-1 text-[11px] text-[#1F5C4D] font-medium tabular-nums">
-                            <Clock className="w-3 h-3 shrink-0" strokeWidth={2} />
-                            <span>
-                              {formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-end gap-1 pt-1 border-t border-[#E4E1DA]/60">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEdit(slot)}
-                              title="Edit Slot"
-                              className="p-1 text-[#5F6670] hover:text-[#1F5C4D] rounded"
-                            >
-                              <Edit2 className="w-3 h-3" strokeWidth={1.75} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenDelete(slot)}
-                              title="Delete Slot"
-                              className="p-1 text-[#5F6670] hover:text-[#A32A2A] rounded"
-                            >
-                              <Trash2 className="w-3 h-3" strokeWidth={1.75} />
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+                  <span className="text-xs uppercase tracking-wider">{item.shortName}</span>
+                  <span
+                    className={`text-[10px] mt-0.5 px-1.5 rounded-full ${
+                      isSelected ? "bg-[#17463A] text-white" : "bg-[#FAF9F6] text-[#5F6670]"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
               );
             })}
           </div>
-        </>
+
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[#5F6670]">
+                {WEEKDAY_NAMES[activeDayTab]} Schedule
+              </span>
+              <span className="text-[11px] text-[#5F6670]">
+                {slotsByDay[activeDayTab]?.length || 0} classes
+              </span>
+            </div>
+
+            {slotsByDay[activeDayTab]?.length === 0 ? (
+              <div className="bg-white border border-[#E4E1DA] rounded-[6px] p-6 text-center text-xs text-[#5F6670]">
+                No classes scheduled on {WEEKDAY_NAMES[activeDayTab]}.
+              </div>
+            ) : (
+              slotsByDay[activeDayTab].map((slot) => (
+                <Card
+                  key={slot.id}
+                  className="p-3 bg-white border border-[#E4E1DA] flex items-center justify-between shadow-2xs"
+                >
+                  <div>
+                    <h4 className="font-semibold text-xs text-[#1C1F23]">{slot.className}</h4>
+                    <div className="flex items-center gap-1.5 text-[11px] text-[#1F5C4D] font-semibold mt-0.5 tabular-nums">
+                      <Clock className="w-3 h-3 shrink-0" strokeWidth={2} />
+                      <span>{formatTimeRange(slot.startTime, slot.endTime)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(slot)}
+                      title="Edit Slot"
+                      className="min-h-[36px] min-w-[36px] flex items-center justify-center p-1 text-[#5F6670] hover:text-[#1F5C4D] rounded"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenDelete(slot)}
+                      title="Delete Slot"
+                      className="min-h-[36px] min-w-[36px] flex items-center justify-center p-1 text-[#5F6670] hover:text-[#A32A2A] rounded"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    </button>
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+        </div>
       )}
 
       {/* Add / Edit Sheet */}
@@ -512,9 +654,9 @@ export default function TeacherTimetablePage() {
               onChange={(e) => setFormWeekday(Number(e.target.value))}
               disabled={formSubmitting}
             >
-              {WEEKDAY_NAMES.map((name, i) => (
-                <option key={i} value={i}>
-                  {name}
+              {WEEKDAY_ORDER.map((w) => (
+                <option key={w.index} value={w.index}>
+                  {w.name}
                 </option>
               ))}
             </Select>

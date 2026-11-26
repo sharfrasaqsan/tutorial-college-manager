@@ -18,6 +18,7 @@ import {
   Building2,
   CalendarDays,
   Globe,
+  MessageSquare,
   LogOut,
   Loader2,
   ChevronDown,
@@ -36,6 +37,7 @@ import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Toast } from "@/components/ui/Toast";
+import { Skeleton } from "@/components/ui/Skeleton";
 import type { AcademicYear } from "@/types";
 
 export interface OwnerShellProps {
@@ -58,6 +60,21 @@ interface SidebarNavGroup {
   items: SidebarNavItem[];
 }
 
+// Client-side module-level cache for instantaneous navigation between pages
+let cachedOwnerShellData: {
+  years: AcademicYear[];
+  selectedYear: string;
+  collegeName: string;
+  collegeLogo: string | null;
+  fetchedAt: number;
+} | null = null;
+
+let lastOwnerNotifFetch = 0;
+let cachedOwnerNotifCount = 0;
+let cachedOwnerMsgCount = 0;
+const SHELL_DATA_REVALIDATE_MS = 60 * 1000; // 60s
+const NOTIF_THROTTLE_MS = 15 * 1000; // 15s
+
 export function OwnerShell({
   children,
   pageTitle = "Owner Portal",
@@ -67,16 +84,18 @@ export function OwnerShell({
   const pathname = usePathname();
   const router = useRouter();
 
-  const [years, setYears] = useState<AcademicYear[]>([]);
-  const [selectedYear, setSelectedYear] = useState<string>("2026");
+  const [years, setYears] = useState<AcademicYear[]>(() => cachedOwnerShellData?.years || []);
+  const [selectedYear, setSelectedYear] = useState<string>(() => cachedOwnerShellData?.selectedYear || "");
+  const [shellLoaded, setShellLoaded] = useState(() => Boolean(cachedOwnerShellData));
   const [sheetOpen, setSheetOpen] = useState(false);
   const [newYearInput, setNewYearInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [firstTimeModal, setFirstTimeModal] = useState(false);
-  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
-  const [collegeName, setCollegeName] = useState("Tutorial College");
-  const [collegeLogo, setCollegeLogo] = useState<string | null>(null);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(() => cachedOwnerNotifCount);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(() => cachedOwnerMsgCount);
+  const [collegeName, setCollegeName] = useState(() => cachedOwnerShellData?.collegeName || "");
+  const [collegeLogo, setCollegeLogo] = useState<string | null>(() => cachedOwnerShellData?.collegeLogo || null);
   const [signingOut, setSigningOut] = useState(false);
 
   // Edit & Delete Academic Year states (with double confirmation on delete)
@@ -92,11 +111,27 @@ export function OwnerShell({
 
   useEffect(() => {
     async function loadNotifications() {
+      const now = Date.now();
+      if (now - lastOwnerNotifFetch < NOTIF_THROTTLE_MS) {
+        return;
+      }
+      lastOwnerNotifFetch = now;
       try {
-        const res = await fetch("/api/notifications");
-        if (res.ok) {
-          const data = await res.json();
-          setUnreadNotifCount(data.unreadCount || 0);
+        const [notifRes, msgRes] = await Promise.all([
+          fetch("/api/notifications"),
+          fetch("/api/owner/messages"),
+        ]);
+        if (notifRes.ok) {
+          const data = await notifRes.json();
+          const count = data.unreadCount || 0;
+          cachedOwnerNotifCount = count;
+          setUnreadNotifCount(count);
+        }
+        if (msgRes.ok) {
+          const msgData = await msgRes.json();
+          const count = msgData.unreadCount || 0;
+          cachedOwnerMsgCount = count;
+          setUnreadMessagesCount(count);
         }
       } catch {}
     }
@@ -105,18 +140,33 @@ export function OwnerShell({
 
   useEffect(() => {
     async function loadData() {
+      const now = Date.now();
+      const hasFreshData =
+        cachedOwnerShellData && now - cachedOwnerShellData.fetchedAt < SHELL_DATA_REVALIDATE_MS;
+      if (hasFreshData) {
+        return;
+      }
+
       try {
         const [yearsRes, collegeRes] = await Promise.all([
           fetch("/api/owner/years"),
           fetch("/api/owner/settings/college"),
         ]);
 
+        let loadedYears: AcademicYear[] = cachedOwnerShellData?.years || [];
+        let loadedSelectedYear: string = cachedOwnerShellData?.selectedYear || "";
+        let loadedCollegeName = cachedOwnerShellData?.collegeName || "";
+        let loadedCollegeLogo = cachedOwnerShellData?.collegeLogo || null;
+
         if (yearsRes.ok) {
           const data = await yearsRes.json();
-          setYears(data.years || []);
+          loadedYears = data.years || [];
+          setYears(loadedYears);
           if (data.selectedYear) {
+            loadedSelectedYear = data.selectedYear;
             setSelectedYear(data.selectedYear);
           } else if (data.years && data.years.length > 0) {
+            loadedSelectedYear = data.years[0].id;
             setSelectedYear(data.years[0].id);
           } else {
             setFirstTimeModal(true);
@@ -125,11 +175,27 @@ export function OwnerShell({
 
         if (collegeRes.ok) {
           const colData = await collegeRes.json();
-          if (colData.profile?.name) setCollegeName(colData.profile.name);
-          if (colData.profile?.logoUrl) setCollegeLogo(colData.profile.logoUrl);
+          if (colData.profile?.name) {
+            loadedCollegeName = colData.profile.name;
+            setCollegeName(colData.profile.name);
+          }
+          if (colData.profile?.logoUrl) {
+            loadedCollegeLogo = colData.profile.logoUrl;
+            setCollegeLogo(colData.profile.logoUrl);
+          }
         }
+
+        cachedOwnerShellData = {
+          years: loadedYears,
+          selectedYear: loadedSelectedYear,
+          collegeName: loadedCollegeName,
+          collegeLogo: loadedCollegeLogo,
+          fetchedAt: now,
+        };
       } catch (err) {
         console.error("Failed to load shell data:", err);
+      } finally {
+        setShellLoaded(true);
       }
     }
     loadData();
@@ -148,6 +214,9 @@ export function OwnerShell({
       });
       if (res.ok) {
         setSelectedYear(year);
+        if (cachedOwnerShellData) {
+          cachedOwnerShellData.selectedYear = year;
+        }
         setSheetOpen(false);
         window.dispatchEvent(new CustomEvent("tcm-year-changed", { detail: { year } }));
         router.refresh();
@@ -324,6 +393,7 @@ export function OwnerShell({
         { label: "College Profile", href: "/owner/more/college", icon: Building2 },
         { label: "Academic Structure", href: "/owner/more/academic", icon: CalendarDays },
         { label: "Public Website", href: "/owner/more/public-site", icon: Globe },
+        { label: "Contact Messages", href: "/owner/messages", icon: MessageSquare, badge: unreadMessagesCount },
       ],
     },
   ];
@@ -406,21 +476,33 @@ export function OwnerShell({
       >
         {/* Brand Header */}
         <div className="p-4 border-b border-[#E4E1DA] flex items-center gap-2.5">
-          {collegeLogo ? (
-            <img src={collegeLogo} alt={collegeName} className="w-8 h-8 object-contain rounded-md" />
+          {!shellLoaded ? (
+            <>
+              <Skeleton className="w-8 h-8 shrink-0" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton variant="text" className="w-20 h-2.5" />
+              </div>
+            </>
           ) : (
-            <div className="w-8 h-8 rounded-md bg-[#1F5C4D] text-[#FFFFFF] flex items-center justify-center font-serif font-bold text-base shrink-0">
-              {collegeName.charAt(0)}
-            </div>
+            <>
+              {collegeLogo ? (
+                <img src={collegeLogo} alt={collegeName || "College"} className="w-8 h-8 object-contain rounded-md" />
+              ) : (
+                <div className="w-8 h-8 rounded-md bg-[#1F5C4D] text-[#FFFFFF] flex items-center justify-center font-serif font-bold text-base shrink-0">
+                  {(collegeName || "Tutorial College").charAt(0)}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <h1 className="font-serif font-semibold text-sm text-[#1C1F23] truncate leading-tight">
+                  {collegeName || "Tutorial College"}
+                </h1>
+                <span className="text-[10px] text-[#5F6670] uppercase tracking-wider font-medium">
+                  Administrator Portal
+                </span>
+              </div>
+            </>
           )}
-          <div className="min-w-0 flex-1">
-            <h1 className="font-serif font-semibold text-sm text-[#1C1F23] truncate leading-tight">
-              {collegeName}
-            </h1>
-            <span className="text-[10px] text-[#5F6670] uppercase tracking-wider font-medium">
-              Administrator Portal
-            </span>
-          </div>
         </div>
 
         {/* Navigation Group Items */}
@@ -513,11 +595,15 @@ export function OwnerShell({
               type="button"
               onClick={() => setSheetOpen(true)}
               className="min-h-[44px] px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium text-[#1C1F23] bg-[#FAF9F6] hover:bg-[#E6F0EC] border border-[#E4E1DA] rounded-[6px] transition-colors cursor-pointer"
-              aria-label={`Academic year ${selectedYear}. Click to change.`}
+              aria-label={selectedYear ? `Academic year ${selectedYear}. Click to change.` : "Select academic year"}
               title="Change Academic Year"
             >
               <span className="text-[11px] text-[#5F6670] hidden sm:inline">Year:</span>
-              <span className="font-semibold tabular-nums text-[#1F5C4D]">{selectedYear}</span>
+              {selectedYear ? (
+                <span className="font-semibold tabular-nums text-[#1F5C4D]">{selectedYear}</span>
+              ) : (
+                <Skeleton className="h-3.5 w-9" />
+              )}
               <ChevronDown className="w-3.5 h-3.5 text-[#5F6670]" strokeWidth={1.75} />
             </button>
 

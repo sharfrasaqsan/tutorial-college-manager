@@ -27,8 +27,15 @@ import {
   Upload,
   Copy,
   Check,
+  Eye,
   EyeOff,
   Globe,
+  Key,
+  ExternalLink,
+  Share2,
+  CheckCircle2,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import type { Teacher, AcademicSubject } from "@/types";
 
@@ -48,6 +55,8 @@ export default function OwnerTeachersPage() {
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formPhone, setFormPhone] = useState("");
+  const [formPassword, setFormPassword] = useState("");
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [formBio, setFormBio] = useState("");
   const [formSubjects, setFormSubjects] = useState<string[]>([]);
   const [formPhotoUrl, setFormPhotoUrl] = useState("");
@@ -56,25 +65,64 @@ export default function OwnerTeachersPage() {
   const [formError, setFormError] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  // Setup link modal after creation
+  // Setup link & login modal after creation
   const [setupLinkModalOpen, setSetupLinkModalOpen] = useState(false);
   const [newTeacherName, setNewTeacherName] = useState("");
+  const [newTeacherEmail, setNewTeacherEmail] = useState("");
+  const [newTeacherPassword, setNewTeacherPassword] = useState("");
+  const [newTeacherCollege, setNewTeacherCollege] = useState("");
+  const [newTeacherLoginUrl, setNewTeacherLoginUrl] = useState("");
   const [setupLink, setSetupLink] = useState("");
+  const [emailStatusMessage, setEmailStatusMessage] = useState("");
+  const [emailDelivered, setEmailDelivered] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedPassword, setCopiedPassword] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
+  const [copiedLoginUrl, setCopiedLoginUrl] = useState(false);
+  const [copiedDetails, setCopiedDetails] = useState(false);
+  const [showCreatedPassword, setShowCreatedPassword] = useState(false);
 
   // Status toggle dialog
   const [statusDialogTeacher, setStatusDialogTeacher] = useState<Teacher | null>(null);
   const [statusToggling, setStatusToggling] = useState(false);
 
+  // Active academic year
+  const [activeYear, setActiveYear] = useState<string>("");
+
+  // Delete double-confirmation dialog states
+  const [deleteStep1Teacher, setDeleteStep1Teacher] = useState<Teacher | null>(null);
+  const [deleteStep2Teacher, setDeleteStep2Teacher] = useState<Teacher | null>(null);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
   useEffect(() => {
-    loadTeachers();
+    // Read active year from cookie
+    const match = document.cookie.match(/tcm_year=([^;]+)/);
+    const initialYear = match?.[1] ? decodeURIComponent(match[1]) : "";
+    if (initialYear) setActiveYear(initialYear);
+
+    loadTeachers(initialYear);
     loadSubjects();
+
+    const onYearChanged = (e: Event) => {
+      const detail = (e as CustomEvent<{ year?: string }>).detail;
+      if (detail?.year) {
+        setActiveYear(detail.year);
+        loadTeachers(detail.year);
+      }
+    };
+    window.addEventListener("tcm-year-changed", onYearChanged);
+    return () => window.removeEventListener("tcm-year-changed", onYearChanged);
   }, []);
 
-  async function loadTeachers() {
+  async function loadTeachers(yearOverride?: string) {
     try {
       setLoading(true);
-      const res = await fetch("/api/owner/teachers");
+      const targetYear = yearOverride || activeYear;
+      const url = targetYear
+        ? `/api/owner/teachers?yearId=${encodeURIComponent(targetYear)}`
+        : "/api/owner/teachers";
+      const res = await fetch(url);
       const data = await res.json();
       if (res.ok) {
         setTeachers(data.teachers || []);
@@ -111,6 +159,8 @@ export default function OwnerTeachersPage() {
     setFormName("");
     setFormEmail("");
     setFormPhone("");
+    setFormPassword("");
+    setShowPasswordInput(false);
     setFormBio("");
     setFormSubjects([]);
     setFormPhotoUrl("");
@@ -218,6 +268,7 @@ export default function OwnerTeachersPage() {
             name: formName.trim(),
             email: formEmail.trim().toLowerCase(),
             phone: formPhone.trim(),
+            password: formPassword.trim() || undefined,
             photoUrl: formPhotoUrl || undefined,
             bio: formBio.trim() || undefined,
             subjects: formSubjects,
@@ -228,7 +279,14 @@ export default function OwnerTeachersPage() {
         if (res.ok) {
           setSheetOpen(false);
           setNewTeacherName(formName.trim());
+          setNewTeacherEmail(formEmail.trim().toLowerCase());
+          setNewTeacherPassword(data.tempPassword || formPassword.trim() || "");
           setSetupLink(data.resetLink || "");
+          setNewTeacherCollege(data.collegeName || "Tutorial College");
+          setNewTeacherLoginUrl(data.loginUrl || `${window.location.origin}/login`);
+          setEmailDelivered(Boolean(data.emailDispatch?.delivered));
+          setEmailStatusMessage(data.emailDispatch?.message || "");
+          setShowCreatedPassword(false);
           setSetupLinkModalOpen(true);
           loadTeachers();
         } else {
@@ -274,10 +332,76 @@ export default function OwnerTeachersPage() {
     }
   }
 
+  async function handleConfirmDeleteTeacher(e: React.FormEvent) {
+    e.preventDefault();
+    if (!deleteStep2Teacher) return;
+
+    const input = deleteConfirmInput.trim().toLowerCase();
+    const teacherName = deleteStep2Teacher.name.trim().toLowerCase();
+    if (input !== "delete" && input !== teacherName) {
+      showToast(`Please type "${deleteStep2Teacher.name}" or "DELETE" to confirm.`, "danger");
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      const res = await fetch(`/api/owner/teachers/${deleteStep2Teacher.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          confirmText: deleteConfirmInput.trim(),
+          yearId: activeYear || undefined,
+        }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        showToast(
+          data.message || `${deleteStep2Teacher.name} was removed from academic year ${activeYear || ""}.`,
+          "success"
+        );
+        setDeleteStep2Teacher(null);
+        setDeleteConfirmInput("");
+        loadTeachers();
+      } else {
+        showToast(data.error || "Failed to delete teacher.", "danger");
+      }
+    } catch {
+      showToast("Server error while deleting teacher.", "danger");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   function copySetupLink() {
     navigator.clipboard.writeText(setupLink);
     setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2500);
+    setTimeout(() => setCopiedLink(false), 2000);
+  }
+
+  function copyPassword() {
+    navigator.clipboard.writeText(newTeacherPassword);
+    setCopiedPassword(true);
+    setTimeout(() => setCopiedPassword(false), 2000);
+  }
+
+  function copyEmail() {
+    navigator.clipboard.writeText(newTeacherEmail);
+    setCopiedEmail(true);
+    setTimeout(() => setCopiedEmail(false), 2000);
+  }
+
+  function copyLoginUrl() {
+    navigator.clipboard.writeText(newTeacherLoginUrl);
+    setCopiedLoginUrl(true);
+    setTimeout(() => setCopiedLoginUrl(false), 2000);
+  }
+
+  function copyAllDetails() {
+    const text = `*${newTeacherCollege} App - Teacher Portal Access*\n\nHello ${newTeacherName},\nYour teacher account has been created in ${newTeacherCollege}.\n\nLogin Portal: ${newTeacherLoginUrl}\nEmail: ${newTeacherEmail}\nPassword: ${newTeacherPassword}\n\nSet your password directly:\n${setupLink}`;
+    navigator.clipboard.writeText(text);
+    setCopiedDetails(true);
+    setTimeout(() => setCopiedDetails(false), 2500);
   }
 
   const filteredTeachers = teachers.filter((t) => {
@@ -429,7 +553,7 @@ export default function OwnerTeachersPage() {
                     variant={teacher.active ? "quiet" : "secondary"}
                     onClick={() => setStatusDialogTeacher(teacher)}
                     className={`text-xs h-7 px-2.5 gap-1 ${
-                      teacher.active ? "text-[#A32A2A] hover:bg-[#FBE9E7]" : "text-[#1F5C4D]"
+                      teacher.active ? "text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7]" : "text-[#1F5C4D]"
                     }`}
                   >
                     {teacher.active ? (
@@ -443,6 +567,15 @@ export default function OwnerTeachersPage() {
                         <span>Activate</span>
                       </>
                     )}
+                  </Button>
+                  <Button
+                    variant="quiet"
+                    onClick={() => setDeleteStep1Teacher(teacher)}
+                    className="text-xs h-7 px-2 gap-1 text-[#A32A2A] hover:bg-[#FBE9E7]"
+                    title="Delete teacher"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    <span>Delete</span>
                   </Button>
                 </div>
               ),
@@ -547,7 +680,7 @@ export default function OwnerTeachersPage() {
               )}
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E4E1DA]">
+              <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-[#E4E1DA]">
                 <Button
                   variant="quiet"
                   onClick={() => openEditSheet(teacher)}
@@ -561,7 +694,7 @@ export default function OwnerTeachersPage() {
                   variant={teacher.active ? "quiet" : "secondary"}
                   onClick={() => setStatusDialogTeacher(teacher)}
                   className={`text-xs h-8 px-2.5 gap-1 ${
-                    teacher.active ? "text-[#A32A2A] hover:bg-[#FBE9E7]" : "text-[#1F5C4D]"
+                    teacher.active ? "text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7]" : "text-[#1F5C4D]"
                   }`}
                 >
                   {teacher.active ? (
@@ -575,6 +708,16 @@ export default function OwnerTeachersPage() {
                       <span>Activate</span>
                     </>
                   )}
+                </Button>
+
+                <Button
+                  variant="quiet"
+                  onClick={() => setDeleteStep1Teacher(teacher)}
+                  className="text-xs h-8 px-2 gap-1 text-[#A32A2A] hover:bg-[#FBE9E7]"
+                  title="Delete teacher"
+                >
+                  <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                  <span>Delete</span>
                 </Button>
               </div>
             </Card>
@@ -634,6 +777,36 @@ export default function OwnerTeachersPage() {
               required
             />
           </Field>
+
+          {!editingTeacher && (
+            <Field
+              id="teacher-password"
+              label="Initial Password (Optional)"
+              hint="Leave blank to automatically generate a secure temporary password. An auto-email will be sent with login details."
+            >
+              <div className="relative">
+                <Input
+                  type={showPasswordInput ? "text" : "password"}
+                  placeholder="Leave empty to auto-generate password"
+                  value={formPassword}
+                  onChange={(e) => setFormPassword(e.target.value)}
+                  className="pr-10 text-xs font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordInput(!showPasswordInput)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5F6670] hover:text-[#1C1F23] p-1"
+                  aria-label={showPasswordInput ? "Hide password" : "Show password"}
+                >
+                  {showPasswordInput ? (
+                    <EyeOff className="w-4 h-4" strokeWidth={1.75} />
+                  ) : (
+                    <Eye className="w-4 h-4" strokeWidth={1.75} />
+                  )}
+                </button>
+              </div>
+            </Field>
+          )}
 
           {/* Photo Upload */}
           <Field id="teacher-photo-field" label="Teacher Photo (Storage)" hint="Max size 5MB. Visible on public teacher profile.">
@@ -756,45 +929,155 @@ export default function OwnerTeachersPage() {
       <BottomSheet
         open={setupLinkModalOpen}
         onClose={() => setSetupLinkModalOpen(false)}
-        title="Teacher Account Created"
+        title="Teacher Account & Login Created"
       >
         <div className="flex flex-col gap-4">
-          <div className="p-3 bg-[#E6F0EC] border border-[#1F5C4D]/20 rounded text-xs text-[#1F5C4D]">
-            <p className="font-semibold mb-1">Account provisioned successfully!</p>
-            <p>
-              An official Firebase password setup link was generated for <strong>{newTeacherName}</strong>.
+          <div className="p-3.5 bg-[#E6F0EC] border border-[#1F5C4D]/25 rounded-[6px] text-xs text-[#1F5C4D]">
+            <div className="flex items-center gap-2 font-semibold mb-1 text-sm">
+              <CheckCircle2 className="w-4 h-4 text-[#1F5C4D] shrink-0" strokeWidth={2} />
+              <span>Login Account Provisioned</span>
+            </div>
+            <p className="text-[#3A4048]">
+              An official faculty account for <strong>{newTeacherName}</strong> was created in the <strong>{newTeacherCollege} App</strong>.
             </p>
           </div>
 
-          <Field id="teacher-setup-link" label="Password Setup Link" hint="You can copy this link and share it directly with the teacher:">
-            <div className="flex items-center gap-2">
-              <Input type="text" readOnly value={setupLink} className="text-xs font-mono" />
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={copySetupLink}
-                className="shrink-0 gap-1 text-xs"
-              >
-                {copiedLink ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-[#1F5C4D]" strokeWidth={2} />
-                    <span>Copied</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" strokeWidth={1.75} />
-                    <span>Copy</span>
-                  </>
-                )}
-              </Button>
+          {/* Email dispatch feedback */}
+          {emailDelivered ? (
+            <div className="p-3 bg-[#E6F0EC]/60 border border-[#1F5C4D]/20 rounded-[6px] text-xs text-[#1F5C4D] flex items-center gap-2">
+              <Mail className="w-4 h-4 shrink-0 text-[#1F5C4D]" />
+              <span>Automated welcome email sent to <strong>{newTeacherEmail}</strong>.</span>
             </div>
-          </Field>
+          ) : (
+            <div className="p-3 bg-[#FAF9F6] border border-[#E4E1DA] rounded-[6px] text-xs text-[#5F6670] flex items-start gap-2">
+              <Mail className="w-4 h-4 text-[#1F5C4D] shrink-0 mt-0.5" />
+              <div>
+                <span className="font-medium text-[#1C1F23] block mb-0.5">Automated Email Dispatched</span>
+                <span>Welcome email queued in system for <strong>{newTeacherEmail}</strong>. You can also share the login credentials below directly.</span>
+              </div>
+            </div>
+          )}
+
+          {/* Login Details Card */}
+          <div className="space-y-3 p-3.5 rounded-[6px] border border-[#E4E1DA] bg-white">
+            <div className="text-[11px] font-bold text-[#5F6670] uppercase tracking-wider">
+              Faculty Login Credentials
+            </div>
+
+            {/* Email Field */}
+            <div>
+              <div className="flex items-center justify-between text-xs text-[#5F6670] mb-1">
+                <span>Email Address:</span>
+                <button
+                  type="button"
+                  onClick={copyEmail}
+                  className="inline-flex items-center gap-1 text-[11px] text-[#1F5C4D] font-medium hover:underline cursor-pointer"
+                >
+                  {copiedEmail ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedEmail ? "Copied" : "Copy"}</span>
+                </button>
+              </div>
+              <div className="p-2 rounded bg-[#FAF9F6] border border-[#E4E1DA] text-xs font-mono font-medium text-[#1C1F23]">
+                {newTeacherEmail}
+              </div>
+            </div>
+
+            {/* Password Field */}
+            {newTeacherPassword && (
+              <div>
+                <div className="flex items-center justify-between text-xs text-[#5F6670] mb-1">
+                  <span>Initial Password:</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreatedPassword(!showCreatedPassword)}
+                      className="inline-flex items-center gap-1 text-[11px] text-[#5F6670] hover:text-[#1C1F23] cursor-pointer"
+                    >
+                      {showCreatedPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      <span>{showCreatedPassword ? "Hide" : "Show"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={copyPassword}
+                      className="inline-flex items-center gap-1 text-[11px] text-[#1F5C4D] font-medium hover:underline cursor-pointer"
+                    >
+                      {copiedPassword ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      <span>{copiedPassword ? "Copied" : "Copy"}</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="p-2 rounded bg-[#FAF9F6] border border-[#E4E1DA] text-xs font-mono font-bold text-[#1F5C4D]">
+                  {showCreatedPassword ? newTeacherPassword : "••••••••••••"}
+                </div>
+              </div>
+            )}
+
+            {/* Setup Link Field */}
+            {setupLink && (
+              <div>
+                <div className="flex items-center justify-between text-xs text-[#5F6670] mb-1">
+                  <span>Password Reset / Direct Link:</span>
+                  <button
+                    type="button"
+                    onClick={copySetupLink}
+                    className="inline-flex items-center gap-1 text-[11px] text-[#1F5C4D] font-medium hover:underline cursor-pointer"
+                  >
+                    {copiedLink ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedLink ? "Copied" : "Copy"}</span>
+                  </button>
+                </div>
+                <div className="p-2 rounded bg-[#FAF9F6] border border-[#E4E1DA] text-[11px] font-mono text-[#5F6670] truncate">
+                  {setupLink}
+                </div>
+              </div>
+            )}
+
+            {/* Portal Link */}
+            {newTeacherLoginUrl && (
+              <div>
+                <div className="flex items-center justify-between text-xs text-[#5F6670] mb-1">
+                  <span>Portal Login URL:</span>
+                  <button
+                    type="button"
+                    onClick={copyLoginUrl}
+                    className="inline-flex items-center gap-1 text-[11px] text-[#1F5C4D] font-medium hover:underline cursor-pointer"
+                  >
+                    {copiedLoginUrl ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedLoginUrl ? "Copied" : "Copy"}</span>
+                  </button>
+                </div>
+                <div className="p-2 rounded bg-[#FAF9F6] border border-[#E4E1DA] text-xs font-mono text-[#1C1F23] truncate">
+                  {newTeacherLoginUrl}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Copy Full Details Button */}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={copyAllDetails}
+            className="w-full gap-2 text-xs"
+          >
+            {copiedDetails ? (
+              <>
+                <Check className="w-4 h-4 text-[#1F5C4D]" strokeWidth={2} />
+                <span>Copied All Login Details to Clipboard!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4" strokeWidth={1.75} />
+                <span>Copy Full Credentials (for WhatsApp / SMS)</span>
+              </>
+            )}
+          </Button>
 
           <Button
             type="button"
             variant="primary"
             onClick={() => setSetupLinkModalOpen(false)}
-            className="w-full mt-2"
+            className="w-full"
           >
             Done
           </Button>
@@ -822,6 +1105,95 @@ export default function OwnerTeachersPage() {
         onConfirm={handleToggleStatus}
         onClose={() => setStatusDialogTeacher(null)}
       />
+
+      {/* Delete Teacher - Step 1 Confirmation */}
+      <ConfirmDialog
+        open={Boolean(deleteStep1Teacher)}
+        onClose={() => setDeleteStep1Teacher(null)}
+        onConfirm={() => {
+          const target = deleteStep1Teacher;
+          setDeleteStep1Teacher(null);
+          setDeleteConfirmInput("");
+          setDeleteStep2Teacher(target);
+        }}
+        title={`Delete Teacher from ${activeYear || "Academic Year"}: ${deleteStep1Teacher?.name || ""}?`}
+        description={`This will remove ${deleteStep1Teacher?.name || "this teacher"} from ${activeYear ? `Academic Year ${activeYear}` : "the current academic year"} and future activities. Their historical data in past academic years (e.g. 2025) and completed sessions will remain safely preserved and will NOT be modified. To proceed, confirm in the next step.`}
+        confirmLabel="Continue to Final Confirmation"
+        cancelLabel="Cancel"
+        variant="danger"
+      />
+
+      {/* Delete Teacher - Step 2 Final Typed Double Confirmation */}
+      <BottomSheet
+        open={Boolean(deleteStep2Teacher)}
+        onClose={() => {
+          if (!deleting) {
+            setDeleteStep2Teacher(null);
+            setDeleteConfirmInput("");
+          }
+        }}
+        title="Final Delete Confirmation"
+        description={`Type "${deleteStep2Teacher?.name || ""}" or "DELETE" below to confirm deletion for ${activeYear ? `Academic Year ${activeYear}` : "current academic year"}.`}
+      >
+        <form onSubmit={handleConfirmDeleteTeacher} className="flex flex-col gap-4 py-1">
+          <div className="p-3.5 rounded-[6px] bg-[#FBE9E7]/80 border border-[#A32A2A]/30 flex items-start gap-2.5 text-xs text-[#A32A2A]">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} />
+            <div>
+              <strong className="block mb-0.5 text-sm">
+                Scoped to {activeYear ? `Academic Year ${activeYear}` : "Current Year"} &amp; Future Only
+              </strong>
+              <span>
+                <strong>{deleteStep2Teacher?.name}</strong> will be unassigned from active classes and future scheduled sessions in {activeYear || "this year"}, and their login account will be terminated. All past academic years and completed session records will remain safely preserved in the database.
+              </span>
+            </div>
+          </div>
+
+          <Field
+            id="confirmDeleteTeacherInput"
+            label={`Type "${deleteStep2Teacher?.name || ""}" or "DELETE" to confirm:`}
+            required
+          >
+            <Input
+              type="text"
+              placeholder={deleteStep2Teacher?.name || "DELETE"}
+              value={deleteConfirmInput}
+              onChange={(e) => setDeleteConfirmInput(e.target.value)}
+              disabled={deleting}
+              autoFocus
+              className="font-mono text-xs"
+            />
+          </Field>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setDeleteStep2Teacher(null);
+                setDeleteConfirmInput("");
+              }}
+              disabled={deleting}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="danger"
+              disabled={
+                deleting ||
+                (deleteConfirmInput.trim().toLowerCase() !== "delete" &&
+                  deleteConfirmInput.trim().toLowerCase() !==
+                    (deleteStep2Teacher?.name || "").trim().toLowerCase())
+              }
+              loading={deleting}
+              className="flex-1"
+            >
+              Permanently Delete
+            </Button>
+          </div>
+        </form>
+      </BottomSheet>
 
       {toastMessage && (
         <Toast

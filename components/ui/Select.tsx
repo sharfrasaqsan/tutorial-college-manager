@@ -7,13 +7,15 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   ({ className = "", error = false, disabled, children, ...props }, ref) => {
+    const hasError = Boolean(error || props["aria-invalid"]);
+
     return (
       <div className="relative w-full">
         <select
           ref={ref}
           disabled={disabled}
-          className={`w-full min-h-[44px] pl-3 pr-9 py-2 text-sm bg-[#FFFFFF] text-[#1C1F23] border rounded-[6px] appearance-none transition-colors focus:outline-none focus:ring-1 disabled:bg-[#FAF9F6] disabled:text-[#5F6670] disabled:cursor-not-allowed ${
-            error
+          className={`w-full min-h-[44px] h-[44px] pl-3 pr-9 py-2 text-sm bg-[#FFFFFF] text-[#1C1F23] border rounded-[6px] appearance-none transition-colors focus:outline-none focus:ring-1 disabled:bg-[#FAF9F6] disabled:text-[#5F6670] disabled:cursor-not-allowed ${
+            hasError
               ? "border-[#A32A2A] focus:border-[#A32A2A] focus:ring-[#A32A2A]"
               : "border-[#E4E1DA] focus:border-[#1F5C4D] focus:ring-[#1F5C4D]"
           } ${className}`}

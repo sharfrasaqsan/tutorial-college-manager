@@ -1,9 +1,20 @@
 import { timeToMinutes, formatTimeDisplay, getWeekdayName, formatDateDisplay } from "./dates.ts";
+import { parseISO } from "date-fns";
 import type { TimeInterval } from "../types/index.ts";
 
 export interface ClashCheckResult {
   hasClash: boolean;
   message?: string;
+  hasGradeWarning?: boolean;
+  warningMessage?: string;
+  gradeConflictClass?: string;
+  overlappingGradeClasses?: Array<{
+    className: string;
+    grade: string;
+    teacherName?: string;
+    startTime: string;
+    endTime: string;
+  }>;
 }
 
 /**
@@ -25,13 +36,32 @@ export function doIntervalsOverlap(
 }
 
 /**
+ * Helper to resolve weekday from either explicit weekday number/string or date string
+ */
+function resolveWeekday(interval: TimeInterval): number | undefined {
+  if (interval.weekday !== undefined && interval.weekday !== null) {
+    const num = Number(interval.weekday);
+    if (!isNaN(num)) return num;
+  }
+  if (interval.date) {
+    try {
+      return parseISO(interval.date).getDay();
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Shared clash detection function for timetable slots, make-ups, and sessions.
  * Enforced on server transactions.
  *
  * Rules:
  * 1. A teacher cannot have two overlapping sessions.
- * 2. At most 3 classes may overlap at any moment (college has 3 rooms; rooms are NOT tracked).
- * 3. Classes of the same grade MAY overlap.
+ * 2. The same class cannot have two overlapping sessions.
+ * 3. At most 3 classes may overlap at any moment (college has 3 rooms; rooms are NOT tracked).
+ * 4. Classes of the same grade MAY overlap (if rooms <= 3 and different teachers).
  * Touching times (one ends when another starts) are allowed.
  * Errors are plain sentences that name the conflict.
  */
@@ -49,22 +79,39 @@ export function checkClash(
     };
   }
 
+  const candWeekday = resolveWeekday(candidate);
+
   // Filter intervals for the relevant day (ignore self if editing)
   const relevant = existingIntervals.filter((item) => {
-    if (item.id === candidate.id) return false;
+    if (candidate.id && item.id && candidate.id === item.id) return false;
+
+    // Both are specific calendar dates
     if (candidate.date && item.date) {
       return candidate.date === item.date;
     }
-    if (candidate.weekday !== undefined && item.weekday !== undefined) {
-      return candidate.weekday === item.weekday;
+
+    // Compare resolved weekdays (handles numbers, strings, and date-to-weekday resolution)
+    const itemWeekday = resolveWeekday(item);
+    if (candWeekday !== undefined && itemWeekday !== undefined) {
+      return candWeekday === itemWeekday;
     }
+
     return true;
   });
 
-  // Rule 1: Teacher conflict
+  const candTeacher = candidate.teacherId?.trim();
+  const candClass = candidate.classId?.trim();
+
+  // Rule 1: Teacher conflict & Same-Class conflict
   for (const existing of relevant) {
+    const existTeacher = existing.teacherId?.trim();
+    const existClass = existing.classId?.trim();
+
+    // Teacher conflict
     if (
-      existing.teacherId === candidate.teacherId &&
+      candTeacher &&
+      existTeacher &&
+      candTeacher === existTeacher &&
       doIntervalsOverlap(
         candidate.startTime,
         candidate.endTime,
@@ -73,10 +120,11 @@ export function checkClash(
       )
     ) {
       const teacherName = candidate.teacherName || existing.teacherName || "The teacher";
+      const existW = resolveWeekday(existing);
       const dayContext = existing.date
         ? `on ${formatDateDisplay(existing.date)} `
-        : existing.weekday !== undefined
-        ? `on ${getWeekdayName(existing.weekday)} `
+        : existW !== undefined
+        ? `on ${getWeekdayName(existW)} `
         : "";
       const classContext = existing.className ? `${existing.className} ` : "";
       return {
@@ -86,9 +134,35 @@ export function checkClash(
         )} to ${formatTimeDisplay(existing.endTime)}.`.replace(/\s+/g, " ").replace(" .", "."),
       };
     }
+
+    // Same-class overlapping session conflict
+    if (
+      candClass &&
+      existClass &&
+      candClass === existClass &&
+      doIntervalsOverlap(
+        candidate.startTime,
+        candidate.endTime,
+        existing.startTime,
+        existing.endTime
+      )
+    ) {
+      const existW = resolveWeekday(existing);
+      const dayContext = existing.date
+        ? `on ${formatDateDisplay(existing.date)} `
+        : existW !== undefined
+        ? `on ${getWeekdayName(existW)} `
+        : "";
+      return {
+        hasClash: true,
+        message: `${candidate.className || "This class"} already has a session ${dayContext}from ${formatTimeDisplay(
+          existing.startTime
+        )} to ${formatTimeDisplay(existing.endTime)}.`.replace(/\s+/g, " ").replace(" .", "."),
+      };
+    }
   }
 
-  // Rule 2 & 3: Maximum 3 simultaneous classes at any moment
+  // Rule 3: Maximum 3 simultaneous classes at any moment
   // Find all intervals that overlap with candidate
   const overlapping = relevant.filter((item) =>
     doIntervalsOverlap(
@@ -128,5 +202,60 @@ export function checkClash(
     }
   }
 
-  return { hasClash: false };
+  // Rule 4: Same-grade concurrent scheduling check
+  // Classes of the same grade can be scheduled with different teachers (rooms <= 3),
+  // but require an explicit confirmation alert and an owner push notification.
+  let hasGradeWarning = false;
+  let warningMessage: string | undefined = undefined;
+  let gradeConflictClass: string | undefined = undefined;
+  const overlappingGradeClasses: Array<{
+    className: string;
+    grade: string;
+    teacherName?: string;
+    startTime: string;
+    endTime: string;
+  }> = [];
+
+  const candGrade = candidate.grade?.trim().toLowerCase();
+  if (candGrade) {
+    for (const item of overlapping) {
+      const itemGrade = item.grade?.trim().toLowerCase();
+      // If same grade and different class/session
+      if (
+        itemGrade &&
+        itemGrade === candGrade &&
+        (candidate.classId ? candidate.classId !== item.classId : true)
+      ) {
+        hasGradeWarning = true;
+        const otherName =
+          item.className || (item.grade ? `${item.grade} class` : "Another class");
+        if (!gradeConflictClass) gradeConflictClass = otherName;
+        overlappingGradeClasses.push({
+          className: otherName,
+          grade: item.grade || candidate.grade || "",
+          teacherName: item.teacherName,
+          startTime: item.startTime,
+          endTime: item.endTime,
+        });
+
+        const existW = resolveWeekday(item);
+        const dayContext = item.date
+          ? `on ${formatDateDisplay(item.date)}`
+          : existW !== undefined
+          ? `on ${getWeekdayName(existW)}`
+          : "";
+
+        warningMessage = `${candidate.className || candidate.grade} and ${otherName} are both scheduled for ${candidate.grade} ${dayContext} (${formatTimeDisplay(candidate.startTime)} - ${formatTimeDisplay(candidate.endTime)}). Students in ${candidate.grade} cannot attend both classes simultaneously.`.replace(/\s+/g, " ");
+      }
+    }
+  }
+
+  return {
+    hasClash: false,
+    hasGradeWarning,
+    warningMessage,
+    gradeConflictClass,
+    overlappingGradeClasses:
+      overlappingGradeClasses.length > 0 ? overlappingGradeClasses : undefined,
+  };
 }

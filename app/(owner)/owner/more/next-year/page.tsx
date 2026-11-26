@@ -16,8 +16,8 @@ import type { AcademicYear } from "@/types";
 export default function StartNextYearPage() {
   const router = useRouter();
 
-  const [currentYear, setCurrentYear] = useState<string>("2026");
-  const [nextYear, setNextYear] = useState<string>("2027");
+  const [currentYear, setCurrentYear] = useState<string>("");
+  const [nextYear, setNextYear] = useState<string>("");
   const [alreadyPromoted, setAlreadyPromoted] = useState(false);
   const [alreadyPromotedTo, setAlreadyPromotedTo] = useState("");
 
@@ -106,10 +106,21 @@ export default function StartNextYearPage() {
           </Link>
         </div>
 
-        <PageHeader
-          title="Start Next Academic Year"
-          subtitle={`Advance college records from ${currentYear} to ${nextYear}`}
-        />
+        {loading ? (
+          <div className="mb-6 space-y-2">
+            <Skeleton className="h-7 w-64" />
+            <Skeleton variant="text" className="w-72 max-w-full" />
+          </div>
+        ) : (
+          <PageHeader
+            title="Start Next Academic Year"
+            subtitle={
+              currentYear && nextYear
+                ? `Advance college records from ${currentYear} to ${nextYear}`
+                : "Advance college records to the next academic year"
+            }
+          />
+        )}
 
         {errorMessage && (
           <div>

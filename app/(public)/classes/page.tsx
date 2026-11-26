@@ -12,7 +12,7 @@ import {
   Calendar,
 } from "lucide-react";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { college } = await getPublicSiteData();

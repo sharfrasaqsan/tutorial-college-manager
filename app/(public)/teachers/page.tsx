@@ -4,7 +4,7 @@ import Link from "next/link";
 import { getPublicSiteData } from "@/lib/public-data";
 import { Users, BookOpen, MessageCircle, Phone, Award } from "lucide-react";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { college } = await getPublicSiteData();

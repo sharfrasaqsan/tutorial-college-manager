@@ -21,6 +21,7 @@ import {
   Inbox,
   FileSpreadsheet,
   Globe,
+  MessageSquare,
 } from "lucide-react";
 
 const adminSections = [
@@ -65,6 +66,13 @@ const adminSections = [
     href: "/owner/more/public-site",
     icon: Globe,
     category: "Website",
+  },
+  {
+    title: "Contact Messages",
+    subtitle: "Inquiries, admission questions & visitor messages from public site",
+    href: "/owner/messages",
+    icon: MessageSquare,
+    category: "Inquiries",
   },
   {
     title: "Grades & Subjects",

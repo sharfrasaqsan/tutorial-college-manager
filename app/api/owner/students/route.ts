@@ -21,10 +21,13 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || "";
     const grade = searchParams.get("grade") || "";
 
-    // 1. Fetch roster for the year to get enrolled student ids and grades
-    const rosterSnap = await adminDb.collection("years").doc(yearId).collection("roster").get();
-    const rosterMap = new Map<string, { grade: string; status: string }>();
+    // 1. Fetch roster and permanent student records in parallel
+    const [rosterSnap, studentsSnap] = await Promise.all([
+      adminDb.collection("years").doc(yearId).collection("roster").get(),
+      adminDb.collection("students").get(),
+    ]);
 
+    const rosterMap = new Map<string, { grade: string; status: string }>();
     rosterSnap.forEach((doc) => {
       const data = doc.data();
       rosterMap.set(doc.id, {
@@ -33,8 +36,6 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // 2. Fetch all permanent student records
-    const studentsSnap = await adminDb.collection("students").get();
     const allStudents: Array<Student & { grade: string }> = [];
 
     studentsSnap.forEach((doc) => {

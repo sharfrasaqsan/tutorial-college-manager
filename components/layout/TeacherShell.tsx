@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { performSignOut } from "@/lib/client-auth";
+import { Skeleton } from "@/components/ui/Skeleton";
 import {
   CalendarDays,
   Clock,
@@ -35,6 +36,18 @@ interface SidebarNavItem {
   badge?: number;
 }
 
+// Client-side module-level cache for teacher shell data
+let cachedTeacherCollege: {
+  name: string;
+  logoUrl: string | null;
+  fetchedAt: number;
+} | null = null;
+
+let lastTeacherNotifFetch = 0;
+let cachedTeacherNotifCount = 0;
+const TEACHER_COLLEGE_CACHE_TTL_MS = 60 * 1000;
+const TEACHER_NOTIF_THROTTLE_MS = 15 * 1000;
+
 export function TeacherShell({
   children,
   pageTitle = "Teacher Portal",
@@ -45,18 +58,26 @@ export function TeacherShell({
   const pathname = usePathname();
   const router = useRouter();
 
-  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
-  const [collegeName, setCollegeName] = useState("Tutorial College");
-  const [collegeLogo, setCollegeLogo] = useState<string | null>(null);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(() => cachedTeacherNotifCount);
+  const [collegeName, setCollegeName] = useState(() => cachedTeacherCollege?.name || "");
+  const [collegeLogo, setCollegeLogo] = useState<string | null>(() => cachedTeacherCollege?.logoUrl || null);
+  const [collegeLoaded, setCollegeLoaded] = useState(() => Boolean(cachedTeacherCollege));
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     async function loadNotifications() {
+      const now = Date.now();
+      if (now - lastTeacherNotifFetch < TEACHER_NOTIF_THROTTLE_MS) {
+        return;
+      }
+      lastTeacherNotifFetch = now;
       try {
         const res = await fetch("/api/notifications");
         if (res.ok) {
           const data = await res.json();
-          setUnreadNotifCount(data.unreadCount || 0);
+          const count = data.unreadCount || 0;
+          cachedTeacherNotifCount = count;
+          setUnreadNotifCount(count);
         }
       } catch {}
     }
@@ -65,14 +86,27 @@ export function TeacherShell({
 
   useEffect(() => {
     async function loadCollege() {
+      const now = Date.now();
+      if (cachedTeacherCollege && now - cachedTeacherCollege.fetchedAt < TEACHER_COLLEGE_CACHE_TTL_MS) {
+        return;
+      }
       try {
         const res = await fetch("/api/owner/settings/college");
         if (res.ok) {
           const data = await res.json();
-          if (data.profile?.name) setCollegeName(data.profile.name);
-          if (data.profile?.logoUrl) setCollegeLogo(data.profile.logoUrl);
+          const name = data.profile?.name || "";
+          const logoUrl = data.profile?.logoUrl || null;
+          setCollegeName(name);
+          setCollegeLogo(logoUrl);
+          cachedTeacherCollege = {
+            name,
+            logoUrl,
+            fetchedAt: now,
+          };
         }
-      } catch {}
+      } catch {} finally {
+        setCollegeLoaded(true);
+      }
     }
     loadCollege();
   }, []);
@@ -183,21 +217,33 @@ export function TeacherShell({
       >
         {/* Brand Header */}
         <div className="p-4 border-b border-[#E4E1DA] flex items-center gap-2.5">
-          {collegeLogo ? (
-            <img src={collegeLogo} alt={collegeName} className="w-8 h-8 object-contain rounded-md" />
+          {!collegeLoaded ? (
+            <>
+              <Skeleton className="w-8 h-8 shrink-0" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton variant="text" className="w-20 h-2.5" />
+              </div>
+            </>
           ) : (
-            <div className="w-8 h-8 rounded-md bg-[#1F5C4D] text-[#FFFFFF] flex items-center justify-center font-serif font-bold text-base shrink-0">
-              {collegeName.charAt(0)}
-            </div>
+            <>
+              {collegeLogo ? (
+                <img src={collegeLogo} alt={collegeName || "College"} className="w-8 h-8 object-contain rounded-md" />
+              ) : (
+                <div className="w-8 h-8 rounded-md bg-[#1F5C4D] text-[#FFFFFF] flex items-center justify-center font-serif font-bold text-base shrink-0">
+                  {(collegeName || "Tutorial College").charAt(0)}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <h1 className="font-serif font-semibold text-sm text-[#1C1F23] truncate leading-tight">
+                  {collegeName || "Tutorial College"}
+                </h1>
+                <span className="text-[10px] text-[#5F6670] uppercase tracking-wider font-medium">
+                  Teacher Portal
+                </span>
+              </div>
+            </>
           )}
-          <div className="min-w-0 flex-1">
-            <h1 className="font-serif font-semibold text-sm text-[#1C1F23] truncate leading-tight">
-              {collegeName}
-            </h1>
-            <span className="text-[10px] text-[#5F6670] uppercase tracking-wider font-medium">
-              Teacher Portal
-            </span>
-          </div>
         </div>
 
         {/* Navigation Items */}

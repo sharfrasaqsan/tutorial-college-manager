@@ -28,15 +28,19 @@ export function Field({
   const errorId = error ? `${id}-error` : undefined;
   const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
 
-  const childWithProps = React.cloneElement(children, {
-    id,
-    error: Boolean(error),
+  const extraProps: Record<string, unknown> = {
+    id: children.props.id || id,
     "aria-describedby": describedBy,
-    "aria-invalid": Boolean(error),
-  });
+  };
+
+  if (error) {
+    extraProps["aria-invalid"] = true;
+  }
+
+  const childWithProps = React.cloneElement(children, extraProps);
 
   return (
-    <div className={`flex flex-col gap-1 ${className}`}>
+    <div className={`flex flex-col gap-1.5 h-full ${className}`}>
       <label
         htmlFor={id}
         className="text-xs font-semibold uppercase tracking-wider text-[#1C1F23]"
@@ -44,7 +48,9 @@ export function Field({
         {label}
         {required && <span className="text-[#A32A2A] ml-1">*</span>}
       </label>
-      {childWithProps}
+      <div className="flex-1 flex flex-col justify-end">
+        {childWithProps}
+      </div>
       {hint && !error && (
         <p id={hintId} className="text-xs text-[#5F6670] mt-0.5">
           {hint}

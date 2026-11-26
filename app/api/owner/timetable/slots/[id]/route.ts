@@ -7,8 +7,12 @@ import {
   generateSessionsForSlot,
   slotToTimeInterval,
 } from "@/lib/timetable";
-import { notifyTeacherTimetableChange } from "@/lib/notifications";
+import {
+  notifyTeacherTimetableChange,
+  notifyOwnerConcurrentGradeSchedule,
+} from "@/lib/notifications";
 import { YEAR_COOKIE_NAME } from "@/lib/academic-year";
+import { invalidatePublicSiteDataCache } from "@/lib/public-data";
 import { getColomboNow } from "@/lib/dates";
 import { format } from "date-fns";
 import type { TimetableSlot, TimeInterval, Session } from "@/types";
@@ -83,6 +87,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     let teacherId = "";
     let className = "";
+    let slotGrade = "";
+    let hasGradeWarning = false;
+    let gradeConflictClass: string | undefined = undefined;
     let updatedSlot: TimetableSlot | null = null;
 
     // 2. Execute clash check and updates inside transaction
@@ -96,6 +103,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       teacherId = existingSlot.teacherId;
       className = existingSlot.className || "Class";
       const grade = existingSlot.grade || "";
+      slotGrade = grade;
       const classId = existingSlot.classId;
       const subject = existingSlot.subject || "";
       const teacherName = existingSlot.teacherName || "Teacher";
@@ -138,6 +146,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       const clash = checkClash(candidate, existingIntervals);
       if (clash.hasClash) {
         throw new Error(clash.message || "Updated slot conflicts with existing schedule.");
+      }
+
+      if (clash.hasGradeWarning) {
+        hasGradeWarning = true;
+        gradeConflictClass = clash.gradeConflictClass;
       }
 
       // 3. Update slot document
@@ -215,6 +228,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     });
 
+    invalidatePublicSiteDataCache();
+
     // 5. Notify teacher of the update
     if (teacherId) {
       await notifyTeacherTimetableChange({
@@ -229,9 +244,29 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       });
     }
 
+    // 6. Notify owner if same grade scheduled concurrently
+    if (hasGradeWarning) {
+      try {
+        await notifyOwnerConcurrentGradeSchedule({
+          grade: slotGrade,
+          classNameA: className,
+          classNameB: gradeConflictClass || "Another class",
+          weekday,
+          startTime,
+          endTime,
+          yearId,
+        });
+      } catch (err) {
+        console.error("Non-fatal owner concurrent grade notification error:", err);
+      }
+    }
+
     return NextResponse.json({
       slot: updatedSlot,
-      message: "Timetable slot and future scheduled sessions updated successfully.",
+      hasGradeWarning,
+      message: hasGradeWarning
+        ? `Slot updated with concurrent ${slotGrade} schedule alert. Owner notified.`
+        : "Timetable slot and future scheduled sessions updated successfully.",
     });
   } catch (error: any) {
     return NextResponse.json(

@@ -142,5 +142,10 @@ service cloud.firestore {
     match /fcmTokens/{token} {
       allow read, write: if isOwner();
     }
+
+    // 9. Public contact form messages: Owner only (writes handled via server-side API)
+    match /contact_messages/{messageId} {
+      allow read, write: if isOwner();
+    }
   }
 }

@@ -33,7 +33,7 @@ import { formatColomboDate } from "@/lib/dates";
 export default function OwnerStudentsPage() {
   const [students, setStudents] = useState<Array<Student & { grade: string }>>([]);
   const [grades, setGrades] = useState<AcademicGrade[]>([]);
-  const [activeYear, setActiveYear] = useState<string>("2026");
+  const [activeYear, setActiveYear] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -258,9 +258,9 @@ export default function OwnerStudentsPage() {
   });
 
   return (
-    <OwnerShell pageTitle={`Students (${activeYear})`}>
+    <OwnerShell pageTitle={activeYear ? `Students (${activeYear})` : "Students"}>
       <PageHeader
-        title={`Student Directory (${activeYear})`}
+        title={activeYear ? `Student Directory (${activeYear})` : "Student Directory"}
         subtitle="Manage permanent student records, grade assignments and admission fees"
         action={
           <Button variant="primary" onClick={openAddSheet} className="gap-1.5">

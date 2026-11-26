@@ -45,28 +45,67 @@ export async function GET(request: NextRequest) {
     const statusFilter = (searchParams.get("status") || "all") as "all" | "unpaid" | "paid";
     const search = searchParams.get("search") || "";
 
-    // 1. Fetch active classes in this year
-    const classesSnap = await adminDb
-      .collection("years")
-      .doc(yearId)
-      .collection("classes")
-      .where("active", "!=", false)
-      .get();
-
-    const classMetadataList: Array<{ id: string; name: string; grade: string; subject: string }> = [];
-    const distinctGrades = new Set<string>();
-
     const feesCollection = adminDb
       .collection("years")
       .doc(yearId)
       .collection("fees");
 
+    // 1. Fetch active classes and existing monthly fees in parallel
+    const [classesSnap, existingFeesSnap] = await Promise.all([
+      adminDb
+        .collection("years")
+        .doc(yearId)
+        .collection("classes")
+        .where("active", "!=", false)
+        .get(),
+      feesCollection.where("month", "==", month).get(),
+    ]);
+
+    const classMetadataList: Array<{ id: string; name: string; grade: string; subject: string }> = [];
+    const distinctGrades = new Set<string>();
+
+    // Index all existing fee records in memory for O(1) existence checks without DB roundtrips
+    const existingFeeDocIds = new Set<string>();
+    const existingFeesMap = new Map<string, FeeRecord>();
+
+    existingFeesSnap.docs.forEach((doc) => {
+      existingFeeDocIds.add(doc.id);
+      const data = doc.data();
+      existingFeesMap.set(doc.id, {
+        id: doc.id,
+        yearId: data.yearId || yearId,
+        classId: data.classId || "",
+        studentId: data.studentId || "",
+        studentName: data.studentName || "",
+        month: data.month || month,
+        amount: data.amount ?? 0,
+        teacherShare: data.teacherShare ?? 0,
+        status: data.status || "unpaid",
+        paidAt: data.paidAt || data.paidDate || undefined,
+        paymentMethod: data.paymentMethod || data.method || undefined,
+        receiptNo: data.receiptNo,
+        note: data.note || data.notes || undefined,
+        className: data.className,
+        grade: data.grade,
+        subject: data.subject,
+        teacherId: data.teacherId,
+        teacherName: data.teacherName,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+      });
+    });
+
+    // 2. Fetch enrolments for all classes in parallel
+    const enrolmentsSnapshots = await Promise.all(
+      classesSnap.docs.map((classDoc) => classDoc.ref.collection("enrolments").get())
+    );
+
     const batch = adminDb.batch();
     let batchWritesCount = 0;
     const now = new Date().toISOString();
 
-    // 2. Iterate each class to check enrolments and sync missing fee records
-    for (const classDoc of classesSnap.docs) {
+    // 3. Evaluate enrolments and sync missing fee records in memory
+    classesSnap.docs.forEach((classDoc, idx) => {
       const classData = classDoc.data();
       classMetadataList.push({
         id: classDoc.id,
@@ -78,15 +117,13 @@ export async function GET(request: NextRequest) {
         distinctGrades.add(classData.grade);
       }
 
-      // Read enrolments
-      const enrolmentsSnap = await classDoc.ref.collection("enrolments").get();
-      if (enrolmentsSnap.empty) continue;
+      const enrolmentsSnap = enrolmentsSnapshots[idx];
+      if (enrolmentsSnap.empty) return;
 
-      // Class terms history
-      const termsHistory: ClassTerms[] = classData.termsHistory || (classData.currentTerms ? [classData.currentTerms] : []);
-      if (termsHistory.length === 0) continue;
+      const termsHistory: ClassTerms[] =
+        classData.termsHistory || (classData.currentTerms ? [classData.currentTerms] : []);
+      if (termsHistory.length === 0) return;
 
-      // Find effective terms for target month
       let effectiveTerms: ClassTerms;
       try {
         effectiveTerms = findEffectiveTermsForMonth(termsHistory, month);
@@ -94,7 +131,6 @@ export async function GET(request: NextRequest) {
         effectiveTerms = classData.currentTerms || termsHistory[0];
       }
 
-      // Check each enrolment
       for (const enrDoc of enrolmentsSnap.docs) {
         const enr = enrDoc.data();
         const studentId = enr.studentId || enrDoc.id;
@@ -107,17 +143,10 @@ export async function GET(request: NextRequest) {
         const canonicalDocId = generateFeeDocId(studentId, classDoc.id, month);
         const legacyDocId = `${classDoc.id}_${studentId}_${month}`;
 
-        let feeDocRef = feesCollection.doc(canonicalDocId);
-        let existingDoc = await feeDocRef.get();
-        if (!existingDoc.exists) {
-          const legacyDoc = await feesCollection.doc(legacyDocId).get();
-          if (legacyDoc.exists) {
-            existingDoc = legacyDoc;
-            feeDocRef = feesCollection.doc(legacyDocId);
-          }
-        }
+        const alreadyExists =
+          existingFeeDocIds.has(canonicalDocId) || existingFeeDocIds.has(legacyDocId);
 
-        if (!existingDoc.exists) {
+        if (!alreadyExists) {
           const newFeeRecord: FeeRecord = {
             id: canonicalDocId,
             yearId,
@@ -130,7 +159,7 @@ export async function GET(request: NextRequest) {
             status: "unpaid",
           };
 
-          batch.set(feeDocRef, {
+          const newDocPayload = {
             ...newFeeRecord,
             className: classData.name || `${classData.grade} ${classData.subject}`,
             grade: classData.grade,
@@ -139,48 +168,22 @@ export async function GET(request: NextRequest) {
             teacherName: classData.teacherName || "",
             createdAt: now,
             updatedAt: now,
-          });
+          };
 
+          batch.set(feesCollection.doc(canonicalDocId), newDocPayload);
+          existingFeeDocIds.add(canonicalDocId);
+          existingFeesMap.set(canonicalDocId, newDocPayload);
           batchWritesCount++;
-          // Firestore batch max is 500
-          if (batchWritesCount >= 450) {
-            await batch.commit();
-            batchWritesCount = 0;
-          }
         }
       }
-    }
+    });
 
     if (batchWritesCount > 0) {
       await batch.commit();
     }
 
-    // 3. Query all fee records for this year and month
-    const feesSnap = await feesCollection.where("month", "==", month).get();
-    const allMonthlyFees: FeeRecord[] = [];
-
-    feesSnap.forEach((doc) => {
-      const data = doc.data();
-      allMonthlyFees.push({
-        id: doc.id,
-        yearId: data.yearId || yearId,
-        classId: data.classId || "",
-        studentId: data.studentId || "",
-        studentName: data.studentName || "",
-        month: data.month || month,
-        amount: Number(data.amount) || 0,
-        teacherShare: Number(data.teacherShare) || 0,
-        status: data.status || "unpaid",
-        paymentMethod: data.paymentMethod || undefined,
-        paidAt: data.paidAt || undefined,
-        receiptNo: data.receiptNo || undefined,
-        // UI helper properties
-        ...(data.className && { className: data.className }),
-        ...(data.grade && { grade: data.grade }),
-        ...(data.subject && { subject: data.subject }),
-        ...(data.teacherName && { teacherName: data.teacherName }),
-      } as any);
-    });
+    // 4. Use the in-memory map of fees
+    const allMonthlyFees: FeeRecord[] = Array.from(existingFeesMap.values());
 
     // 4. Calculate month financial summary
     const summary = calculateFeeSummary(allMonthlyFees);

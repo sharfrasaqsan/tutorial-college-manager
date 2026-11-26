@@ -7,8 +7,12 @@ import {
   generateSessionsForSlot,
   slotToTimeInterval,
 } from "@/lib/timetable";
-import { notifyTeacherTimetableChange } from "@/lib/notifications";
+import {
+  notifyTeacherTimetableChange,
+  notifyOwnerConcurrentGradeSchedule,
+} from "@/lib/notifications";
 import { YEAR_COOKIE_NAME } from "@/lib/academic-year";
+import { invalidatePublicSiteDataCache } from "@/lib/public-data";
 import type { TimetableSlot, TimeInterval, Session } from "@/types";
 
 /**
@@ -22,14 +26,31 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const cookieYear = request.cookies.get(YEAR_COOKIE_NAME)?.value;
-    const yearId = searchParams.get("yearId") || cookieYear || "2026";
+    let yearId = searchParams.get("yearId") || cookieYear;
 
-    // 1. Fetch slots
-    const slotsSnap = await adminDb
-      .collection("years")
-      .doc(yearId)
-      .collection("slots")
-      .get();
+    if (!yearId) {
+      const activeYearSnap = await adminDb
+        .collection("academicYears")
+        .where("status", "==", "active")
+        .limit(1)
+        .get();
+      yearId = !activeYearSnap.empty ? activeYearSnap.docs[0].id : "2026";
+    }
+
+    // Fetch slots and classes in parallel
+    const [slotsSnap, classesSnap] = await Promise.all([
+      adminDb
+        .collection("years")
+        .doc(yearId)
+        .collection("slots")
+        .get(),
+      adminDb
+        .collection("years")
+        .doc(yearId)
+        .collection("classes")
+        .where("active", "==", true)
+        .get(),
+    ]);
 
     const slots: TimetableSlot[] = [];
     slotsSnap.forEach((doc) => {
@@ -58,14 +79,6 @@ export async function GET(request: NextRequest) {
       if (a.weekday !== b.weekday) return a.weekday - b.weekday;
       return a.startTime.localeCompare(b.startTime);
     });
-
-    // 2. Fetch classes for dropdown selectors
-    const classesSnap = await adminDb
-      .collection("years")
-      .doc(yearId)
-      .collection("classes")
-      .where("active", "==", true)
-      .get();
 
     const classes = classesSnap.docs.map((d) => {
       const data = d.data();
@@ -102,7 +115,16 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const cookieYear = request.cookies.get(YEAR_COOKIE_NAME)?.value;
-    const yearId = body.yearId || cookieYear || "2026";
+    let yearId = body.yearId || cookieYear;
+
+    if (!yearId) {
+      const activeYearSnap = await adminDb
+        .collection("academicYears")
+        .where("status", "==", "active")
+        .limit(1)
+        .get();
+      yearId = !activeYearSnap.empty ? activeYearSnap.docs[0].id : "2026";
+    }
 
     // 1. Validate payload
     const parsed = CreateSlotSchema.safeParse({ ...body, yearId });
@@ -147,6 +169,8 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
 
     let generatedSessions: Session[] = [];
+    let hasGradeWarning = false;
+    let gradeConflictClass: string | undefined = undefined;
 
     // 3. Run clash check and session generation inside a Firestore transaction
     await adminDb.runTransaction(async (transaction) => {
@@ -181,6 +205,11 @@ export async function POST(request: NextRequest) {
       const clash = checkClash(candidate, existingIntervals);
       if (clash.hasClash) {
         throw new Error(clash.message || "Timetable slot conflicts with existing schedule.");
+      }
+
+      if (clash.hasGradeWarning) {
+        hasGradeWarning = true;
+        gradeConflictClass = clash.gradeConflictClass;
       }
 
       // Generate dated sessions for the entire validity range
@@ -228,6 +257,8 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    invalidatePublicSiteDataCache();
+
     // 4. Trigger teacher notification hook (Step 10 wired)
     await notifyTeacherTimetableChange({
       teacherId,
@@ -239,6 +270,23 @@ export async function POST(request: NextRequest) {
       endTime,
       yearId,
     });
+
+    // 5. Notify owner if same grade scheduled concurrently
+    if (hasGradeWarning) {
+      try {
+        await notifyOwnerConcurrentGradeSchedule({
+          grade,
+          classNameA: className,
+          classNameB: gradeConflictClass || "Another class",
+          weekday,
+          startTime,
+          endTime,
+          yearId,
+        });
+      } catch (err) {
+        console.error("Non-fatal owner concurrent grade notification error:", err);
+      }
+    }
 
     return NextResponse.json(
       {
@@ -259,7 +307,10 @@ export async function POST(request: NextRequest) {
           createdAt: now,
         },
         sessionsCount: generatedSessions.length,
-        message: "Timetable slot created and sessions scheduled successfully.",
+        hasGradeWarning,
+        message: hasGradeWarning
+          ? `Slot added with concurrent ${grade} schedule alert. Owner notified.`
+          : "Timetable slot created and sessions scheduled successfully.",
       },
       { status: 201 }
     );

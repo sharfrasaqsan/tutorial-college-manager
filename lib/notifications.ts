@@ -1,4 +1,5 @@
 import { adminDb, adminMessaging, adminAuth } from "./firebase-admin.ts";
+import { formatTimeDisplay, getWeekdayName } from "./dates.ts";
 import type { AppNotification } from "@/types";
 
 let cachedOwnerId: string | null = null;
@@ -171,3 +172,71 @@ export async function notifyTeacherTimetableChange(
 
   await notify(payload.teacherId, title, body, link);
 }
+
+export interface ContactNotificationPayload {
+  messageId: string;
+  senderName: string;
+  email: string;
+  phone?: string;
+  subject?: string;
+  messageText: string;
+}
+
+/**
+ * Dispatched when a website visitor submits an inquiry on the public contact page.
+ * Strictly notifies ONLY the college administrator/owner via in-app notification & FCM web push.
+ */
+export async function notifyAdminContactMessage(
+  payload: ContactNotificationPayload
+): Promise<string> {
+  const ownerId = await getOwnerUserId();
+  if (!ownerId) {
+    console.warn("[Notifications] No owner ID resolved for contact message notification.");
+    return "";
+  }
+
+  const subjectSuffix = payload.subject ? ` • ${payload.subject}` : "";
+  const title = `New Contact Inquiry: ${payload.senderName}${subjectSuffix}`;
+  const snippet =
+    payload.messageText.length > 90
+      ? payload.messageText.slice(0, 87) + "..."
+      : payload.messageText;
+  const body = `${payload.email}${payload.phone ? ` • ${payload.phone}` : ""}: "${snippet}"`;
+  const link = "/owner/messages";
+
+  return await notify(ownerId, title, body, link);
+}
+
+export interface ConcurrentGradeScheduleNotificationPayload {
+  grade: string;
+  classNameA: string;
+  classNameB: string;
+  weekday: number;
+  weekdayName?: string;
+  startTime: string;
+  endTime: string;
+  yearId?: string;
+}
+
+/**
+ * Dispatched when classes of the same grade are scheduled at the same time.
+ * Alerts the owner via in-app notification & web push notification.
+ */
+export async function notifyOwnerConcurrentGradeSchedule(
+  payload: ConcurrentGradeScheduleNotificationPayload
+): Promise<string> {
+  const ownerId = await getOwnerUserId();
+  if (!ownerId) {
+    console.warn("[Notifications] No owner ID resolved for concurrent grade schedule notification.");
+    return "";
+  }
+
+  const dayStr = payload.weekdayName || getWeekdayName(payload.weekday);
+  const timeStr = `${formatTimeDisplay(payload.startTime)} - ${formatTimeDisplay(payload.endTime)}`;
+  const title = `Concurrent ${payload.grade} Classes Scheduled`;
+  const body = `${payload.classNameA} and ${payload.classNameB} have been scheduled at the same time on ${dayStr} (${timeStr}).`;
+  const link = "/owner/timetable";
+
+  return await notify(ownerId, title, body, link);
+}
+

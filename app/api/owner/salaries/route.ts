@@ -40,24 +40,13 @@ export async function GET(request: NextRequest) {
     const currentMonth = formatColomboPattern(new Date(), "yyyy-MM");
     const month = searchParams.get("month") || currentMonth;
 
-    // 1. Sync/recalculate all active classes for this month
-    await syncAllSalariesForMonth(yearId, month);
+    // 1. Sync/recalculate salaries and fetch teachers in parallel
+    const [salaries, teachersSnap] = await Promise.all([
+      syncAllSalariesForMonth(yearId, month),
+      adminDb.collection("teachers").get(),
+    ]);
 
-    // 2. Fetch all salary records for this month
-    const salariesSnap = await adminDb
-      .collection("years")
-      .doc(yearId)
-      .collection("salaries")
-      .where("month", "==", month)
-      .get();
-
-    const salaries: ClassSalaryRecord[] = [];
-    salariesSnap.forEach((doc) => {
-      salaries.push(doc.data() as ClassSalaryRecord);
-    });
-
-    // 3. Fetch all teachers to ensure complete names and roster
-    const teachersSnap = await adminDb.collection("teachers").get();
+    // 2. Map teachers to ensure complete names and roster
     const teachersMap = new Map<string, { name: string; email?: string; phone?: string }>();
     teachersSnap.forEach((doc) => {
       const data = doc.data();
