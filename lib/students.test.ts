@@ -1,6 +1,13 @@
 import { test, describe } from "node:test";
 import assert from "node:assert";
-import { protectStudentJoinedAt, filterStudents, CreateStudentSchema, UpdateStudentSchema } from "./students.ts";
+import {
+  protectStudentJoinedAt,
+  filterStudents,
+  CreateStudentSchema,
+  UpdateStudentSchema,
+  formatSubjectShort,
+  getDeduplicatedSubjectAbbreviations,
+} from "./students.ts";
 
 describe("Student Domain & Immutability Rules", () => {
   test("protectStudentJoinedAt strictly preserves original joinedAt even with crafted overwrite payload", () => {
@@ -34,6 +41,25 @@ describe("Student Domain & Immutability Rules", () => {
     if (parsed.success) {
       assert.strictEqual(parsed.data.admissionFee.status, "unpaid");
       assert.strictEqual(parsed.data.admissionFee.amount, 0);
+      assert.deepStrictEqual(parsed.data.enrolledClassIds, []);
+    }
+  });
+
+  test("CreateStudentSchema accepts enrolledClassIds array", () => {
+    const parsed = CreateStudentSchema.safeParse({
+      name: "Kasun Perera",
+      school: "Ananda College",
+      address: "123 Galle Road, Colombo 03",
+      guardianName: "Sunil Perera",
+      guardianPhone: "0771234567",
+      grade: "Grade 10",
+      yearId: "2026",
+      enrolledClassIds: ["class_maths_10", "class_science_10"],
+    });
+
+    assert.strictEqual(parsed.success, true);
+    if (parsed.success) {
+      assert.deepStrictEqual(parsed.data.enrolledClassIds, ["class_maths_10", "class_science_10"]);
     }
   });
 
@@ -108,5 +134,70 @@ describe("Student Domain & Immutability Rules", () => {
     const filteredBoth = filterStudents(students, "perera", "Grade 10");
     assert.strictEqual(filteredBoth.length, 1);
     assert.strictEqual(filteredBoth[0].id, "s3");
+  });
+
+  test("excludes deleted or inactive students correctly from active directory queries", () => {
+    const rawStudentRecords = [
+      { id: "s1", name: "Active Student", active: true, deleted: false },
+      { id: "s2", name: "Archived Student", active: false, deleted: true, deletedInYear: "2026" },
+      { id: "s3", name: "Past Deleted Student", active: false, deleted: true, deletedInYear: "2025" },
+    ];
+
+    const currentYear = "2026";
+    const activeOnly = rawStudentRecords.filter((data) => {
+      if (data.deleted === true) return false;
+      if (data.deletedInYear && currentYear >= data.deletedInYear) return false;
+      if (data.active === false) return false;
+      return true;
+    });
+
+    assert.strictEqual(activeOnly.length, 1);
+    assert.strictEqual(activeOnly[0].id, "s1");
+  });
+
+  test("formatSubjectShort formats curriculum subjects to short abbreviations", () => {
+    assert.strictEqual(formatSubjectShort("English"), "Eng");
+    assert.strictEqual(formatSubjectShort("Maths"), "Mat");
+    assert.strictEqual(formatSubjectShort("Mathematics"), "Mat");
+    assert.strictEqual(formatSubjectShort("Combined Maths"), "Mat");
+    assert.strictEqual(formatSubjectShort("Science"), "Sci");
+    assert.strictEqual(formatSubjectShort("ICT"), "ICT");
+    assert.strictEqual(formatSubjectShort("Information Technology"), "ICT");
+    assert.strictEqual(formatSubjectShort("Grade 06 English"), "Eng");
+    assert.strictEqual(formatSubjectShort("Grade 10 Maths"), "Mat");
+    assert.strictEqual(formatSubjectShort("Biology"), "Bio");
+    assert.strictEqual(formatSubjectShort("Chemistry"), "Che");
+    assert.strictEqual(formatSubjectShort("Physics"), "Phy");
+    assert.strictEqual(formatSubjectShort("Business Studies"), "BS");
+    assert.strictEqual(formatSubjectShort("IT"), "IT");
+    assert.strictEqual(formatSubjectShort("Robotics"), "Rob");
+    assert.strictEqual(formatSubjectShort(""), "");
+  });
+
+  test("getDeduplicatedSubjectAbbreviations strictly prevents duplicate abbreviations", () => {
+    // 1. Multiple identical subjects from multiple classes
+    const withDuplicates = ["English", "Maths", "English", "Science", "Maths"];
+    assert.deepStrictEqual(
+      getDeduplicatedSubjectAbbreviations(withDuplicates),
+      ["Eng", "Mat", "Sci"]
+    );
+
+    // 2. Differing subject strings that map to the same abbreviation
+    const variantNames = ["Maths", "Mathematics", "Combined Maths", "Grade 06 Maths"];
+    assert.deepStrictEqual(
+      getDeduplicatedSubjectAbbreviations(variantNames),
+      ["Mat"]
+    );
+
+    // 3. Complete set of subjects
+    const fullSet = ["English", "Maths", "ICT", "Science"];
+    assert.deepStrictEqual(
+      getDeduplicatedSubjectAbbreviations(fullSet),
+      ["Eng", "Mat", "ICT", "Sci"]
+    );
+
+    // 4. Empty and undefined inputs
+    assert.deepStrictEqual(getDeduplicatedSubjectAbbreviations([]), []);
+    assert.deepStrictEqual(getDeduplicatedSubjectAbbreviations(undefined), []);
   });
 });

@@ -89,6 +89,7 @@ export async function GET(request: NextRequest) {
           teacherId: data.teacherId || "",
           teacherName: data.teacherName || "Unassigned",
           name: data.name || `${data.grade} ${data.subject}`,
+          color: data.color || undefined,
           currentTerms: {
             monthlyFee,
             teacherSharePerStudent: teacherShare,
@@ -163,6 +164,8 @@ export async function POST(request: NextRequest) {
       id: d.id,
       grade: d.data().grade as string,
       subject: d.data().subject as string,
+      teacherId: d.data().teacherId as string,
+      teacherName: d.data().teacherName as string,
     }));
 
     const classTeacherMap = new Map<string, { teacherId: string; teacherName: string }>();
@@ -174,7 +177,7 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    const dupCheck = checkDuplicateClass(existingClasses, grade, subject);
+    const dupCheck = checkDuplicateClass(existingClasses, grade, subject, undefined, teacherId);
     if (dupCheck.isDuplicate) {
       return NextResponse.json({ error: dupCheck.error }, { status: 400 });
     }
@@ -269,6 +272,7 @@ export async function POST(request: NextRequest) {
         grade,
         teacherId,
         teacherName,
+        color: parsed.data.color || undefined,
         weekday: sch.weekday,
         startTime: sch.startTime,
         endTime: sch.endTime,
@@ -304,6 +308,7 @@ export async function POST(request: NextRequest) {
         subject,
         teacherId,
         teacherName,
+        color: parsed.data.color || undefined,
         weekday: sch.weekday,
         startTime: sch.startTime,
         endTime: sch.endTime,
@@ -324,6 +329,7 @@ export async function POST(request: NextRequest) {
         subject,
         teacherId,
         teacherName,
+        color: parsed.data.color || undefined,
         weekday: sch.weekday,
         startTime: sch.startTime,
         endTime: sch.endTime,
@@ -343,6 +349,7 @@ export async function POST(request: NextRequest) {
       teacherId,
       teacherName,
       name,
+      color: parsed.data.color || undefined,
       currentTerms: initialTerm,
       termsHistory: [initialTerm],
       active: true,
@@ -423,7 +430,7 @@ export async function POST(request: NextRequest) {
           gradeWarnings.length > 0
             ? `Class created with ${createdSlots.length} session(s). Concurrent ${grade} schedule alert dispatched to owner.`
             : createdSlots.length > 0
-            ? `Class created with ${createdSlots.length} weekly timetable session(s) (${allGeneratedSessions.length} total sessions).`
+            ? `Class created with ${createdSlots.length} weekly session(s) (${allGeneratedSessions.length} total).`
             : "Class created successfully.",
       },
       { status: 201 }

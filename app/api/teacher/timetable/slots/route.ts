@@ -48,6 +48,12 @@ export async function GET(request: NextRequest) {
         endTime: data.endTime,
         validFrom: data.validFrom,
         validTo: data.validTo,
+        color: data.color,
+        isTemporary: data.isTemporary || false,
+        slotType: data.slotType || (data.isTemporary ? "extra" : "regular"),
+        specificDate: data.specificDate,
+        countsForMonth: data.countsForMonth,
+        note: data.note,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
       });

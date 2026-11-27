@@ -448,6 +448,9 @@ export default function OwnerTeachersPage() {
         <DataTable
           data={filteredTeachers}
           keyExtractor={(t) => t.id}
+          pageSize={10}
+          pageSizeOptions={[10, 20, 50]}
+          itemLabel="faculty members"
           columns={[
             {
               key: "name",
@@ -541,42 +544,43 @@ export default function OwnerTeachersPage() {
               align: "right",
               render: (teacher) => (
                 <div className="flex items-center justify-end gap-1.5">
-                  <Button
-                    variant="quiet"
+                  <button
+                    type="button"
                     onClick={() => openEditSheet(teacher)}
-                    className="text-xs h-7 px-2.5 gap-1"
+                    title={`Edit ${teacher.name}`}
+                    aria-label={`Edit ${teacher.name}`}
+                    className="w-8 h-8 rounded-md flex items-center justify-center text-[#5F6670] hover:text-[#1F5C4D] hover:bg-[#E6F0EC] border border-[#E4E1DA] hover:border-[#1F5C4D]/30 transition-colors cursor-pointer"
                   >
                     <Edit className="w-3.5 h-3.5" strokeWidth={1.75} />
-                    <span>Edit</span>
-                  </Button>
-                  <Button
-                    variant={teacher.active ? "quiet" : "secondary"}
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setStatusDialogTeacher(teacher)}
-                    className={`text-xs h-7 px-2.5 gap-1 ${
-                      teacher.active ? "text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7]" : "text-[#1F5C4D]"
+                    title={teacher.active ? `Deactivate ${teacher.name}` : `Activate ${teacher.name}`}
+                    aria-label={teacher.active ? `Deactivate ${teacher.name}` : `Activate ${teacher.name}`}
+                    className={`w-8 h-8 rounded-md flex items-center justify-center border border-[#E4E1DA] transition-colors cursor-pointer ${
+                      teacher.active
+                        ? "text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7] hover:border-[#A32A2A]/30"
+                        : "text-[#1F5C4D] hover:bg-[#E6F0EC] hover:border-[#1F5C4D]/30"
                     }`}
                   >
                     {teacher.active ? (
-                      <>
-                        <UserX className="w-3.5 h-3.5" strokeWidth={1.75} />
-                        <span>Deactivate</span>
-                      </>
+                      <UserX className="w-3.5 h-3.5" strokeWidth={1.75} />
                     ) : (
-                      <>
-                        <UserCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
-                        <span>Activate</span>
-                      </>
+                      <UserCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
                     )}
-                  </Button>
-                  <Button
-                    variant="quiet"
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setDeleteStep1Teacher(teacher)}
-                    className="text-xs h-7 px-2 gap-1 text-[#A32A2A] hover:bg-[#FBE9E7]"
-                    title="Delete teacher"
+                    title={`Delete ${teacher.name}`}
+                    aria-label={`Delete ${teacher.name}`}
+                    className="w-8 h-8 rounded-md flex items-center justify-center text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7] border border-[#E4E1DA] hover:border-[#A32A2A]/30 transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                    <span>Delete</span>
-                  </Button>
+                  </button>
                 </div>
               ),
             },
@@ -681,44 +685,43 @@ export default function OwnerTeachersPage() {
 
               {/* Action Buttons */}
               <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-[#E4E1DA]">
-                <Button
-                  variant="quiet"
+                <button
+                  type="button"
                   onClick={() => openEditSheet(teacher)}
-                  className="text-xs h-8 px-2.5 gap-1"
+                  title={`Edit ${teacher.name}`}
+                  aria-label={`Edit ${teacher.name}`}
+                  className="w-8 h-8 rounded-md flex items-center justify-center text-[#5F6670] hover:text-[#1F5C4D] hover:bg-[#E6F0EC] border border-[#E4E1DA] hover:border-[#1F5C4D]/30 transition-colors cursor-pointer"
                 >
                   <Edit className="w-3.5 h-3.5" strokeWidth={1.75} />
-                  <span>Edit Profile</span>
-                </Button>
+                </button>
 
-                <Button
-                  variant={teacher.active ? "quiet" : "secondary"}
+                <button
+                  type="button"
                   onClick={() => setStatusDialogTeacher(teacher)}
-                  className={`text-xs h-8 px-2.5 gap-1 ${
-                    teacher.active ? "text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7]" : "text-[#1F5C4D]"
+                  title={teacher.active ? `Deactivate ${teacher.name}` : `Activate ${teacher.name}`}
+                  aria-label={teacher.active ? `Deactivate ${teacher.name}` : `Activate ${teacher.name}`}
+                  className={`w-8 h-8 rounded-md flex items-center justify-center border border-[#E4E1DA] transition-colors cursor-pointer ${
+                    teacher.active
+                      ? "text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7] hover:border-[#A32A2A]/30"
+                      : "text-[#1F5C4D] hover:bg-[#E6F0EC] hover:border-[#1F5C4D]/30"
                   }`}
                 >
                   {teacher.active ? (
-                    <>
-                      <UserX className="w-3.5 h-3.5" strokeWidth={1.75} />
-                      <span>Deactivate</span>
-                    </>
+                    <UserX className="w-3.5 h-3.5" strokeWidth={1.75} />
                   ) : (
-                    <>
-                      <UserCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
-                      <span>Activate</span>
-                    </>
+                    <UserCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
                   )}
-                </Button>
+                </button>
 
-                <Button
-                  variant="quiet"
+                <button
+                  type="button"
                   onClick={() => setDeleteStep1Teacher(teacher)}
-                  className="text-xs h-8 px-2 gap-1 text-[#A32A2A] hover:bg-[#FBE9E7]"
-                  title="Delete teacher"
+                  title={`Delete ${teacher.name}`}
+                  aria-label={`Delete ${teacher.name}`}
+                  className="w-8 h-8 rounded-md flex items-center justify-center text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7] border border-[#E4E1DA] hover:border-[#A32A2A]/30 transition-colors cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                  <span>Delete</span>
-                </Button>
+                </button>
               </div>
             </Card>
           )}

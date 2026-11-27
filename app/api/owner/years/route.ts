@@ -3,6 +3,7 @@ import { z } from "zod";
 import { verifyApiAuth } from "@/lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
+import { invalidatePublicSiteDataCache } from "@/lib/public-data";
 import type { AcademicYear } from "@/types";
 
 export const YEAR_COOKIE_NAME = "tcm_year";
@@ -94,6 +95,8 @@ export async function POST(request: NextRequest) {
       maxAge: 365 * 24 * 60 * 60,
       sameSite: "lax",
     });
+
+    invalidatePublicSiteDataCache();
 
     return NextResponse.json({
       status: "ok",

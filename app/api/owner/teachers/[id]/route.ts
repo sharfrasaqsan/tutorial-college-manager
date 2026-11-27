@@ -3,6 +3,7 @@ import { verifyApiAuth } from "@/lib/auth";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { UpdateTeacherSchema } from "@/lib/teachers";
 import { YEAR_COOKIE_NAME } from "@/lib/academic-year";
+import { invalidatePublicSiteDataCache } from "@/lib/public-data";
 import type { Teacher } from "@/types";
 
 interface RouteParams {
@@ -96,6 +97,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const updatedDoc = await adminDb.collection("teachers").doc(id).get();
+    invalidatePublicSiteDataCache();
     return NextResponse.json({ teacher: { id, ...updatedDoc.data() } });
   } catch (error: any) {
     return NextResponse.json(
@@ -279,6 +281,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         console.warn(`Auth user for ${id} not found or already deleted:`, authErr?.message);
       }
     }
+
+    invalidatePublicSiteDataCache();
 
     return NextResponse.json({
       success: true,

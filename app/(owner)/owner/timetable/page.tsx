@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import Link from "next/link";
 import { OwnerShell } from "@/components/layout/OwnerShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -14,6 +15,8 @@ import { Toast } from "@/components/ui/Toast";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { getClassColor } from "@/lib/class-colors";
+import { ClassBadge } from "@/components/ui/ClassBadge";
 import {
   Calendar,
   Clock,
@@ -28,6 +31,9 @@ import {
   Layers,
   LayoutGrid,
   List,
+  RotateCw,
+  Zap,
+  BookOpen,
 } from "lucide-react";
 import {
   WEEKDAY_NAMES,
@@ -38,7 +44,7 @@ import {
   calculateDuration,
   getColomboNow,
 } from "@/lib/dates";
-import { format } from "date-fns";
+import { format, parseISO, addDays } from "date-fns";
 import type { TimetableSlot } from "@/types";
 
 interface ClassOption {
@@ -48,6 +54,7 @@ interface ClassOption {
   subject: string;
   teacherId: string;
   teacherName: string;
+  color?: string;
 }
 
 export default function OwnerTimetablePage() {
@@ -67,6 +74,7 @@ export default function OwnerTimetablePage() {
   // Filters
   const [selectedTeacherFilter, setSelectedTeacherFilter] = useState<string>("all");
   const [selectedGradeFilter, setSelectedGradeFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "day">("grid");
 
   // BottomSheet modal state
@@ -74,12 +82,16 @@ export default function OwnerTimetablePage() {
   const [editingSlot, setEditingSlot] = useState<TimetableSlot | null>(null);
 
   // Modal form fields
+  const [formSlotType, setFormSlotType] = useState<"regular" | "extra">("regular");
   const [formClassId, setFormClassId] = useState("");
   const [formWeekday, setFormWeekday] = useState<number>(1);
   const [formStartTime, setFormStartTime] = useState("09:00");
   const [formEndTime, setFormEndTime] = useState("11:00");
   const [formValidFrom, setFormValidFrom] = useState("2026-01-01");
   const [formValidTo, setFormValidTo] = useState("2026-12-31");
+  const [formSpecificDate, setFormSpecificDate] = useState("");
+  const [formCountsForMonth, setFormCountsForMonth] = useState("");
+  const [formNote, setFormNote] = useState("");
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -156,9 +168,19 @@ export default function OwnerTimetablePage() {
       if (selectedGradeFilter !== "all" && slot.grade !== selectedGradeFilter) {
         return false;
       }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchName = (slot.className || "").toLowerCase().includes(q);
+        const matchSubject = (slot.subject || "").toLowerCase().includes(q);
+        const matchTeacher = (slot.teacherName || "").toLowerCase().includes(q);
+        const matchGrade = (slot.grade || "").toLowerCase().includes(q);
+        if (!matchName && !matchSubject && !matchTeacher && !matchGrade) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [slots, selectedTeacherFilter, selectedGradeFilter]);
+  }, [slots, selectedTeacherFilter, selectedGradeFilter, searchQuery]);
 
   // Slots grouped by weekday (0 to 6)
   const slotsByDay = useMemo(() => {
@@ -204,16 +226,47 @@ export default function OwnerTimetablePage() {
     }));
   }, [filteredSlots]);
 
+  // Calculate next date for a target weekday within the selected academic year
+  function getNextDateForWeekday(targetWeekday: number, year: string): string {
+    const today = new Date();
+    const todayStr = format(today, "yyyy-MM-dd");
+    let base = today;
+    if (!todayStr.startsWith(year)) {
+      base = new Date(`${year}-01-01T00:00:00`);
+    }
+    const currentDay = base.getDay();
+    const diff = (targetWeekday - currentDay + 7) % 7;
+    const targetDate = addDays(base, diff);
+    return format(targetDate, "yyyy-MM-dd");
+  }
+
+  // Handle specific date change for temporary/extra classes
+  function handleDateChange(val: string) {
+    setFormSpecificDate(val);
+    if (val) {
+      try {
+        const d = parseISO(val);
+        setFormWeekday(d.getDay());
+        setFormCountsForMonth(val.substring(0, 7));
+      } catch {}
+    }
+  }
+
   // Open modal with pre-selected day and time slot
   function handleOpenCreateForCell(weekday: number, startTime?: string, endTime?: string) {
     const yr = activeYear || "2027";
+    const nextDate = getNextDateForWeekday(weekday, yr);
     setEditingSlot(null);
+    setFormSlotType("regular");
     setFormClassId(classes[0]?.id || "");
     setFormWeekday(weekday);
     setFormStartTime(startTime || "09:00");
     setFormEndTime(endTime || "11:00");
     setFormValidFrom(`${yr}-01-01`);
     setFormValidTo(`${yr}-12-31`);
+    setFormSpecificDate(nextDate);
+    setFormCountsForMonth(nextDate.substring(0, 7));
+    setFormNote("");
     setFormError("");
     setClashStatus({ checking: false, hasClash: false });
     setSheetOpen(true);
@@ -256,6 +309,8 @@ export default function OwnerTimetablePage() {
             weekday: formWeekday,
             startTime: formStartTime,
             endTime: formEndTime,
+            specificDate: formSlotType === "extra" ? formSpecificDate : undefined,
+            isTemporary: formSlotType === "extra",
           }),
         });
         const data = await res.json();
@@ -279,6 +334,8 @@ export default function OwnerTimetablePage() {
     formWeekday,
     formStartTime,
     formEndTime,
+    formSlotType,
+    formSpecificDate,
     editingSlot,
     classes,
   ]);
@@ -286,13 +343,18 @@ export default function OwnerTimetablePage() {
   // Open modal for new slot
   function handleOpenCreate() {
     const yr = activeYear || "2027";
+    const nextDate = getNextDateForWeekday(activeDayTab, yr);
     setEditingSlot(null);
+    setFormSlotType("regular");
     setFormClassId(classes[0]?.id || "");
     setFormWeekday(activeDayTab);
     setFormStartTime("09:00");
     setFormEndTime("11:00");
     setFormValidFrom(`${yr}-01-01`);
     setFormValidTo(`${yr}-12-31`);
+    setFormSpecificDate(nextDate);
+    setFormCountsForMonth(nextDate.substring(0, 7));
+    setFormNote("");
     setFormError("");
     setClashStatus({ checking: false, hasClash: false });
     setSheetOpen(true);
@@ -301,13 +363,23 @@ export default function OwnerTimetablePage() {
   // Open modal for editing slot
   function handleOpenEdit(slot: TimetableSlot) {
     const yr = activeYear || "2027";
+    const isExtra = Boolean(
+      slot.isTemporary ||
+        slot.slotType === "extra" ||
+        (slot.validFrom && slot.validFrom === slot.validTo)
+    );
     setEditingSlot(slot);
+    setFormSlotType(isExtra ? "extra" : "regular");
     setFormClassId(slot.classId);
     setFormWeekday(slot.weekday);
     setFormStartTime(slot.startTime);
     setFormEndTime(slot.endTime);
     setFormValidFrom(slot.validFrom || `${yr}-01-01`);
     setFormValidTo(slot.validTo || `${yr}-12-31`);
+    const dateVal = slot.specificDate || (isExtra && slot.validFrom ? slot.validFrom : getNextDateForWeekday(slot.weekday, yr));
+    setFormSpecificDate(dateVal);
+    setFormCountsForMonth(slot.countsForMonth || dateVal.substring(0, 7));
+    setFormNote(slot.note || "");
     setFormError("");
     setClashStatus({ checking: false, hasClash: false });
     setSheetOpen(true);
@@ -331,8 +403,13 @@ export default function OwnerTimetablePage() {
           weekday: Number(formWeekday),
           startTime: formStartTime,
           endTime: formEndTime,
-          validFrom: formValidFrom,
-          validTo: formValidTo,
+          validFrom: formSlotType === "extra" ? formSpecificDate : formValidFrom,
+          validTo: formSlotType === "extra" ? formSpecificDate : formValidTo,
+          isTemporary: formSlotType === "extra",
+          slotType: formSlotType,
+          specificDate: formSlotType === "extra" ? formSpecificDate : undefined,
+          countsForMonth: formSlotType === "extra" ? formCountsForMonth : undefined,
+          note: formNote ? formNote.trim() : undefined,
         }),
       });
 
@@ -344,6 +421,8 @@ export default function OwnerTimetablePage() {
       setToastMessage({
         text: isEdit
           ? "Timetable slot and future scheduled sessions updated."
+          : formSlotType === "extra"
+          ? "Temporary / Extra class scheduled successfully (Countable towards monthly sessions)."
           : `Timetable slot created (${data.sessionsCount || 0} sessions scheduled).`,
         variant: "success",
       });
@@ -364,6 +443,10 @@ export default function OwnerTimetablePage() {
 
     if (!formClassId) {
       setFormError("Please select a class.");
+      return;
+    }
+    if (formSlotType === "extra" && !formSpecificDate) {
+      setFormError("Please select a date for the temporary / extra class.");
       return;
     }
     if (formStartTime >= formEndTime) {
@@ -420,7 +503,10 @@ export default function OwnerTimetablePage() {
   }
 
   return (
-    <OwnerShell pageTitle="Weekly Timetable" maxWidth="wide">
+    <OwnerShell
+      pageTitle={activeYear ? `Weekly Timetable (${activeYear})` : "Weekly Timetable"}
+      maxWidth="wide"
+    >
       {/* Toast Notification */}
       {toastMessage && (
         <div className="mb-4">
@@ -432,114 +518,124 @@ export default function OwnerTimetablePage() {
         </div>
       )}
 
-      {/* Header with Add Slot CTA */}
+      {/* Header with Classes & Add Slot CTAs */}
       <PageHeader
         title={activeYear ? `Weekly Timetable (${activeYear})` : "Weekly Timetable"}
         subtitle="Manage recurring weekly class slots, teacher allocation & room capacity"
         action={
-          <Button
-            variant="primary"
-            onClick={handleOpenCreate}
-            className="gap-1.5 shadow-none"
-            disabled={classes.length === 0}
-          >
-            <Plus className="w-4 h-4" strokeWidth={2} />
-            <span>Add Slot</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link href="/owner/classes">
+              <Button variant="secondary" className="gap-1.5 text-xs h-9">
+                <BookOpen className="w-4 h-4" strokeWidth={1.75} />
+                <span>Classes</span>
+              </Button>
+            </Link>
+            <Button
+              variant="primary"
+              onClick={handleOpenCreate}
+              className="gap-1.5 text-xs h-9 shadow-none"
+              disabled={classes.length === 0}
+            >
+              <Plus className="w-4 h-4" strokeWidth={2} />
+              <span>Add Slot</span>
+            </Button>
+          </div>
         }
       />
 
-      {/* Filter Toolbar */}
-      <Card className="p-3 mb-4 flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-[#5F6670] font-medium mr-1">
-            <Filter className="w-3.5 h-3.5" strokeWidth={1.75} />
-            <span>Filter:</span>
-          </div>
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row gap-2.5 mb-3">
+        <div className="flex-1">
+          <Input
+            type="search"
+            placeholder="Search timetable by class, subject, or teacher..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
 
-          {/* Teacher Filter */}
-          <div className="w-40 sm:w-44">
-            <Select
-              id="filter-teacher"
-              value={selectedTeacherFilter}
-              onChange={(e) => setSelectedTeacherFilter(e.target.value)}
-              className="text-xs h-8"
-            >
-              <option value="all">All Teachers ({availableTeachers.length})</option>
-              {availableTeachers.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </Select>
-          </div>
+        <div className="w-full sm:w-44 shrink-0">
+          <Select
+            id="filter-grade"
+            value={selectedGradeFilter}
+            onChange={(e) => setSelectedGradeFilter(e.target.value)}
+          >
+            <option value="all">All Grades ({availableGrades.length})</option>
+            {availableGrades.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </Select>
+        </div>
 
-          {/* Grade Filter */}
-          <div className="w-32 sm:w-36">
-            <Select
-              id="filter-grade"
-              value={selectedGradeFilter}
-              onChange={(e) => setSelectedGradeFilter(e.target.value)}
-              className="text-xs h-8"
-            >
-              <option value="all">All Grades ({availableGrades.length})</option>
-              {availableGrades.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </Select>
-          </div>
+        <div className="w-full sm:w-48 shrink-0">
+          <Select
+            id="filter-teacher"
+            value={selectedTeacherFilter}
+            onChange={(e) => setSelectedTeacherFilter(e.target.value)}
+          >
+            <option value="all">All Teachers ({availableTeachers.length})</option>
+            {availableTeachers.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </div>
 
-          {(selectedTeacherFilter !== "all" || selectedGradeFilter !== "all") && (
+      {/* Summary Bar & View Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-4">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-[#5F6670]">
+          <span className="font-medium text-[#1C1F23]">
+            Total: <strong className="font-semibold">{filteredSlots.length}</strong> active slot{filteredSlots.length === 1 ? "" : "s"}
+            {activeYear && ` in Year ${activeYear}`}
+          </span>
+          <StatusChip status="neutral" label="Max 3 Rooms" />
+          {(selectedTeacherFilter !== "all" || selectedGradeFilter !== "all" || searchQuery.trim()) && (
             <Button
               variant="quiet"
               onClick={() => {
                 setSelectedTeacherFilter("all");
                 setSelectedGradeFilter("all");
+                setSearchQuery("");
               }}
-              className="text-xs h-8 px-2 text-[#5F6670] hover:text-[#1C1F23]"
+              className="text-xs h-7 px-2 text-[#5F6670] hover:text-[#1C1F23]"
             >
-              Reset
+              Reset Filters
             </Button>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {/* View Mode Switcher */}
-          <div className="flex items-center border border-[#E4E1DA] rounded-[6px] p-0.5 bg-[#FAF9F6]">
-            <button
-              type="button"
-              onClick={() => setViewMode("grid")}
-              className={`px-2.5 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 ${
-                viewMode === "grid"
-                  ? "bg-white text-[#1C1F23] shadow-2xs font-semibold"
-                  : "text-[#5F6670] hover:text-[#1C1F23]"
-              }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Weekly Grid</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("day")}
-              className={`px-2.5 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 ${
-                viewMode === "day"
-                  ? "bg-white text-[#1C1F23] shadow-2xs font-semibold"
-                  : "text-[#5F6670] hover:text-[#1C1F23]"
-              }`}
-            >
-              <List className="w-3.5 h-3.5" />
-              <span>Day View</span>
-            </button>
-          </div>
-
-          <div className="text-[11px] text-[#5F6670] hidden sm:flex items-center gap-2">
-            <StatusChip status="neutral" label={`3 Rooms Max`} />
-            <span>{filteredSlots.length} active slots</span>
-          </div>
+        {/* View Mode Switcher */}
+        <div className="flex items-center border border-[#E4E1DA] rounded-[6px] p-0.5 bg-[#FAF9F6] self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setViewMode("grid")}
+            className={`px-2.5 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 cursor-pointer ${
+              viewMode === "grid"
+                ? "bg-white text-[#1C1F23] shadow-2xs font-semibold"
+                : "text-[#5F6670] hover:text-[#1C1F23]"
+            }`}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span>Weekly Grid</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("day")}
+            className={`px-2.5 py-1 text-xs font-medium rounded transition-colors flex items-center gap-1.5 cursor-pointer ${
+              viewMode === "day"
+                ? "bg-white text-[#1C1F23] shadow-2xs font-semibold"
+                : "text-[#5F6670] hover:text-[#1C1F23]"
+            }`}
+          >
+            <List className="w-3.5 h-3.5" />
+            <span>Day View</span>
+          </button>
         </div>
-      </Card>
+      </div>
 
       {/* Main Timetable Content */}
       {loading ? (
@@ -563,28 +659,32 @@ export default function OwnerTimetablePage() {
           }
         />
       ) : filteredSlots.length === 0 ? (
-        <div className="bg-white border border-[#E4E1DA] rounded-[8px] p-8 text-center text-xs text-[#5F6670] flex flex-col items-center gap-2">
-          <p>No classes match the selected filter criteria.</p>
-          <Button
-            variant="quiet"
-            onClick={() => {
-              setSelectedTeacherFilter("all");
-              setSelectedGradeFilter("all");
-            }}
-            className="text-xs"
-          >
-            Reset Filters
-          </Button>
-        </div>
+        <EmptyState
+          icon={<Calendar className="w-8 h-8 text-[#5F6670]" strokeWidth={1.5} />}
+          title="No matching timetable slots found"
+          description="Try adjusting your search query, grade, or teacher filter."
+          action={
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setSelectedTeacherFilter("all");
+                setSelectedGradeFilter("all");
+                setSearchQuery("");
+              }}
+            >
+              Reset Filters
+            </Button>
+          }
+        />
       ) : viewMode === "grid" ? (
         /* PROFESSIONAL MASTER TIMETABLE GRID WITH TIME COLUMN AT THE STARTING */
         <div className="w-full border border-[#E4E1DA] rounded-[8px] bg-white overflow-hidden shadow-2xs">
-          <div className="overflow-x-auto no-scrollbar">
-            <table className="w-full text-left border-collapse min-w-[960px]">
+          <div className="overflow-x-auto lg:overflow-x-visible no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <table className="w-full text-left border-collapse min-w-[840px] lg:min-w-0 lg:table-fixed">
               <thead>
                 <tr className="border-b border-[#E4E1DA] bg-[#FAF9F6]">
                   {/* TIME COLUMN HEADER AT STARTING */}
-                  <th className="sticky left-0 z-20 bg-[#FAF9F6] p-3 border-r border-[#E4E1DA] w-40 min-w-[150px] max-w-[170px] text-xs font-semibold uppercase tracking-wider text-[#5F6670]">
+                  <th className="sticky left-0 z-20 bg-[#FAF9F6] p-2.5 sm:p-3 border-r border-[#E4E1DA] w-44 sm:w-48 text-xs font-semibold uppercase tracking-wider text-[#5F6670] shrink-0">
                     <div className="flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5 text-[#1F5C4D]" strokeWidth={2} />
                       <span>Time</span>
@@ -598,7 +698,7 @@ export default function OwnerTimetablePage() {
                     return (
                       <th
                         key={item.index}
-                        className={`p-3 border-r last:border-r-0 border-[#E4E1DA] text-xs font-semibold transition-colors ${
+                        className={`p-2 sm:p-2.5 border-r last:border-r-0 border-[#E4E1DA] text-xs font-semibold transition-colors min-w-[95px] lg:min-w-0 ${
                           isToday ? "bg-[#E6F0EC]/60 text-[#1F5C4D]" : "text-[#1C1F23]"
                         }`}
                       >
@@ -630,8 +730,8 @@ export default function OwnerTimetablePage() {
                 {timeBands.map((band) => (
                   <tr key={band.id} className="hover:bg-[#FAF9F6]/30 transition-colors">
                     {/* TIME COLUMN CELL (STICKY LEFT) */}
-                    <td className="sticky left-0 z-10 bg-[#FAF9F6] p-3 border-r border-[#E4E1DA] align-top w-40 min-w-[150px] max-w-[170px]">
-                      <div className="flex flex-col gap-0.5">
+                    <td className="sticky left-0 z-10 bg-[#FAF9F6] p-2.5 sm:p-3 border-r border-[#E4E1DA] align-top w-44 sm:w-48 shrink-0">
+                      <div className="flex flex-col gap-1 min-w-0">
                         <span className="font-semibold text-xs text-[#1C1F23] tabular-nums whitespace-nowrap">
                           {band.label}
                         </span>
@@ -656,12 +756,12 @@ export default function OwnerTimetablePage() {
                       return (
                         <td
                           key={item.index}
-                          className={`p-2 border-r last:border-r-0 border-[#E4E1DA] align-top min-w-[125px] ${
+                          className={`p-1.5 sm:p-2 border-r last:border-r-0 border-[#E4E1DA] align-top min-w-[95px] lg:min-w-0 ${
                             isToday ? "bg-[#E6F0EC]/10" : ""
                           }`}
                         >
                           {cellSlots.length > 0 ? (
-                            <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-2 h-full">
                               {cellSlots.map((slot) => (
                                 <GridSlotCard
                                   key={slot.id}
@@ -670,6 +770,20 @@ export default function OwnerTimetablePage() {
                                   onDelete={() => handleOpenDelete(slot)}
                                 />
                               ))}
+
+                              {cellSlots.length < 3 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleOpenCreateForCell(item.index, band.startTime, band.endTime)
+                                  }
+                                  className="w-full py-1.5 px-2 rounded-[6px] border border-dashed border-[#E4E1DA] hover:border-[#1F5C4D] bg-[#FAF9F6] hover:bg-[#E6F0EC]/50 text-[#5F6670] hover:text-[#1F5C4D] flex items-center justify-center gap-1 text-[10.5px] font-medium transition-all cursor-pointer mt-1"
+                                  title={`Add another class on ${item.name} (${band.label})`}
+                                >
+                                  <Plus className="w-3 h-3 text-[#1F5C4D]" strokeWidth={2} />
+                                  <span>Add Class</span>
+                                </button>
+                              )}
                             </div>
                           ) : (
                             <button
@@ -677,12 +791,12 @@ export default function OwnerTimetablePage() {
                               onClick={() =>
                                 handleOpenCreateForCell(item.index, band.startTime, band.endTime)
                               }
-                              className="w-full h-full min-h-[64px] rounded border border-dashed border-transparent hover:border-[#1F5C4D]/30 hover:bg-white flex items-center justify-center text-[#B0B6C0] hover:text-[#1F5C4D] transition-all group"
+                              className="w-full h-full min-h-[64px] rounded border border-dashed border-transparent hover:border-[#1F5C4D]/30 hover:bg-[#FAF9F6] flex items-center justify-center text-[#B0B6C0] hover:text-[#1F5C4D] transition-all group cursor-pointer"
                               title={`Add slot on ${item.name} at ${band.label}`}
                             >
-                              <span className="text-xs group-hover:hidden select-none">—</span>
-                              <span className="hidden group-hover:inline-flex items-center gap-1 text-[11px] font-medium">
-                                <Plus className="w-3 h-3" /> Add
+                              <span className="text-xs group-hover:hidden select-none text-[#8E95A0]">—</span>
+                              <span className="hidden group-hover:inline-flex items-center gap-1 text-[11px] font-medium text-[#1F5C4D]">
+                                <Plus className="w-3 h-3 text-[#1F5C4D]" /> Add
                               </span>
                             </button>
                           )}
@@ -762,11 +876,43 @@ export default function OwnerTimetablePage() {
         description={
           editingSlot
             ? "Modifying this slot will update future scheduled sessions. Past sessions remain unchanged."
+            : formSlotType === "extra"
+            ? "Schedule a non-repeating extra or temporary class. Countable toward monthly required sessions and faculty payroll."
             : "Schedule a weekly repeating class slot. Server clash check enforces faculty availability and 3-room capacity."
         }
       >
         <form onSubmit={handleSubmitSlot} className="flex flex-col gap-3 py-1">
           {formError && <Toast message={formError} variant="danger" />}
+
+          {/* Schedule Frequency / Type Segmented Control */}
+          <div className="flex p-1 bg-[#FAF9F6] border border-[#E4E1DA] rounded-[8px] gap-1">
+            <button
+              type="button"
+              onClick={() => setFormSlotType("regular")}
+              disabled={formSubmitting}
+              className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-[6px] transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                formSlotType === "regular"
+                  ? "bg-white text-[#1C1F23] shadow-2xs border border-[#E4E1DA]"
+                  : "text-[#5F6670] hover:text-[#1C1F23]"
+              }`}
+            >
+              <RotateCw className="w-3.5 h-3.5 text-[#1F5C4D]" />
+              <span>Weekly Repeating</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormSlotType("extra")}
+              disabled={formSubmitting}
+              className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-[6px] transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                formSlotType === "extra"
+                  ? "bg-[#FEF9C3] text-[#854D0E] shadow-2xs border border-[#CA8A04]/40"
+                  : "text-[#5F6670] hover:text-[#1C1F23]"
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5 text-[#B45309]" />
+              <span>Temporary / Extra Class</span>
+            </button>
+          </div>
 
           {/* Class Picker */}
           <Field id="slot-class" label="Class" required hint="Select an active class for this slot">
@@ -784,69 +930,174 @@ export default function OwnerTimetablePage() {
             </Select>
           </Field>
 
-          {/* Day of Week */}
-          <Field id="slot-weekday" label="Weekday" required>
-            <Select
-              id="slot-weekday"
-              value={formWeekday}
-              onChange={(e) => setFormWeekday(Number(e.target.value))}
-              disabled={formSubmitting}
-            >
-              {WEEKDAY_ORDER.map((w) => (
-                <option key={w.index} value={w.index}>
-                  {w.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          {/* When Temporary / Extra: Single Specific Date Picker */}
+          {formSlotType === "extra" ? (
+            <div className="flex flex-col gap-3">
+              <Field
+                id="slot-specific-date"
+                label="Class Date"
+                required
+                hint={
+                  formSpecificDate
+                    ? `${WEEKDAY_NAMES[formWeekday]}, ${format(parseISO(formSpecificDate), "d MMMM yyyy")}`
+                    : "Select date for this non-repeating class"
+                }
+              >
+                <Input
+                  id="slot-specific-date"
+                  type="date"
+                  value={formSpecificDate}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  disabled={formSubmitting}
+                />
+              </Field>
 
-          {/* Time Span */}
-          <div className="grid grid-cols-2 gap-3">
-            <Field id="slot-start-time" label="Start Time (24h)" required>
-              <Input
-                id="slot-start-time"
-                type="time"
-                value={formStartTime}
-                onChange={(e) => setFormStartTime(e.target.value)}
-                disabled={formSubmitting}
-                className="tabular-nums"
-              />
-            </Field>
+              {/* Time Span */}
+              <div className="grid grid-cols-2 gap-3">
+                <Field id="slot-start-time" label="Start Time (24h)" required>
+                  <Input
+                    id="slot-start-time"
+                    type="time"
+                    value={formStartTime}
+                    onChange={(e) => setFormStartTime(e.target.value)}
+                    disabled={formSubmitting}
+                    className="tabular-nums"
+                  />
+                </Field>
 
-            <Field id="slot-end-time" label="End Time (24h)" required>
-              <Input
-                id="slot-end-time"
-                type="time"
-                value={formEndTime}
-                onChange={(e) => setFormEndTime(e.target.value)}
-                disabled={formSubmitting}
-                className="tabular-nums"
-              />
-            </Field>
-          </div>
+                <Field id="slot-end-time" label="End Time (24h)" required>
+                  <Input
+                    id="slot-end-time"
+                    type="time"
+                    value={formEndTime}
+                    onChange={(e) => setFormEndTime(e.target.value)}
+                    disabled={formSubmitting}
+                    className="tabular-nums"
+                  />
+                </Field>
+              </div>
 
-          {/* Validity Range */}
-          <div className="grid grid-cols-2 gap-3">
-            <Field id="slot-valid-from" label="Valid From" hint="Session start date">
-              <Input
-                id="slot-valid-from"
-                type="date"
-                value={formValidFrom}
-                onChange={(e) => setFormValidFrom(e.target.value)}
-                disabled={formSubmitting}
-              />
-            </Field>
+              {/* Countable target month */}
+              <Field
+                id="slot-counts-month"
+                label="Countable Month"
+                required
+                hint="Credits towards this month's required sessions & salary calculations"
+              >
+                <Input
+                  id="slot-counts-month"
+                  type="month"
+                  value={formCountsForMonth}
+                  onChange={(e) => setFormCountsForMonth(e.target.value)}
+                  disabled={formSubmitting}
+                  className="tabular-nums"
+                />
+              </Field>
 
-            <Field id="slot-valid-to" label="Valid To" hint="Session end date">
-              <Input
-                id="slot-valid-to"
-                type="date"
-                value={formValidTo}
-                onChange={(e) => setFormValidTo(e.target.value)}
-                disabled={formSubmitting}
-              />
-            </Field>
-          </div>
+              {/* Reassuring Countable Pill */}
+              <div className="p-3 bg-[#E6F0EC]/70 border border-[#1F5C4D]/25 rounded-[8px] flex items-start gap-2.5 text-xs text-[#17463A]">
+                <CheckCircle2 className="w-4 h-4 text-[#1F5C4D] shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold block text-[#1F5C4D]">
+                    Countable Non-Repeating Class
+                  </span>
+                  <span className="text-[#3F544D] leading-relaxed block mt-0.5">
+                    This class will only occur on{" "}
+                    <strong>
+                      {formSpecificDate
+                        ? format(parseISO(formSpecificDate), "EEEE, d MMMM yyyy")
+                        : "the selected date"}
+                    </strong>{" "}
+                    and will NOT repeat weekly. It automatically counts towards the required monthly session count for{" "}
+                    <strong>{formCountsForMonth || "the month"}</strong>.
+                  </span>
+                </div>
+              </div>
+
+              {/* Optional Note */}
+              <Field
+                id="slot-note"
+                label="Purpose / Note (Optional)"
+                hint="e.g. Exam Revision, Makeup Session, Guest Lecture"
+              >
+                <Input
+                  id="slot-note"
+                  type="text"
+                  placeholder="e.g. Special Exam Revision Seminar"
+                  value={formNote}
+                  onChange={(e) => setFormNote(e.target.value)}
+                  disabled={formSubmitting}
+                />
+              </Field>
+            </div>
+          ) : (
+            /* When Regular Weekly Repeating */
+            <div className="flex flex-col gap-3">
+              {/* Day of Week */}
+              <Field id="slot-weekday" label="Weekday" required>
+                <Select
+                  id="slot-weekday"
+                  value={formWeekday}
+                  onChange={(e) => setFormWeekday(Number(e.target.value))}
+                  disabled={formSubmitting}
+                >
+                  {WEEKDAY_ORDER.map((w) => (
+                    <option key={w.index} value={w.index}>
+                      {w.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+
+              {/* Time Span */}
+              <div className="grid grid-cols-2 gap-3">
+                <Field id="slot-start-time" label="Start Time (24h)" required>
+                  <Input
+                    id="slot-start-time"
+                    type="time"
+                    value={formStartTime}
+                    onChange={(e) => setFormStartTime(e.target.value)}
+                    disabled={formSubmitting}
+                    className="tabular-nums"
+                  />
+                </Field>
+
+                <Field id="slot-end-time" label="End Time (24h)" required>
+                  <Input
+                    id="slot-end-time"
+                    type="time"
+                    value={formEndTime}
+                    onChange={(e) => setFormEndTime(e.target.value)}
+                    disabled={formSubmitting}
+                    className="tabular-nums"
+                  />
+                </Field>
+              </div>
+
+              {/* Validity Range */}
+              <div className="grid grid-cols-2 gap-3">
+                <Field id="slot-valid-from" label="Valid From" hint="Session start date">
+                  <Input
+                    id="slot-valid-from"
+                    type="date"
+                    value={formValidFrom}
+                    onChange={(e) => setFormValidFrom(e.target.value)}
+                    disabled={formSubmitting}
+                  />
+                </Field>
+
+                <Field id="slot-valid-to" label="Valid To" hint="Session end date">
+                  <Input
+                    id="slot-valid-to"
+                    type="date"
+                    value={formValidTo}
+                    onChange={(e) => setFormValidTo(e.target.value)}
+                    disabled={formSubmitting}
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
 
           {/* Live Clash Indicator Banner */}
           <div className="pt-1">
@@ -864,14 +1115,11 @@ export default function OwnerTimetablePage() {
                 </div>
               </div>
             ) : clashStatus.hasGradeWarning ? (
-              <div className="flex items-start gap-2 p-3 rounded-[6px] bg-[#FFF8E1] border border-[#B78103]/30 text-xs text-[#8C6B00]">
+              <div className="flex items-start gap-2 p-2.5 rounded-[6px] bg-[#FFF8E1] border border-[#B78103]/30 text-xs text-[#8C6B00]">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-[#B78103]" strokeWidth={2} />
                 <div>
-                  <strong className="block font-semibold text-[#664D00]">Concurrent Grade Schedule Notice</strong>
+                  <strong className="block font-semibold text-[#664D00]">Concurrent Notice</strong>
                   <span className="mt-0.5 block leading-relaxed">{clashStatus.warningMessage}</span>
-                  <span className="mt-1 block text-[11px] text-[#8C6B00]/90">
-                    Students in this grade cannot attend both classes simultaneously. Saving will require confirmation and send an alert notification to the owner.
-                  </span>
                 </div>
               </div>
             ) : formClassId && formStartTime && formEndTime ? (
@@ -898,7 +1146,7 @@ export default function OwnerTimetablePage() {
               loading={formSubmitting}
               disabled={formSubmitting || clashStatus.hasClash || clashStatus.checking}
             >
-              {editingSlot ? "Update Slot" : "Create Slot"}
+              {editingSlot ? "Update Slot" : formSlotType === "extra" ? "Schedule Extra Class" : "Create Slot"}
             </Button>
           </div>
         </form>
@@ -907,8 +1155,8 @@ export default function OwnerTimetablePage() {
       {/* Concurrent Grade Schedule Confirmation Dialog */}
       <ConfirmDialog
         open={gradeConfirmOpen}
-        title="Confirm Concurrent Grade Schedule"
-        description={`${clashStatus.warningMessage || "This slot is scheduled at the same time as another class in the same grade."}\n\nStudents in this grade cannot attend both classes simultaneously. A push notification and alert will be dispatched to the college owner upon saving. Do you want to proceed?`}
+        title="Concurrent Grade Schedule"
+        description={`${clashStatus.warningMessage || "This slot overlaps with another class in the same grade."}\n\nStudents cannot attend both classes simultaneously. Proceed with saving?`}
         confirmLabel="Confirm & Save Slot"
         variant="primary"
         loading={formSubmitting}
@@ -963,51 +1211,88 @@ function SlotCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const theme = getClassColor(slot);
+
   return (
     <Card
-      className={`bg-white border border-[#E4E1DA] hover:border-[#1F5C4D] transition-colors flex flex-col justify-between shadow-2xs ${
+      className={`transition-colors flex flex-col justify-between shadow-2xs ${
         compact ? "p-2.5 gap-2" : "p-3.5 gap-2.5"
       }`}
+      style={{
+        borderLeft: `4px solid ${theme.accent}`,
+        backgroundColor: theme.bg,
+        borderColor: theme.border,
+      }}
     >
       <div className="flex flex-col gap-1.5 min-w-0">
-        {/* Time Banner - Crisp, compact, no cutoffs */}
-        <div className="flex items-center gap-1.5 text-[10.5px] font-semibold text-[#1F5C4D] bg-[#E6F0EC] px-2 py-0.5 rounded tabular-nums whitespace-nowrap overflow-hidden">
-          <Clock className="w-3 h-3 shrink-0" strokeWidth={2} />
-          <span className="truncate">{formatTimeRange(slot.startTime, slot.endTime)}</span>
+        {/* Time Banner + Class Badge */}
+        <div className="flex items-center justify-between gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5 text-[10.5px] font-semibold text-[#1F5C4D] bg-[#E6F0EC] px-2 py-0.5 rounded tabular-nums whitespace-nowrap overflow-hidden">
+            <Clock className="w-3 h-3 shrink-0" strokeWidth={2} />
+            <span className="truncate">{formatTimeRange(slot.startTime, slot.endTime)}</span>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(slot.isTemporary || slot.slotType === "extra" || (slot.validFrom && slot.validFrom === slot.validTo)) && (
+              <span className="text-[10px] font-semibold text-[#854D0E] bg-[#FEF9C3] px-2 py-0.5 rounded border border-[#CA8A04]/40 whitespace-nowrap flex items-center gap-1">
+                <Zap className="w-2.5 h-2.5 text-[#B45309]" />
+                <span>
+                  {slot.specificDate
+                    ? `Extra • ${format(parseISO(slot.specificDate), "d MMM")}`
+                    : "Extra Class"}
+                </span>
+              </span>
+            )}
+            <ClassBadge
+              subject={slot.subject}
+              name={slot.className}
+              color={slot.color}
+              size="xs"
+            />
+          </div>
         </div>
 
         {/* Class Name */}
         <h4
-          className="font-semibold text-xs text-[#1C1F23] leading-snug line-clamp-2"
+          className="font-semibold text-xs leading-snug line-clamp-2"
+          style={{ color: theme.text }}
           title={slot.className}
         >
           {slot.className || "Class Slot"}
         </h4>
 
-        {/* Teacher Name */}
-        <div className="flex items-center gap-1 text-[11px] text-[#5F6670] min-w-0">
-          <User className="w-3 h-3 shrink-0 text-[#5F6670]" strokeWidth={1.75} />
-          <span className="truncate" title={slot.teacherName || "Unassigned"}>
-            {slot.teacherName || "Unassigned"}
-          </span>
+        {/* Teacher Name & Note */}
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <div className="flex items-center gap-1 text-[11px] text-[#5F6670] min-w-0">
+            <User className="w-3 h-3 shrink-0 text-[#5F6670]" strokeWidth={1.75} />
+            <span className="truncate" title={slot.teacherName || "Unassigned"}>
+              {slot.teacherName || "Unassigned"}
+            </span>
+          </div>
+          {slot.note && (
+            <span className="text-[10px] text-[#5F6670] italic truncate" title={slot.note}>
+              Note: {slot.note}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Action Footer - Clean & minimal, no redundant date ranges */}
-      <div className="flex items-center justify-end gap-1 pt-1.5 border-t border-[#E4E1DA]/70">
+      {/* Action Footer - Clean & minimal */}
+      <div className="flex items-center justify-end gap-1.5 pt-1.5 border-t border-[#E4E1DA]/70">
         <button
           type="button"
           onClick={onEdit}
-          title="Edit Slot"
-          className="p-1 text-[#5F6670] hover:text-[#1F5C4D] hover:bg-[#FAF9F6] rounded transition-colors"
+          title={`Edit ${slot.className} Slot`}
+          aria-label={`Edit ${slot.className} Slot`}
+          className="w-7 h-7 rounded-md flex items-center justify-center text-[#5F6670] hover:text-[#1F5C4D] hover:bg-white border border-[#E4E1DA] hover:border-[#1F5C4D]/30 transition-colors cursor-pointer"
         >
           <Edit2 className="w-3.5 h-3.5" strokeWidth={1.75} />
         </button>
         <button
           type="button"
           onClick={onDelete}
-          title="Delete Slot"
-          className="p-1 text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7] rounded transition-colors"
+          title={`Delete ${slot.className} Slot`}
+          aria-label={`Delete ${slot.className} Slot`}
+          className="w-7 h-7 rounded-md flex items-center justify-center text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7] border border-[#E4E1DA] hover:border-[#A32A2A]/30 transition-colors cursor-pointer"
         >
           <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
         </button>
@@ -1026,11 +1311,39 @@ function GridSlotCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const theme = getClassColor(slot);
+
   return (
-    <div className="bg-white border border-[#E4E1DA] hover:border-[#1F5C4D] hover:shadow-xs rounded-[6px] p-2 transition-all flex flex-col justify-between gap-1.5 group">
+    <div
+      className="rounded-[6px] p-2 transition-all flex flex-col justify-between gap-1.5 group border shadow-2xs"
+      style={{
+        borderLeft: `3px solid ${theme.accent}`,
+        backgroundColor: theme.bg,
+        borderColor: theme.border,
+      }}
+    >
       <div className="flex flex-col gap-1 min-w-0">
+        <div className="flex items-center justify-between gap-1">
+          <ClassBadge
+            subject={slot.subject}
+            name={slot.className}
+            color={slot.color}
+            size="xs"
+          />
+          {(slot.isTemporary || slot.slotType === "extra" || (slot.validFrom && slot.validFrom === slot.validTo)) && (
+            <span
+              className="text-[9.5px] font-semibold text-[#854D0E] bg-[#FEF9C3] px-1.5 py-0.2 rounded border border-[#CA8A04]/40 whitespace-nowrap flex items-center gap-0.5"
+              title={`Temporary / Extra Class: ${slot.specificDate || "Single Session"}${slot.note ? ` • ${slot.note}` : ""}${slot.countsForMonth ? ` (Counts for ${slot.countsForMonth})` : ""}`}
+            >
+              <Zap className="w-2.5 h-2.5 text-[#B45309]" />
+              <span>{slot.specificDate ? format(parseISO(slot.specificDate), "d MMM") : "Extra"}</span>
+            </span>
+          )}
+        </div>
+
         <h5
-          className="font-semibold text-xs text-[#1C1F23] leading-snug line-clamp-2"
+          className="font-semibold text-xs leading-snug line-clamp-2"
+          style={{ color: theme.text }}
           title={slot.className}
         >
           {slot.className || "Class"}
@@ -1052,7 +1365,7 @@ function GridSlotCard({
           type="button"
           onClick={onEdit}
           title="Edit Slot"
-          className="p-1 text-[#5F6670] hover:text-[#1F5C4D] hover:bg-[#FAF9F6] rounded transition-colors"
+          className="p-1 text-[#5F6670] hover:text-[#1F5C4D] hover:bg-white rounded transition-colors"
         >
           <Edit2 className="w-3 h-3" strokeWidth={1.75} />
         </button>

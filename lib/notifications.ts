@@ -233,8 +233,8 @@ export async function notifyOwnerConcurrentGradeSchedule(
 
   const dayStr = payload.weekdayName || getWeekdayName(payload.weekday);
   const timeStr = `${formatTimeDisplay(payload.startTime)} - ${formatTimeDisplay(payload.endTime)}`;
-  const title = `Concurrent ${payload.grade} Classes Scheduled`;
-  const body = `${payload.classNameA} and ${payload.classNameB} have been scheduled at the same time on ${dayStr} (${timeStr}).`;
+  const title = `Concurrent ${payload.grade} Classes`;
+  const body = `${payload.classNameA} and ${payload.classNameB} overlap on ${dayStr} (${timeStr}).`;
   const link = "/owner/timetable";
 
   return await notify(ownerId, title, body, link);

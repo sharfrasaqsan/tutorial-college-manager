@@ -134,4 +134,87 @@ describe("Timetable & Session Generator Domain Logic", () => {
     assert.strictEqual(sessionInterval.id, "sess-1");
     assert.strictEqual(sessionInterval.date, "2026-03-15");
   });
+
+  test("CreateSlotSchema accepts temporary / extra class parameters", () => {
+    const valid = CreateSlotSchema.safeParse({
+      yearId: "2027",
+      classId: "class-123",
+      weekday: 0, // Sunday
+      startTime: "10:00",
+      endTime: "12:00",
+      isTemporary: true,
+      slotType: "extra",
+      specificDate: "2027-03-14",
+      countsForMonth: "2027-03",
+      note: "Special Revision Seminar",
+    });
+
+    assert.strictEqual(valid.success, true);
+    if (valid.success) {
+      assert.strictEqual(valid.data.isTemporary, true);
+      assert.strictEqual(valid.data.slotType, "extra");
+      assert.strictEqual(valid.data.specificDate, "2027-03-14");
+      assert.strictEqual(valid.data.countsForMonth, "2027-03");
+      assert.strictEqual(valid.data.note, "Special Revision Seminar");
+    }
+  });
+
+  test("generateSessionsForSlot produces exactly 1 non-repeating countable session for temporary / extra class", () => {
+    // 2027-03-14 is a Sunday (0)
+    const sessions = generateSessionsForSlot({
+      slotId: "slot-extra-seminar",
+      yearId: "2027",
+      classId: "class-sci-08",
+      className: "Grade 08 Science",
+      grade: "Grade 08",
+      subject: "Science",
+      teacherId: "teacher-sci",
+      teacherName: "Science Teacher Test",
+      weekday: 0, // Sunday
+      startTime: "10:00",
+      endTime: "12:00",
+      validFrom: "2027-03-14",
+      validTo: "2027-03-14",
+      isTemporary: true,
+      countsForMonth: "2027-03",
+      note: "Term Exam Revision",
+    });
+
+    // Exactly 1 non-repeating session
+    assert.strictEqual(sessions.length, 1);
+
+    const extraSession = sessions[0];
+    assert.strictEqual(extraSession.id, "slot-extra-seminar_2027-03-14");
+    assert.strictEqual(extraSession.date, "2027-03-14");
+    assert.strictEqual(extraSession.startTime, "10:00");
+    assert.strictEqual(extraSession.endTime, "12:00");
+    assert.strictEqual(extraSession.type, "extra");
+    assert.strictEqual(extraSession.status, "scheduled");
+    assert.strictEqual(extraSession.countsForMonth, "2027-03"); // countable towards target month
+    assert.strictEqual(extraSession.isTemporary, true);
+    assert.strictEqual(extraSession.note, "Term Exam Revision");
+    assert.strictEqual(extraSession.locked, false);
+  });
+
+  test("slotToTimeInterval correctly extracts specificDate for clash check", () => {
+    const slotInterval = slotToTimeInterval({
+      id: "slot-extra",
+      yearId: "2027",
+      classId: "cls-1",
+      className: "Grade 08 Science",
+      grade: "Grade 08",
+      subject: "Science",
+      teacherId: "t-1",
+      teacherName: "Science Teacher",
+      weekday: 0,
+      startTime: "10:00",
+      endTime: "12:00",
+      isTemporary: true,
+      specificDate: "2027-03-14",
+    });
+
+    assert.strictEqual(slotInterval.id, "slot-extra");
+    assert.strictEqual(slotInterval.date, "2027-03-14");
+    assert.strictEqual(slotInterval.weekday, 0);
+  });
 });

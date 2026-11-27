@@ -108,7 +108,7 @@ describe("Clash Rules", () => {
 
     const result = checkClash(candidate, existing);
     assert.strictEqual(result.hasClash, true);
-    assert.strictEqual(result.message, "Three classes already run at that time.");
+    assert.strictEqual(result.message, "Three classes already run at that time. We currently have 3 classrooms.");
   });
 
   test("Rule 4: Classes of the same grade MAY overlap with different teachers, flagging hasGradeWarning", () => {
@@ -142,8 +142,10 @@ describe("Clash Rules", () => {
     assert.strictEqual(result.hasClash, false);
     assert.strictEqual(result.hasGradeWarning, true);
     assert.strictEqual(result.gradeConflictClass, "Grade 10 Science");
-    assert.ok(result.warningMessage?.includes("Grade 10 Maths and Grade 10 Science are both scheduled for Grade 10 on Monday"));
-    assert.ok(result.warningMessage?.includes("cannot attend both classes simultaneously"));
+    assert.strictEqual(
+      result.warningMessage,
+      "Grade 10 Maths overlaps with Grade 10 Science on Monday (09:00 AM - 11:00 AM)."
+    );
   });
 
   test("Different grades overlapping with different teachers do NOT flag a grade warning", () => {

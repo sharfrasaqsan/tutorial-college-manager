@@ -48,6 +48,7 @@ export const CreateClassSchema = z.object({
   grade: z.string().trim().min(1, "Grade is required."),
   subject: z.string().trim().min(1, "Subject is required."),
   teacherId: z.string().trim().min(1, "Teacher assignment is required."),
+  color: z.string().trim().optional(),
   terms: ClassTermsSchema,
   schedule: ClassScheduleSchema.optional(),
   schedules: z.array(ClassScheduleSchema).optional(),
@@ -57,6 +58,7 @@ export const UpdateClassSchema = z.object({
   grade: z.string().trim().min(1, "Grade is required.").optional(),
   subject: z.string().trim().min(1, "Subject is required.").optional(),
   teacherId: z.string().trim().min(1, "Teacher assignment is required.").optional(),
+  color: z.string().trim().optional(),
   active: z.boolean().optional(),
   terms: ClassTermsSchema.optional(),
   schedule: ClassScheduleSchema.optional(),
@@ -118,11 +120,28 @@ export function validateClassTerms(
  * Checks if a class with the same grade and subject already exists in the given year.
  */
 export function checkDuplicateClass(
-  existingClasses: Array<{ id: string; grade: string; subject: string }>,
+  existingClasses: Array<{
+    id: string;
+    grade: string;
+    subject: string;
+    teacherId?: string;
+    teacherName?: string;
+  }>,
   grade: string,
   subject: string,
-  excludeClassId?: string
-): { isDuplicate: boolean; error?: string } {
+  excludeClassId?: string,
+  teacherId?: string
+): {
+  isDuplicate: boolean;
+  error?: string;
+  matchedClass?: {
+    id: string;
+    grade: string;
+    subject: string;
+    teacherId?: string;
+    teacherName?: string;
+  };
+} {
   const normGrade = grade.trim().toLowerCase();
   const normSubject = subject.trim().toLowerCase();
 
@@ -134,9 +153,13 @@ export function checkDuplicateClass(
   );
 
   if (found) {
+    const teacherPhrase = found.teacherName
+      ? ` assigned to ${found.teacherName}`
+      : "";
     return {
       isDuplicate: true,
-      error: `A class for ${grade} ${subject} already exists for this academic year.`,
+      error: `A class for ${grade.trim()} ${subject.trim()}${teacherPhrase} already exists for this academic year.`,
+      matchedClass: found,
     };
   }
 

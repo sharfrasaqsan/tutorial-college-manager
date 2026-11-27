@@ -29,9 +29,13 @@ export function Field({
   const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
 
   const extraProps: Record<string, unknown> = {
-    id: children.props.id || id,
     "aria-describedby": describedBy,
   };
+
+  // Avoid assigning htmlFor target id to a non-labellable container wrapper (e.g. div)
+  if (typeof children.type === "string" ? children.type !== "div" : true) {
+    extraProps.id = children.props.id || id;
+  }
 
   if (error) {
     extraProps["aria-invalid"] = true;

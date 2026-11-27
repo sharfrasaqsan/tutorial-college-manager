@@ -376,6 +376,11 @@ export default function TeacherTodayPage() {
                               Make-up
                             </span>
                           )}
+                          {(session.type === "extra" || session.isTemporary) && (
+                            <span className="text-[10px] font-semibold text-[#854D0E] bg-[#FEF9C3] px-1.5 py-0.2 rounded border border-[#CA8A04]/40">
+                              Extra Class
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-[#5F6670] mt-0.5">
                           <span>{formatDateDisplay(session.date)}</span>
@@ -681,6 +686,11 @@ function SessionMarkCard({
             {session.type === "makeup" && (
               <span className="text-[10px] font-semibold text-[#1F5C4D] bg-[#E6F0EC] px-1.5 py-0.2 rounded border border-[#1F5C4D]/20">
                 Make-up
+              </span>
+            )}
+            {(session.type === "extra" || session.isTemporary) && (
+              <span className="text-[10px] font-semibold text-[#854D0E] bg-[#FEF9C3] px-1.5 py-0.2 rounded border border-[#CA8A04]/40">
+                Extra Class
               </span>
             )}
           </div>

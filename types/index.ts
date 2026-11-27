@@ -68,6 +68,7 @@ export interface PublicSafeClass {
   subject: string;
   teacherName: string;
   monthlyFee: number;
+  color?: string;
 }
 
 export interface PublicSafeSlot {
@@ -79,6 +80,9 @@ export interface PublicSafeSlot {
   weekday: number; // 0 = Sun, 1 = Mon, ..., 6 = Sat
   startTime: string; // "14:00"
   endTime: string; // "16:00"
+  color?: string;
+  isTemporary?: boolean;
+  specificDate?: string;
 }
 
 export interface PublicSiteData {
@@ -162,6 +166,8 @@ export interface Student {
   admissionFeePaidAt?: string;
   admissionFeeReceiptNo?: string;
   gradesByYear: Record<string, string>; // e.g. { "2026": "Grade 10" }
+  grade?: string;
+  enrolledSubjects?: string[];
   active: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -175,6 +181,7 @@ export interface ClassItem {
   teacherId: string;
   teacherName?: string;
   name: string;
+  color?: string;
   active: boolean;
   createdAt: string;
   updatedAt?: string;
@@ -218,16 +225,22 @@ export interface TimetableSlot {
   yearId: string;
   teacherId: string;
   teacherName?: string;
+  color?: string;
   weekday: number; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
   startTime: string; // "14:00"
   endTime: string; // "16:00"
   validFrom?: string; // "YYYY-MM-DD"
   validTo?: string; // "YYYY-MM-DD"
+  isTemporary?: boolean;
+  slotType?: "regular" | "extra";
+  specificDate?: string; // "YYYY-MM-DD" for non-repeating classes
+  countsForMonth?: string; // "YYYY-MM" target month it counts toward
+  note?: string;
   createdAt?: string;
   updatedAt?: string;
 }
 
-export type SessionType = "regular" | "makeup";
+export type SessionType = "regular" | "makeup" | "extra";
 export type SessionStatus = "scheduled" | "held" | "missed" | "notCompleted";
 
 export interface Session {
@@ -246,6 +259,8 @@ export interface Session {
   type: SessionType;
   status: SessionStatus;
   countsForMonth: string;
+  isTemporary?: boolean;
+  note?: string;
   markedAt?: string;
   markedBy?: string;
   locked: boolean;
@@ -368,6 +383,7 @@ export interface TimeInterval {
   classId: string;
   className?: string;
   grade: string;
+  color?: string;
   startTime: string;
   endTime: string;
   date?: string;

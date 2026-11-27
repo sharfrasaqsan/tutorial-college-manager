@@ -197,7 +197,7 @@ export function checkClash(
     if (activeClassesCount > 3) {
       return {
         hasClash: true,
-        message: "Three classes already run at that time.",
+        message: "Three classes already run at that time. We currently have 3 classrooms.",
       };
     }
   }
@@ -245,7 +245,7 @@ export function checkClash(
           ? `on ${getWeekdayName(existW)}`
           : "";
 
-        warningMessage = `${candidate.className || candidate.grade} and ${otherName} are both scheduled for ${candidate.grade} ${dayContext} (${formatTimeDisplay(candidate.startTime)} - ${formatTimeDisplay(candidate.endTime)}). Students in ${candidate.grade} cannot attend both classes simultaneously.`.replace(/\s+/g, " ");
+        warningMessage = `${candidate.className || "This class"} overlaps with ${otherName} ${dayContext} (${formatTimeDisplay(candidate.startTime)} - ${formatTimeDisplay(candidate.endTime)}).`.replace(/\s+/g, " ");
       }
     }
   }

@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Toast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Pagination } from "@/components/ui/Pagination";
 import {
   MessageSquare,
   Mail,
@@ -39,6 +40,14 @@ export default function OwnerMessagesPage() {
   // Deletion confirm state
   const [deleteTarget, setDeleteTarget] = useState<ContactMessage | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, searchQuery]);
 
   const loadMessages = useCallback(async () => {
     try {
@@ -282,7 +291,10 @@ export default function OwnerMessagesPage() {
         />
       ) : (
         <div className="space-y-4">
-          {filteredMessages.map((msg) => {
+          <div className="space-y-4">
+            {filteredMessages
+              .slice((page - 1) * pageSize, page * pageSize)
+              .map((msg) => {
             const cleanPhone = (msg.phone || "").replace(/[^0-9]/g, "");
             const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}` : "";
             const telUrl = msg.phone ? `tel:${msg.phone.replace(/\s+/g, "")}` : "";
@@ -454,6 +466,17 @@ export default function OwnerMessagesPage() {
               </Card>
             );
           })}
+          </div>
+
+          <Pagination
+            currentPage={page}
+            totalItems={filteredMessages.length}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            pageSizeOptions={[10, 25, 50]}
+            onPageSizeChange={setPageSize}
+            itemLabel="messages"
+          />
         </div>
       )}
 

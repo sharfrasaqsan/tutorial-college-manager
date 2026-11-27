@@ -18,6 +18,11 @@ export const CreateSlotSchema = z
     endTime: z.string().regex(TimeRegex, "End time must be in HH:mm 24h format."),
     validFrom: z.string().regex(DateRegex, "Valid from date must be in YYYY-MM-DD format.").optional(),
     validTo: z.string().regex(DateRegex, "Valid to date must be in YYYY-MM-DD format.").optional(),
+    isTemporary: z.boolean().optional(),
+    slotType: z.enum(["regular", "extra"]).optional(),
+    specificDate: z.string().regex(DateRegex, "Specific date must be in YYYY-MM-DD format.").optional(),
+    countsForMonth: z.string().regex(/^\d{4}-\d{2}$/, "Target month must be in YYYY-MM format.").optional(),
+    note: z.string().max(200).optional(),
   })
   .refine((data) => data.startTime < data.endTime, {
     message: "End time must be after start time.",
@@ -47,6 +52,11 @@ export const UpdateSlotSchema = z
     endTime: z.string().regex(TimeRegex, "End time must be in HH:mm 24h format."),
     validFrom: z.string().regex(DateRegex, "Valid from date must be in YYYY-MM-DD format.").optional(),
     validTo: z.string().regex(DateRegex, "Valid to date must be in YYYY-MM-DD format.").optional(),
+    isTemporary: z.boolean().optional(),
+    slotType: z.enum(["regular", "extra"]).optional(),
+    specificDate: z.string().regex(DateRegex, "Specific date must be in YYYY-MM-DD format.").optional(),
+    countsForMonth: z.string().regex(/^\d{4}-\d{2}$/, "Target month must be in YYYY-MM format.").optional(),
+    note: z.string().max(200).optional(),
   })
   .refine((data) => data.startTime < data.endTime, {
     message: "End time must be after start time.",
@@ -65,16 +75,21 @@ export interface GenerateSessionsParams {
   subject: string;
   teacherId: string;
   teacherName: string;
+  color?: string;
   weekday: number;
   startTime: string;
   endTime: string;
   validFrom: string; // YYYY-MM-DD
   validTo: string; // YYYY-MM-DD
+  isTemporary?: boolean;
+  countsForMonth?: string; // YYYY-MM
+  note?: string;
 }
 
 /**
  * Generates regular dated sessions for a weekly recurring slot between validFrom and validTo.
- * Each session has type "regular", status "scheduled", and countsForMonth equal to the date's YYYY-MM.
+ * For single non-repeating / extra classes (isTemporary = true), validFrom = validTo = specificDate,
+ * generating exactly 1 session with type "extra", status "scheduled", and the specified countsForMonth.
  */
 export function generateSessionsForSlot(params: GenerateSessionsParams): Session[] {
   const sessions: Session[] = [];
@@ -92,7 +107,7 @@ export function generateSessionsForSlot(params: GenerateSessionsParams): Session
     // getDay returns 0 for Sunday, 1 for Monday, etc.
     if (current.getDay() === params.weekday) {
       const dateStr = format(current, "yyyy-MM-dd");
-      const monthStr = dateStr.substring(0, 7);
+      const monthStr = params.countsForMonth || dateStr.substring(0, 7);
       const sessionId = `${params.slotId}_${dateStr}`;
 
       sessions.push({
@@ -108,9 +123,11 @@ export function generateSessionsForSlot(params: GenerateSessionsParams): Session
         date: dateStr,
         startTime: params.startTime,
         endTime: params.endTime,
-        type: "regular",
+        type: params.isTemporary ? "extra" : "regular",
         status: "scheduled",
         countsForMonth: monthStr,
+        isTemporary: params.isTemporary,
+        note: params.note,
         locked: false,
       });
     }
@@ -135,6 +152,7 @@ export function slotToTimeInterval(slot: TimetableSlot): TimeInterval {
     weekday: slot.weekday,
     startTime: slot.startTime,
     endTime: slot.endTime,
+    date: slot.specificDate || (slot.isTemporary && slot.validFrom ? slot.validFrom : undefined),
   };
 }
 

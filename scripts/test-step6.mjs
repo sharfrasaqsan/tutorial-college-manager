@@ -246,7 +246,7 @@ async function verifyStep6Acceptance() {
   assert.strictEqual(slot4Res.status, 400, 'Server transaction must block 4th simultaneous class');
   const slot4Data = await slot4Res.json();
   console.log('Successfully blocked 4th class with plain message:', slot4Data.error);
-  assert.strictEqual(slot4Data.error, 'Three classes already run at that time.');
+  assert.strictEqual(slot4Data.error, 'Three classes already run at that time. We currently have 3 classrooms.');
 
   console.log('--- 8. Verify Slot Edit Updates Future Scheduled Sessions Only ---');
   const updateRes = await fetch(`${baseUrl}/api/owner/timetable/slots/${slot1.id}`, {

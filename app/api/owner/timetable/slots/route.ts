@@ -52,6 +52,12 @@ export async function GET(request: NextRequest) {
         .get(),
     ]);
 
+    const classColorMap = new Map<string, string>();
+    classesSnap.forEach((doc) => {
+      const data = doc.data();
+      if (data.color) classColorMap.set(doc.id, data.color);
+    });
+
     const slots: TimetableSlot[] = [];
     slotsSnap.forEach((doc) => {
       const data = doc.data();
@@ -69,6 +75,12 @@ export async function GET(request: NextRequest) {
         endTime: data.endTime,
         validFrom: data.validFrom,
         validTo: data.validTo,
+        color: data.color || classColorMap.get(data.classId) || undefined,
+        isTemporary: data.isTemporary || false,
+        slotType: data.slotType || (data.isTemporary ? "extra" : "regular"),
+        specificDate: data.specificDate,
+        countsForMonth: data.countsForMonth,
+        note: data.note,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
       });
@@ -89,6 +101,7 @@ export async function GET(request: NextRequest) {
         subject: data.subject,
         teacherId: data.teacherId,
         teacherName: data.teacherName,
+        color: data.color || undefined,
       };
     });
 
@@ -133,9 +146,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: firstIssue }, { status: 400 });
     }
 
-    const { classId, weekday, startTime, endTime } = parsed.data;
-    const validFrom = parsed.data.validFrom || `${yearId}-01-01`;
-    const validTo = parsed.data.validTo || `${yearId}-12-31`;
+    const { classId, startTime, endTime, isTemporary, slotType, note } = parsed.data;
+    let weekday = parsed.data.weekday;
+    let validFrom = parsed.data.validFrom || `${yearId}-01-01`;
+    let validTo = parsed.data.validTo || `${yearId}-12-31`;
+    let specificDate = parsed.data.specificDate;
+    let countsForMonth = parsed.data.countsForMonth;
+
+    if (isTemporary || slotType === "extra") {
+      if (!specificDate && parsed.data.validFrom) {
+        specificDate = parsed.data.validFrom;
+      }
+      if (specificDate) {
+        validFrom = specificDate;
+        validTo = specificDate;
+        try {
+          const parsedD = new Date(specificDate + "T00:00:00");
+          weekday = parsedD.getDay();
+        } catch {}
+        if (!countsForMonth) {
+          countsForMonth = specificDate.substring(0, 7);
+        }
+      }
+    }
 
     // 2. Fetch Class Details
     const classDoc = await adminDb
@@ -199,6 +232,7 @@ export async function POST(request: NextRequest) {
         weekday,
         startTime,
         endTime,
+        date: isTemporary || slotType === "extra" ? specificDate : undefined,
       };
 
       // Check clash rules
@@ -222,11 +256,15 @@ export async function POST(request: NextRequest) {
         subject,
         teacherId,
         teacherName,
+        color: classData.color,
         weekday,
         startTime,
         endTime,
         validFrom,
         validTo,
+        isTemporary: Boolean(isTemporary || slotType === "extra"),
+        countsForMonth,
+        note,
       });
 
       // Write slot record
@@ -239,11 +277,17 @@ export async function POST(request: NextRequest) {
         subject,
         teacherId,
         teacherName,
+        color: classData.color,
         weekday,
         startTime,
         endTime,
         validFrom,
         validTo,
+        isTemporary: Boolean(isTemporary || slotType === "extra"),
+        slotType: isTemporary || slotType === "extra" ? "extra" : "regular",
+        specificDate: isTemporary || slotType === "extra" ? specificDate : undefined,
+        countsForMonth: isTemporary || slotType === "extra" ? countsForMonth : undefined,
+        note,
         createdAt: now,
         updatedAt: now,
       };
@@ -299,11 +343,17 @@ export async function POST(request: NextRequest) {
           subject,
           teacherId,
           teacherName,
+          color: classData.color,
           weekday,
           startTime,
           endTime,
           validFrom,
           validTo,
+          isTemporary: Boolean(isTemporary || slotType === "extra"),
+          slotType: isTemporary || slotType === "extra" ? "extra" : "regular",
+          specificDate: isTemporary || slotType === "extra" ? specificDate : undefined,
+          countsForMonth: isTemporary || slotType === "extra" ? countsForMonth : undefined,
+          note,
           createdAt: now,
         },
         sessionsCount: generatedSessions.length,

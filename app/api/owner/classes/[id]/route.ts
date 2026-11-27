@@ -158,6 +158,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       teacherId: data.teacherId,
       teacherName: data.teacherName,
       name: data.name,
+      color: data.color || undefined,
       currentTerms: effectiveTerms,
       termsHistory,
       enrolledStudentCount: enrolledStudents.length,
@@ -237,9 +238,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           id: d.id,
           grade: d.data().grade as string,
           subject: d.data().subject as string,
+          teacherId: d.data().teacherId as string,
+          teacherName: d.data().teacherName as string,
         }));
 
-      const dupCheck = checkDuplicateClass(existingClasses, newGrade, newSubject);
+      const dupCheck = checkDuplicateClass(existingClasses, newGrade, newSubject, id, newTeacherId);
       if (dupCheck.isDuplicate) {
         return NextResponse.json({ error: dupCheck.error }, { status: 400 });
       }
@@ -297,6 +300,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (parsed.data.active !== undefined) {
       updatedClassFields.active = parsed.data.active;
+    }
+
+    if (parsed.data.color !== undefined) {
+      updatedClassFields.color = parsed.data.color;
     }
 
     if (parsed.data.terms) {
@@ -396,6 +403,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           grade: newGrade,
           teacherId: newTeacherId,
           teacherName: newTeacherName,
+          color: updatedClassFields.color ?? existingClass.color ?? undefined,
           weekday: sch.weekday,
           startTime: sch.startTime,
           endTime: sch.endTime,
@@ -443,6 +451,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           subject: newSubject,
           teacherId: newTeacherId,
           teacherName: newTeacherName,
+          color: updatedClassFields.color ?? existingClass.color ?? undefined,
           weekday: sch.weekday,
           startTime: sch.startTime,
           endTime: sch.endTime,
@@ -627,6 +636,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           subject: newSubject,
           teacherId: newTeacherId,
           teacherName: newTeacherName,
+          color: updatedClassFields.color ?? existingClass.color ?? undefined,
           updatedAt: now,
         };
         await slotsCol.doc(slotId).update(slotUpdate);

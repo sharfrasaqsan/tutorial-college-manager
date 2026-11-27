@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Pagination } from "@/components/ui/Pagination";
 import { PushPermissionPrompt } from "@/components/notifications/PushPermissionPrompt";
 import type { AppNotification } from "@/types";
 
@@ -31,6 +32,12 @@ export function NotificationsClientView({ role }: NotificationsClientViewProps) 
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [markingAll, setMarkingAll] = useState<boolean>(false);
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter]);
 
   const fetchNotifications = useCallback(async (isBg = false) => {
     if (!isBg) setLoading(true);
@@ -211,58 +218,72 @@ export function NotificationsClientView({ role }: NotificationsClientViewProps) 
 
       {/* Notifications List */}
       {!loading && displayedNotifications.length > 0 && (
-        <div className="bg-[#FFFFFF] border border-[#E4E1DA] rounded-[6px] divide-y divide-[#E4E1DA] overflow-hidden">
-          {displayedNotifications.map((notif) => {
-            const isUnread = !notif.readAt;
+        <div className="flex flex-col gap-3">
+          <div className="bg-[#FFFFFF] border border-[#E4E1DA] rounded-[6px] divide-y divide-[#E4E1DA] overflow-hidden">
+            {displayedNotifications
+              .slice((page - 1) * pageSize, page * pageSize)
+              .map((notif) => {
+              const isUnread = !notif.readAt;
 
-            return (
-              <div
-                key={notif.id}
-                onClick={() => handleItemClick(notif)}
-                className={`p-4 flex items-start gap-3.5 cursor-pointer transition-colors ${
-                  isUnread
-                    ? "bg-[#FAF9F6] hover:bg-[#F2EFE9]"
-                    : "hover:bg-[#FAF9F6]/50"
-                }`}
-              >
-                {/* Unread indicator */}
-                <div className="pt-1.5 shrink-0">
-                  <span
-                    className={`w-2 h-2 rounded-full block ${
-                      isUnread ? "bg-[#1F5C4D]" : "bg-transparent"
-                    }`}
-                  />
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-4">
-                    <h4
-                      className={`text-sm ${
-                        isUnread ? "font-bold text-[#1C1F23]" : "font-medium text-[#1C1F23]"
+              return (
+                <div
+                  key={notif.id}
+                  onClick={() => handleItemClick(notif)}
+                  className={`p-4 flex items-start gap-3.5 cursor-pointer transition-colors ${
+                    isUnread
+                      ? "bg-[#FAF9F6] hover:bg-[#F2EFE9]"
+                      : "hover:bg-[#FAF9F6]/50"
+                  }`}
+                >
+                  {/* Unread indicator */}
+                  <div className="pt-1.5 shrink-0">
+                    <span
+                      className={`w-2 h-2 rounded-full block ${
+                        isUnread ? "bg-[#1F5C4D]" : "bg-transparent"
                       }`}
-                    >
-                      {notif.title}
-                    </h4>
-                    <span className="text-[11px] text-[#5F6670] whitespace-nowrap shrink-0 text-right pt-0.5">
-                      {formatRelativeTime(notif.createdAt)}
-                    </span>
+                    />
                   </div>
 
-                  <p className="text-xs text-[#5F6670] mt-1 leading-relaxed">
-                    {notif.body}
-                  </p>
-
-                  {notif.link && notif.link !== "/" && (
-                    <div className="pt-2 flex items-center gap-1 text-[11px] font-semibold text-[#1F5C4D]">
-                      <span>View details</span>
-                      <ArrowRight className="w-3 h-3" />
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-4">
+                      <h4
+                        className={`text-sm ${
+                          isUnread ? "font-bold text-[#1C1F23]" : "font-medium text-[#1C1F23]"
+                        }`}
+                      >
+                        {notif.title}
+                      </h4>
+                      <span className="text-[11px] text-[#5F6670] whitespace-nowrap shrink-0 text-right pt-0.5">
+                        {formatRelativeTime(notif.createdAt)}
+                      </span>
                     </div>
-                  )}
+
+                    <p className="text-xs text-[#5F6670] mt-1 leading-relaxed">
+                      {notif.body}
+                    </p>
+
+                    {notif.link && notif.link !== "/" && (
+                      <div className="pt-2 flex items-center gap-1 text-[11px] font-semibold text-[#1F5C4D]">
+                        <span>View details</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+
+          <Pagination
+            currentPage={page}
+            totalItems={displayedNotifications.length}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            pageSizeOptions={[10, 25, 50]}
+            onPageSizeChange={setPageSize}
+            itemLabel="notifications"
+          />
         </div>
       )}
     </div>

@@ -38,6 +38,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Toast } from "@/components/ui/Toast";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import type { AcademicYear } from "@/types";
 
 export interface OwnerShellProps {
@@ -588,8 +589,11 @@ export function OwnerShell({
             </span>
           </div>
 
-          {/* Right Controls: Academic Year, Notifications & Profile */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Right Controls: Academic Year, Theme, Notifications & Profile */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Theme Switcher Toggle */}
+            <ThemeToggle />
+
             {/* Academic Year Selector Pill Button */}
             <button
               type="button"

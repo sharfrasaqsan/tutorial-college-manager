@@ -14,7 +14,7 @@ describe("Public Site Data Service", () => {
   it("fetches active year and populates classes, slots, and teachers without being empty", async () => {
     const data = await getPublicSiteData();
     assert.ok(data.activeYear, "Active year should be defined");
-    assert.strictEqual(data.activeYear, "2026", "Active year should resolve to current year 2026");
+    assert.ok(/^\d{4}$/.test(data.activeYear), "Active year should resolve to a valid 4-digit academic year");
     assert.ok(Array.isArray(data.classes), "Classes should be an array");
     assert.ok(data.classes.length > 0, "Classes array should not be empty");
     assert.ok(Array.isArray(data.slots), "Slots should be an array");

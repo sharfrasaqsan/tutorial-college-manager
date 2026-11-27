@@ -76,9 +76,29 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: firstIssue }, { status: 400 });
     }
 
-    const { weekday, startTime, endTime } = parsed.data;
-    const validFrom = parsed.data.validFrom || `${yearId}-01-01`;
-    const validTo = parsed.data.validTo || `${yearId}-12-31`;
+    const { startTime, endTime, isTemporary, slotType, note } = parsed.data;
+    let weekday = parsed.data.weekday;
+    let validFrom = parsed.data.validFrom || `${yearId}-01-01`;
+    let validTo = parsed.data.validTo || `${yearId}-12-31`;
+    let specificDate = parsed.data.specificDate;
+    let countsForMonth = parsed.data.countsForMonth;
+
+    if (isTemporary || slotType === "extra") {
+      if (!specificDate && parsed.data.validFrom) {
+        specificDate = parsed.data.validFrom;
+      }
+      if (specificDate) {
+        validFrom = specificDate;
+        validTo = specificDate;
+        try {
+          const parsedD = new Date(specificDate + "T00:00:00");
+          weekday = parsedD.getDay();
+        } catch {}
+        if (!countsForMonth) {
+          countsForMonth = specificDate.substring(0, 7);
+        }
+      }
+    }
 
     const slotRef = adminDb.collection("years").doc(yearId).collection("slots").doc(id);
     const sessionsCol = adminDb.collection("years").doc(yearId).collection("sessions");
@@ -141,6 +161,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         weekday,
         startTime,
         endTime,
+        date: isTemporary || slotType === "extra" ? specificDate : undefined,
       };
 
       const clash = checkClash(candidate, existingIntervals);
@@ -154,6 +175,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
 
       // 3. Update slot document
+      const isExtra = Boolean(
+        isTemporary !== undefined
+          ? isTemporary
+          : existingSlot.isTemporary || existingSlot.slotType === "extra"
+      );
       updatedSlot = {
         id,
         yearId,
@@ -163,11 +189,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         subject,
         teacherId,
         teacherName,
+        color: existingSlot.color,
         weekday,
         startTime,
         endTime,
         validFrom,
         validTo,
+        isTemporary: isExtra,
+        slotType: isExtra ? "extra" : "regular",
+        specificDate: isExtra ? (specificDate || existingSlot.specificDate) : undefined,
+        countsForMonth: isExtra ? (countsForMonth || existingSlot.countsForMonth) : undefined,
+        note: note !== undefined ? note : existingSlot.note,
         createdAt: existingSlot.createdAt || now,
         updatedAt: now,
       };
@@ -202,11 +234,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             subject,
             teacherId,
             teacherName,
+            color: existingSlot.color,
             weekday,
             startTime,
             endTime,
             validFrom: startFrom,
             validTo,
+            isTemporary: isExtra,
+            countsForMonth: isExtra ? (countsForMonth || existingSlot.countsForMonth) : undefined,
+            note: note !== undefined ? note : existingSlot.note,
           });
 
           for (const s of newFutureSessions) {

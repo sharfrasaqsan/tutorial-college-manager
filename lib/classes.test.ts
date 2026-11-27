@@ -67,6 +67,15 @@ describe("Classes Domain & Term Versioning Logic", () => {
     // Updating existing class with its own id allowed
     const selfUpdate = checkDuplicateClass(existing, "Grade 10", "Maths", "c1");
     assert.strictEqual(selfUpdate.isDuplicate, false);
+
+    // With teacher attribution
+    const existingWithTeachers = [
+      { id: "c1", grade: "Grade 10", subject: "Maths", teacherId: "t1", teacherName: "Mr. Perera" },
+    ];
+    const dupWithTeacher = checkDuplicateClass(existingWithTeachers, "Grade 10", "Maths", undefined, "t1");
+    assert.strictEqual(dupWithTeacher.isDuplicate, true);
+    assert.strictEqual(dupWithTeacher.error?.includes("assigned to Mr. Perera"), true);
+    assert.strictEqual(dupWithTeacher.matchedClass?.teacherName, "Mr. Perera");
   });
 
   test("findEffectiveTermsForMonth correctly versions terms across months", () => {

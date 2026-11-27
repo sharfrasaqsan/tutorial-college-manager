@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Toast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Pagination } from "@/components/ui/Pagination";
 import {
   Inbox,
   User,
@@ -54,6 +55,12 @@ export default function OwnerRequestsPage() {
   const [resolutionAction, setResolutionAction] = useState<"approve" | "reject">("approve");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
+
+  // Pagination
+  const [pendingPage, setPendingPage] = useState(1);
+  const [pendingPageSize, setPendingPageSize] = useState(10);
+  const [resolvedPage, setResolvedPage] = useState(1);
+  const [resolvedPageSize, setResolvedPageSize] = useState(10);
 
   const loadRequests = useCallback(async () => {
     try {
@@ -178,15 +185,28 @@ export default function OwnerRequestsPage() {
             description="All teacher session correction requests have been resolved."
           />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {pendingRequests.map((req) => (
-              <RequestCard
-                key={req.id}
-                request={req}
-                onApprove={() => promptResolution(req, "approve")}
-                onReject={() => promptResolution(req, "reject")}
-              />
-            ))}
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {pendingRequests
+                .slice((pendingPage - 1) * pendingPageSize, pendingPage * pendingPageSize)
+                .map((req) => (
+                <RequestCard
+                  key={req.id}
+                  request={req}
+                  onApprove={() => promptResolution(req, "approve")}
+                  onReject={() => promptResolution(req, "reject")}
+                />
+              ))}
+            </div>
+            <Pagination
+              currentPage={pendingPage}
+              totalItems={pendingRequests.length}
+              pageSize={pendingPageSize}
+              onPageChange={setPendingPage}
+              pageSizeOptions={[10, 20, 50]}
+              onPageSizeChange={setPendingPageSize}
+              itemLabel="pending requests"
+            />
           </div>
         )
       ) : resolvedRequests.length === 0 ? (
@@ -196,10 +216,23 @@ export default function OwnerRequestsPage() {
           description="Approved and rejected correction requests will appear here in the history log."
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {resolvedRequests.map((req) => (
-            <RequestCard key={req.id} request={req} />
-          ))}
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {resolvedRequests
+              .slice((resolvedPage - 1) * resolvedPageSize, resolvedPage * resolvedPageSize)
+              .map((req) => (
+              <RequestCard key={req.id} request={req} />
+            ))}
+          </div>
+          <Pagination
+            currentPage={resolvedPage}
+            totalItems={resolvedRequests.length}
+            pageSize={resolvedPageSize}
+            onPageChange={setResolvedPage}
+            pageSizeOptions={[10, 20, 50]}
+            onPageSizeChange={setResolvedPageSize}
+            itemLabel="resolved requests"
+          />
         </div>
       )}
 

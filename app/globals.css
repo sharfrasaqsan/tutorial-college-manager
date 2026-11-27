@@ -66,3 +66,94 @@ body {
 button, input, select, textarea {
   font-family: inherit;
 }
+
+/* ==========================================================================
+   DARK MODE COMPREHENSIVE THEME MAPPING
+   ========================================================================== */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #111315 !important;
+  color: #F0F2F5 !important;
+}
+
+/* Background mappings */
+html.dark .bg-\[\#FAF9F6\] { background-color: #111315 !important; }
+html.dark .bg-\[\#FFFFFF\],
+html.dark .bg-white { background-color: #1A1D21 !important; }
+html.dark .bg-\[\#E6F0EC\] { background-color: #162E26 !important; }
+html.dark .bg-\[\#D8E8E1\] { background-color: #1D3D33 !important; }
+html.dark .bg-\[\#FBF1DE\] { background-color: #2E2211 !important; }
+html.dark .bg-\[\#FFF8E1\] { background-color: #2E2211 !important; }
+html.dark .bg-\[\#FBE9E7\] { background-color: #321818 !important; }
+html.dark .bg-\[\#FFF5F5\] { background-color: #321818 !important; }
+html.dark .from-\[\#E6F0EC\]\/60 { --tw-gradient-from: rgba(22, 46, 38, 0.6) !important; }
+
+/* Text color mappings */
+html.dark .text-\[\#1C1F23\] { color: #F0F2F5 !important; }
+html.dark .text-\[\#5F6670\] { color: #9CA3AF !important; }
+html.dark .text-\[\#1F5C4D\] { color: #34D399 !important; }
+html.dark .text-\[\#9A5B00\],
+html.dark .text-\[\#8C6B00\],
+html.dark .text-\[\#664D00\] { color: #FBBF24 !important; }
+html.dark .text-\[\#A32A2A\],
+html.dark .text-\[\#801F1F\] { color: #F87171 !important; }
+
+/* Border color mappings */
+html.dark .border-\[\#E4E1DA\] { border-color: #2E333B !important; }
+html.dark .border-\[\#E4E1DA\]\/60 { border-color: rgba(46, 51, 59, 0.6) !important; }
+html.dark .border-\[\#E4E1DA\]\/80 { border-color: rgba(46, 51, 59, 0.8) !important; }
+html.dark .border-\[\#C2DDD4\] { border-color: #1D4337 !important; }
+html.dark .border-\[\#1F5C4D\]\/20 { border-color: rgba(52, 211, 153, 0.25) !important; }
+html.dark .border-\[\#1F5C4D\]\/30 { border-color: rgba(52, 211, 153, 0.35) !important; }
+html.dark .border-\[\#F3DCB1\],
+html.dark .border-\[\#B78103\]\/30 { border-color: rgba(251, 191, 36, 0.35) !important; }
+html.dark .border-\[\#F5C7C3\],
+html.dark .border-\[\#A32A2A\]\/20,
+html.dark .border-\[\#A32A2A\]\/30 { border-color: rgba(248, 113, 113, 0.35) !important; }
+
+/* Interactive Hover States */
+html.dark .hover\:bg-\[\#FAF9F6\]:hover { background-color: #16181C !important; }
+html.dark .hover\:bg-\[\#FFFFFF\]:hover { background-color: #22262B !important; }
+html.dark .hover\:bg-\[\#E6F0EC\]:hover { background-color: #1D3D33 !important; }
+html.dark .hover\:bg-\[\#FBE9E7\]:hover { background-color: #3F1E1E !important; }
+html.dark .hover\:text-\[\#1C1F23\]:hover { color: #FFFFFF !important; }
+html.dark .hover\:text-\[\#1F5C4D\]:hover { color: #34D399 !important; }
+
+/* Input, Select, Textarea in Dark Mode */
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+html.dark select,
+html.dark textarea {
+  background-color: #15181C !important;
+  color: #F0F2F5 !important;
+  border-color: #2E333B !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #6B7280 !important;
+}
+
+html.dark select option {
+  background-color: #1A1D21 !important;
+  color: #F0F2F5 !important;
+}
+
+/* Modals, Drawers & BottomSheets */
+html.dark [role="dialog"] > div:last-child {
+  background-color: #1A1D21 !important;
+  border-color: #2E333B !important;
+}
+
+/* Scrollbar suppression utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+

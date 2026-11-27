@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyApiAuth } from "@/lib/auth";
 import { adminDb } from "@/lib/firebase-admin";
+import { invalidatePublicSiteDataCache } from "@/lib/public-data";
 import type { AcademicGrade, AcademicSubject } from "@/types";
 
 export async function GET(request: NextRequest) {
@@ -158,6 +159,7 @@ export async function POST(request: NextRequest) {
     }
 
     await docRef.set({ grades, subjects }, { merge: true });
+    invalidatePublicSiteDataCache();
 
     return NextResponse.json({ status: "ok", grades, subjects });
   } catch (error: any) {

@@ -17,6 +17,10 @@ import { BottomSheet } from "@/components/ui/BottomSheet";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Toast, type ToastVariant } from "@/components/ui/Toast";
 import { MoneyText } from "@/components/ui/MoneyText";
+import { Pagination } from "@/components/ui/Pagination";
+import { getClassColor } from "@/lib/class-colors";
+import { ClassBadge } from "@/components/ui/ClassBadge";
+import { ColorPicker } from "@/components/ui/ColorPicker";
 import {
   ArrowLeft,
   BookOpen,
@@ -101,6 +105,7 @@ export default function OwnerClassDetailPage() {
   const [editRequiredSessions, setEditRequiredSessions] = useState<string>("");
   const [editEffectiveMonth, setEditEffectiveMonth] = useState<string>(getCurrentMonthKey());
   const [editSchedules, setEditSchedules] = useState<SessionDraft[]>([]);
+  const [editColor, setEditColor] = useState<string>("blue");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
 
@@ -121,6 +126,10 @@ export default function OwnerClassDetailPage() {
   const [showAllGrades, setShowAllGrades] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
   const [enrollError, setEnrollError] = useState("");
+
+  // Roster Pagination
+  const [rosterPage, setRosterPage] = useState(1);
+  const [rosterPageSize, setRosterPageSize] = useState(10);
 
   // Remove Enrolment Dialog
   const [removeDialogStudent, setRemoveDialogStudent] = useState<ClassEnrolment | null>(null);
@@ -228,6 +237,7 @@ export default function OwnerClassDetailPage() {
       }))
     );
 
+    setEditColor(classItem.color || getClassColor(classItem).id);
     setEditError("");
     setEditClassOpen(true);
   }
@@ -450,6 +460,7 @@ export default function OwnerClassDetailPage() {
         grade: editGrade.trim(),
         subject: editSubject.trim(),
         teacherId: editTeacherId.trim(),
+        color: editColor,
         terms: {
           monthlyFee: numEditFee,
           teacherSharePerStudent: numEditTeacherShare,
@@ -669,6 +680,7 @@ export default function OwnerClassDetailPage() {
     : matchingGradeStudents;
 
   const classSlots: TimetableSlot[] = classItem.slots || (classItem.slot ? [classItem.slot] : []);
+  const classTheme = getClassColor(classItem);
 
   return (
     <OwnerShell pageTitle={classItem.name}>
@@ -720,12 +732,18 @@ export default function OwnerClassDetailPage() {
         {/* Left Column: Details & Fee Terms */}
         <div className="lg:col-span-5 space-y-4">
           {/* Class Overview & Teacher Card */}
-          <Card className="p-4 flex flex-col gap-3">
+          <Card className="p-4 flex flex-col gap-3" style={{ borderTop: `4px solid ${classTheme.accent}` }}>
             <CardHeader className="p-0 pb-2.5 border-b border-[#E4E1DA]">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <BookOpen className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
                   <CardTitle>Class Information</CardTitle>
+                  <ClassBadge
+                    subject={classItem.subject}
+                    name={classItem.name}
+                    color={classItem.color}
+                    size="xs"
+                  />
                 </div>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-[#E6F0EC] text-[#1F5C4D] border border-[#1F5C4D]/20">
                   {classItem.grade}
@@ -931,42 +949,58 @@ export default function OwnerClassDetailPage() {
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-[#E4E1DA]">
-                {enrolledStudents.map((enrolment) => (
-                  <div
-                    key={enrolment.studentId}
-                    className="py-3 flex items-center justify-between gap-3 text-xs hover:bg-[#FAF9F6]/50 px-1 rounded transition-colors"
-                  >
-                    <div>
-                      <Link
-                        href={`/owner/students/${enrolment.studentId}`}
-                        className="font-semibold text-[#1C1F23] hover:text-[#1F5C4D] transition-colors"
-                      >
-                        {enrolment.studentName}
-                      </Link>
-                      <div className="flex items-center gap-2 text-[11px] text-[#5F6670] mt-0.5">
-                        {enrolment.studentSchool && <span>{enrolment.studentSchool}</span>}
-                        <span>•</span>
-                        <span>Enrolled in {enrolment.joinedMonth}</span>
+              <div className="flex flex-col">
+                <div className="divide-y divide-[#E4E1DA]">
+                  {enrolledStudents
+                    .slice((rosterPage - 1) * rosterPageSize, rosterPage * rosterPageSize)
+                    .map((enrolment) => (
+                    <div
+                      key={enrolment.studentId}
+                      className="py-3 flex items-center justify-between gap-3 text-xs hover:bg-[#FAF9F6]/50 px-1 rounded transition-colors"
+                    >
+                      <div>
+                        <Link
+                          href={`/owner/students/${enrolment.studentId}`}
+                          className="font-semibold text-[#1C1F23] hover:text-[#1F5C4D] transition-colors"
+                        >
+                          {enrolment.studentName}
+                        </Link>
+                        <div className="flex items-center gap-2 text-[11px] text-[#5F6670] mt-0.5">
+                          {enrolment.studentSchool && <span>{enrolment.studentSchool}</span>}
+                          <span>•</span>
+                          <span>Enrolled in {enrolment.joinedMonth}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 text-[11px] rounded bg-[#FAF9F6] border border-[#E4E1DA] text-[#5F6670]">
+                          {enrolment.studentGrade}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => setRemoveDialogStudent(enrolment)}
+                          className="w-7 h-7 rounded-md flex items-center justify-center text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7] border border-[#E4E1DA] hover:border-[#A32A2A]/30 transition-colors cursor-pointer"
+                          title={`Remove ${enrolment.studentName} from class`}
+                          aria-label={`Remove ${enrolment.studentName} from class`}
+                        >
+                          <UserMinus className="w-3.5 h-3.5" strokeWidth={1.75} />
+                        </button>
                       </div>
                     </div>
+                  ))}
+                </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 text-[11px] rounded bg-[#FAF9F6] border border-[#E4E1DA] text-[#5F6670]">
-                        {enrolment.studentGrade}
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={() => setRemoveDialogStudent(enrolment)}
-                        className="p-1.5 text-[#5F6670] hover:text-[#A32A2A] rounded hover:bg-[#FBE9E7] transition-colors"
-                        title="Remove from class"
-                      >
-                        <UserMinus className="w-4 h-4" strokeWidth={1.75} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                <Pagination
+                  currentPage={rosterPage}
+                  totalItems={enrolledStudents.length}
+                  pageSize={rosterPageSize}
+                  onPageChange={setRosterPage}
+                  pageSizeOptions={[10, 20, 50]}
+                  onPageSizeChange={setRosterPageSize}
+                  itemLabel="students"
+                  compact
+                />
               </div>
             )}
           </Card>
@@ -1098,6 +1132,13 @@ export default function OwnerClassDetailPage() {
                 Filter back to {editSubject} only
               </button>
             )}
+
+            {/* Class Theme Color */}
+            <ColorPicker
+              value={editColor}
+              onChange={setEditColor}
+              label="Class Theme Color"
+            />
           </div>
 
           {/* Weekly Timetable Sessions Card (Edit/Add/Remove multiple sessions) */}

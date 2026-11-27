@@ -5,7 +5,8 @@ import { getPublicSiteData } from "@/lib/public-data";
 import { PublicNav } from "@/components/public/PublicNav";
 import { MapPin, Phone, Mail, Clock, ArrowRight, ShieldCheck } from "lucide-react";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function generateMetadata(): Promise<Metadata> {
   const { college } = await getPublicSiteData();

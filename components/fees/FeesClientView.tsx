@@ -31,6 +31,8 @@ import { MoneyText } from "@/components/ui/MoneyText";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import { Pagination } from "@/components/ui/Pagination";
+import { ClassBadge } from "@/components/ui/ClassBadge";
 import { formatLKR } from "@/lib/money";
 import type { FeeRecord, Student, PaymentMethod, AdmissionFeeStatus } from "@/types";
 
@@ -132,6 +134,23 @@ export function FeesClientView({ initialYearId }: FeesClientViewProps) {
   const [admDate, setAdmDate] = useState<string>("");
   const [admReceiptNo, setAdmReceiptNo] = useState<string>("");
   const [submittingAdmission, setSubmittingAdmission] = useState<boolean>(false);
+
+  // Pagination states
+  const [feesPage, setFeesPage] = useState<number>(1);
+  const [feesPageSize, setFeesPageSize] = useState<number>(15);
+
+  const [groupedPage, setGroupedPage] = useState<number>(1);
+  const [groupedPageSize, setGroupedPageSize] = useState<number>(12);
+
+  const [admissionPage, setAdmissionPage] = useState<number>(1);
+  const [admissionPageSize, setAdmissionPageSize] = useState<number>(10);
+
+  // Reset pages when filters change
+  useEffect(() => {
+    setFeesPage(1);
+    setGroupedPage(1);
+    setAdmissionPage(1);
+  }, [searchQuery, selectedClass, selectedGrade, selectedMonth]);
 
   // Printable Receipt Modal
   const [receiptModalNumber, setReceiptModalNumber] = useState<string | null>(null);
@@ -810,8 +829,11 @@ export function FeesClientView({ initialYearId }: FeesClientViewProps) {
               icon={<CheckCircle2 className="w-8 h-8 text-[#1F5C4D]" strokeWidth={1.5} />}
             />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {groupedUnpaidStudents.map((grp) => (
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {groupedUnpaidStudents
+                  .slice((groupedPage - 1) * groupedPageSize, groupedPage * groupedPageSize)
+                  .map((grp) => (
                 <div
                   key={grp.studentId}
                   onClick={() => handleOpenStudentSheet(grp)}
@@ -845,9 +867,9 @@ export function FeesClientView({ initialYearId }: FeesClientViewProps) {
                         key={fee.id}
                         className="flex items-center justify-between text-xs py-0.5 text-[#5F6670]"
                       >
-                        <span className="truncate max-w-[200px] text-[#1C1F23] font-medium">
-                          {fee.className || "Class Fee"}
-                        </span>
+                        <div className="truncate max-w-[200px]">
+                          <ClassBadge name={fee.className} size="xs" />
+                        </div>
                         <div className="flex items-center gap-2">
                           <span className="tabular-nums font-semibold text-[#1C1F23]">
                             {formatLKR(fee.amount)}
@@ -859,6 +881,17 @@ export function FeesClientView({ initialYearId }: FeesClientViewProps) {
                   </div>
                 </div>
               ))}
+              </div>
+
+              <Pagination
+                currentPage={groupedPage}
+                totalItems={groupedUnpaidStudents.length}
+                pageSize={groupedPageSize}
+                onPageChange={setGroupedPage}
+                pageSizeOptions={[12, 24, 48]}
+                onPageSizeChange={setGroupedPageSize}
+                itemLabel="unpaid students"
+              />
             </div>
           )}
         </div>
@@ -1020,7 +1053,9 @@ export function FeesClientView({ initialYearId }: FeesClientViewProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E4E1DA]">
-                    {fees.map((fee) => {
+                    {fees
+                      .slice((feesPage - 1) * feesPageSize, feesPage * feesPageSize)
+                      .map((fee) => {
                       const isPaid = fee.status === "paid";
                       return (
                         <tr key={fee.id} className="hover:bg-[#FAF9F6]/50 transition-colors">
@@ -1032,7 +1067,9 @@ export function FeesClientView({ initialYearId }: FeesClientViewProps) {
                               </div>
                             )}
                           </td>
-                          <td className="py-3 px-3 text-[#5F6670]">{fee.className}</td>
+                          <td className="py-3 px-3">
+                            <ClassBadge name={fee.className} size="xs" />
+                          </td>
                           <td className="py-3 px-3">
                             <StatusChip status={fee.status} />
                           </td>
@@ -1123,7 +1160,9 @@ export function FeesClientView({ initialYearId }: FeesClientViewProps) {
 
               {/* Mobile/Tablet Card Stack (<1024px) */}
               <div className="space-y-2.5 block lg:hidden">
-                {fees.map((fee) => {
+                {fees
+                  .slice((feesPage - 1) * feesPageSize, feesPage * feesPageSize)
+                  .map((fee) => {
                   const isPaid = fee.status === "paid";
                   return (
                     <Card
@@ -1221,6 +1260,16 @@ export function FeesClientView({ initialYearId }: FeesClientViewProps) {
                   );
                 })}
               </div>
+
+              <Pagination
+                currentPage={feesPage}
+                totalItems={fees.length}
+                pageSize={feesPageSize}
+                onPageChange={setFeesPage}
+                pageSizeOptions={[15, 30, 50, 100]}
+                onPageSizeChange={setFeesPageSize}
+                itemLabel="fee records"
+              />
             </>
           )}
         </div>
@@ -1265,77 +1314,91 @@ export function FeesClientView({ initialYearId }: FeesClientViewProps) {
             </Card>
           </div>
 
-          <div className="space-y-2">
-            {admissionStudents.map((s) => {
-              const adm = s.admissionFee;
-              const isPaid = adm?.status === "paid";
-              return (
-                <Card
-                  key={s.id}
-                  className="p-3.5 bg-white border-[#E4E1DA] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-[#1C1F23]">{s.name}</span>
-                      <StatusChip status={adm?.status || "unpaid"} />
-                      <span className="text-[11px] text-[#5F6670]">{s.grade}</span>
-                    </div>
-
-                    <div className="text-xs text-[#5F6670]">
-                      Guardian: {s.guardianName}{" "}
-                      {s.guardianPhone && (
-                        <a
-                          href={`tel:${s.guardianPhone}`}
-                          className="text-[#1F5C4D] hover:underline ml-1 font-medium"
-                        >
-                          ({s.guardianPhone})
-                        </a>
-                      )}
-                    </div>
-
-                    {isPaid && adm?.receiptNo && (
-                      <div className="text-[11px] text-[#1F5C4D] flex items-center gap-2">
-                        <span className="font-mono bg-[#E6F0EC] px-1.5 py-0.5 rounded border border-[#C2DDD4]">
-                          {adm.receiptNo}
-                        </span>
-                        <span>Paid on {adm.paidDate}</span>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              {admissionStudents
+                .slice((admissionPage - 1) * admissionPageSize, admissionPage * admissionPageSize)
+                .map((s) => {
+                const adm = s.admissionFee;
+                const isPaid = adm?.status === "paid";
+                return (
+                  <Card
+                    key={s.id}
+                    className="p-3.5 bg-white border-[#E4E1DA] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-[#1C1F23]">{s.name}</span>
+                        <StatusChip status={adm?.status || "unpaid"} />
+                        <span className="text-[11px] text-[#5F6670]">{s.grade}</span>
                       </div>
-                    )}
-                  </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-3 pt-1 sm:pt-0">
-                    <div className="text-right">
-                      <div className="font-bold text-sm text-[#1C1F23]">
-                        {formatLKR(isPaid ? adm.amount : adm?.amount || 2500)}
+                      <div className="text-xs text-[#5F6670]">
+                        Guardian: {s.guardianName}{" "}
+                        {s.guardianPhone && (
+                          <a
+                            href={`tel:${s.guardianPhone}`}
+                            className="text-[#1F5C4D] hover:underline ml-1 font-medium"
+                          >
+                            ({s.guardianPhone})
+                          </a>
+                        )}
                       </div>
-                      <div className="text-[11px] text-[#5F6670]">Admission Fee</div>
-                    </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        variant={isPaid ? "quiet" : "primary"}
-                        size="sm"
-                        onClick={() => handleOpenAdmissionModal(s)}
-                        className="h-8 px-3 text-xs"
-                      >
-                        {isPaid ? "Edit" : "Mark Paid"}
-                      </Button>
                       {isPaid && adm?.receiptNo && (
-                        <a
-                          href={`/api/owner/fees/receipt/${adm.receiptNo}/pdf`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="h-8 px-2 text-xs flex items-center gap-1 border border-[#C2DDD4] bg-[#E6F0EC] text-[#1F5C4D] rounded font-medium hover:bg-[#d0e4dc] transition-colors"
-                        >
-                          <Download className="w-3 h-3" />
-                          PDF
-                        </a>
+                        <div className="text-[11px] text-[#1F5C4D] flex items-center gap-2">
+                          <span className="font-mono bg-[#E6F0EC] px-1.5 py-0.5 rounded border border-[#C2DDD4]">
+                            {adm.receiptNo}
+                          </span>
+                          <span>Paid on {adm.paidDate}</span>
+                        </div>
                       )}
                     </div>
-                  </div>
-                </Card>
-              );
-            })}
+
+                    <div className="flex items-center justify-between sm:justify-end gap-3 pt-1 sm:pt-0">
+                      <div className="text-right">
+                        <div className="font-bold text-sm text-[#1C1F23]">
+                          {formatLKR(isPaid ? adm.amount : adm?.amount || 2500)}
+                        </div>
+                        <div className="text-[11px] text-[#5F6670]">Admission Fee</div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          variant={isPaid ? "quiet" : "primary"}
+                          size="sm"
+                          onClick={() => handleOpenAdmissionModal(s)}
+                          className="h-8 px-3 text-xs"
+                        >
+                          {isPaid ? "Edit" : "Mark Paid"}
+                        </Button>
+                        {isPaid && adm?.receiptNo && (
+                          <a
+                            href={`/api/owner/fees/receipt/${adm.receiptNo}/pdf`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="h-8 px-2 text-xs flex items-center gap-1 border border-[#C2DDD4] bg-[#E6F0EC] text-[#1F5C4D] rounded font-medium hover:bg-[#d0e4dc] transition-colors"
+                          >
+                            <Download className="w-3 h-3" />
+                            PDF
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+
+            <Pagination
+              currentPage={admissionPage}
+              totalItems={admissionStudents.length}
+              pageSize={admissionPageSize}
+              onPageChange={setAdmissionPage}
+              pageSizeOptions={[10, 20, 50]}
+              onPageSizeChange={setAdmissionPageSize}
+              itemLabel="students"
+            />
           </div>
         </div>
       )}
@@ -1410,8 +1473,11 @@ export function FeesClientView({ initialYearId }: FeesClientViewProps) {
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="font-semibold text-[#1C1F23]">{fee.className}</div>
-                        <div className="text-[11px] text-[#5F6670]">
+                        <div className="flex items-center gap-1.5">
+                          <ClassBadge name={fee.className} size="xs" />
+                          <span className="font-semibold text-[#1C1F23] text-xs">{fee.className}</span>
+                        </div>
+                        <div className="text-[11px] text-[#5F6670] mt-0.5">
                           Share: {formatLKR(fee.teacherShare)}
                           {fee.note && <span className="text-[#9A5B00] ml-1">({fee.note})</span>}
                         </div>

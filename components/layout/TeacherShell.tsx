@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { performSignOut } from "@/lib/client-auth";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import {
   CalendarDays,
   Clock,
@@ -310,7 +311,10 @@ export function TeacherShell({
             </span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Theme Toggle */}
+            <ThemeToggle />
+
             {/* Academic Year Badge */}
             <div
               className="min-h-[44px] px-3 py-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#1C1F23] bg-[#FAF9F6] border border-[#E4E1DA] rounded-[6px]"

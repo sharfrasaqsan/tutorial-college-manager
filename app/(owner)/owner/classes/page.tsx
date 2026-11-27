@@ -15,6 +15,10 @@ import { BottomSheet } from "@/components/ui/BottomSheet";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Toast, type ToastVariant } from "@/components/ui/Toast";
 import { MoneyText } from "@/components/ui/MoneyText";
+import { Pagination } from "@/components/ui/Pagination";
+import { getClassColor } from "@/lib/class-colors";
+import { ClassBadge } from "@/components/ui/ClassBadge";
+import { ColorPicker } from "@/components/ui/ColorPicker";
 import {
   BookOpen,
   Plus,
@@ -68,6 +72,7 @@ export default function OwnerClassesPage() {
   const [formGrade, setFormGrade] = useState("");
   const [formSubject, setFormSubject] = useState("");
   const [formTeacherId, setFormTeacherId] = useState("");
+  const [formColor, setFormColor] = useState<string>("blue");
 
   // Create Terms (Clean, empty by default)
   const [formFee, setFormFee] = useState<string>("");
@@ -87,6 +92,7 @@ export default function OwnerClassesPage() {
   const [editGrade, setEditGrade] = useState("");
   const [editSubject, setEditSubject] = useState("");
   const [editTeacherId, setEditTeacherId] = useState("");
+  const [editColor, setEditColor] = useState<string>("blue");
   const [editFee, setEditFee] = useState<string>("");
   const [editTeacherShare, setEditTeacherShare] = useState<string>("");
   const [editRequiredSessions, setEditRequiredSessions] = useState<string>("");
@@ -170,6 +176,7 @@ export default function OwnerClassesPage() {
     setFormGrade("");
     setFormSubject("");
     setFormTeacherId("");
+    setFormColor("blue");
     setFormFee("");
     setFormTeacherShare("");
     setFormRequiredSessions("");
@@ -205,6 +212,7 @@ export default function OwnerClassesPage() {
     setEditGrade(cls.grade);
     setEditSubject(cls.subject);
     setEditTeacherId(cls.teacherId);
+    setEditColor(cls.color || getClassColor(cls).id);
 
     const terms = cls.currentTerms;
     setEditFee(terms?.monthlyFee !== undefined ? String(terms.monthlyFee) : "");
@@ -265,6 +273,7 @@ export default function OwnerClassesPage() {
 
   function handleFormSubjectChange(newSubj: string) {
     setFormSubject(newSubj);
+    setFormColor(getClassColor(newSubj).id);
     if (formTeacherId) {
       const currentTeacher = teachers.find((t) => t.id === formTeacherId);
       const teachesNew = currentTeacher?.subjects?.some(
@@ -467,6 +476,108 @@ export default function OwnerClassesPage() {
   const hasEditClashes = Object.keys(editClashes).length > 0;
   const hasEditGradeWarnings = Object.keys(editGradeWarnings).length > 0;
 
+  // Live duplicate class detection for Create Class form
+  const formDuplicateClass = useMemo(() => {
+    if (!formGrade.trim() || !formSubject.trim()) return null;
+    const normGrade = formGrade.trim().toLowerCase();
+    const normSubject = formSubject.trim().toLowerCase();
+    const normTeacher = formTeacherId.trim();
+
+    // Check exact match (Grade + Subject + Teacher)
+    if (normTeacher) {
+      const exactMatch = classes.find(
+        (c) =>
+          c.active &&
+          c.grade.trim().toLowerCase() === normGrade &&
+          c.subject.trim().toLowerCase() === normSubject &&
+          (c.teacherId || "").trim() === normTeacher
+      );
+      if (exactMatch) {
+        return {
+          isDuplicate: true,
+          isExactMatch: true,
+          matchedClass: exactMatch,
+          message: `A class for ${formGrade.trim()} ${formSubject.trim()} assigned to ${
+            exactMatch.teacherName || "this teacher"
+          } has already been created for this academic year.`,
+        };
+      }
+    }
+
+    // Check match for Grade + Subject in the academic year
+    const gradeSubjectMatch = classes.find(
+      (c) =>
+        c.active &&
+        c.grade.trim().toLowerCase() === normGrade &&
+        c.subject.trim().toLowerCase() === normSubject
+    );
+    if (gradeSubjectMatch) {
+      const teacherInfo = gradeSubjectMatch.teacherName
+        ? ` (assigned to ${gradeSubjectMatch.teacherName})`
+        : "";
+      return {
+        isDuplicate: true,
+        isExactMatch: false,
+        matchedClass: gradeSubjectMatch,
+        message: `A class for ${formGrade.trim()} ${formSubject.trim()}${teacherInfo} has already been created for this academic year.`,
+      };
+    }
+
+    return null;
+  }, [classes, formGrade, formSubject, formTeacherId]);
+
+  // Live duplicate class detection for Edit Class form
+  const editDuplicateClass = useMemo(() => {
+    if (!editingClass || !editGrade.trim() || !editSubject.trim()) return null;
+    const normGrade = editGrade.trim().toLowerCase();
+    const normSubject = editSubject.trim().toLowerCase();
+    const normTeacher = editTeacherId.trim();
+
+    const otherClasses = classes.filter((c) => c.id !== editingClass.id);
+
+    // Check exact match (Grade + Subject + Teacher)
+    if (normTeacher) {
+      const exactMatch = otherClasses.find(
+        (c) =>
+          c.active &&
+          c.grade.trim().toLowerCase() === normGrade &&
+          c.subject.trim().toLowerCase() === normSubject &&
+          (c.teacherId || "").trim() === normTeacher
+      );
+      if (exactMatch) {
+        return {
+          isDuplicate: true,
+          isExactMatch: true,
+          matchedClass: exactMatch,
+          message: `A class for ${editGrade.trim()} ${editSubject.trim()} assigned to ${
+            exactMatch.teacherName || "this teacher"
+          } has already been created for this academic year.`,
+        };
+      }
+    }
+
+    // Check match for Grade + Subject
+    const gradeSubjectMatch = otherClasses.find(
+      (c) =>
+        c.active &&
+        c.grade.trim().toLowerCase() === normGrade &&
+        c.subject.trim().toLowerCase() === normSubject
+    );
+    if (gradeSubjectMatch) {
+      const teacherInfo = gradeSubjectMatch.teacherName
+        ? ` (assigned to ${gradeSubjectMatch.teacherName})`
+        : "";
+      return {
+        isDuplicate: true,
+        isExactMatch: false,
+        matchedClass: gradeSubjectMatch,
+        message: `A class for ${editGrade.trim()} ${editSubject.trim()}${teacherInfo} has already been created for this academic year.`,
+      };
+    }
+
+    return null;
+  }, [classes, editingClass, editGrade, editSubject, editTeacherId]);
+
   async function executeCreateClass() {
     try {
       setFormSaving(true);
@@ -475,6 +586,7 @@ export default function OwnerClassesPage() {
         grade: formGrade.trim(),
         subject: formSubject.trim(),
         teacherId: formTeacherId.trim(),
+        color: formColor,
         terms: {
           monthlyFee: numFormFee,
           teacherSharePerStudent: numFormTeacherShare,
@@ -541,6 +653,11 @@ export default function OwnerClassesPage() {
       return;
     }
 
+    if (formDuplicateClass) {
+      setFormError(formDuplicateClass.message);
+      return;
+    }
+
     if (hasFormClashes) {
       setFormError("Please resolve scheduling conflicts before creating this class.");
       return;
@@ -561,10 +678,10 @@ export default function OwnerClassesPage() {
 
     // If soft concurrent grade warnings exist, request explicit confirmation before creating
     if (hasFormGradeWarnings) {
-      const warningsList = Object.values(formGradeWarnings).join("\n\n• ");
+      const warningsList = Object.values(formGradeWarnings).join("\n• ");
       setGradeDialogDetails({
-        title: "Confirm Concurrent Grade Schedule",
-        description: `This class has session(s) scheduled at the same time as other classes for ${formGrade}:\n\n• ${warningsList}\n\nStudents in ${formGrade} cannot attend both classes simultaneously. A push notification and alert will be dispatched to the college owner upon creation. Do you want to proceed?`,
+        title: "Concurrent Grade Schedule",
+        description: `Overlapping session(s) detected for ${formGrade}:\n\n• ${warningsList}\n\nStudents cannot attend both classes simultaneously. Proceed with scheduling?`,
         action: executeCreateClass,
       });
       setConfirmGradeDialogOpen(true);
@@ -583,6 +700,7 @@ export default function OwnerClassesPage() {
         grade: editGrade.trim(),
         subject: editSubject.trim(),
         teacherId: editTeacherId.trim(),
+        color: editColor,
         terms: {
           monthlyFee: numEditFee,
           teacherSharePerStudent: numEditTeacherShare,
@@ -640,6 +758,11 @@ export default function OwnerClassesPage() {
       return;
     }
 
+    if (editDuplicateClass) {
+      setEditError(editDuplicateClass.message);
+      return;
+    }
+
     if (hasEditClashes) {
       setEditError("Please resolve scheduling conflicts before saving this class.");
       return;
@@ -660,10 +783,10 @@ export default function OwnerClassesPage() {
 
     // If soft concurrent grade warnings exist, request explicit confirmation before saving
     if (hasEditGradeWarnings) {
-      const warningsList = Object.values(editGradeWarnings).join("\n\n• ");
+      const warningsList = Object.values(editGradeWarnings).join("\n• ");
       setGradeDialogDetails({
-        title: "Confirm Concurrent Grade Schedule",
-        description: `This class has session(s) scheduled at the same time as other classes for ${editGrade}:\n\n• ${warningsList}\n\nStudents in ${editGrade} cannot attend both classes simultaneously. A push notification and alert will be dispatched to the college owner upon saving. Do you want to proceed?`,
+        title: "Concurrent Grade Schedule",
+        description: `Overlapping session(s) detected for ${editGrade}:\n\n• ${warningsList}\n\nStudents cannot attend both classes simultaneously. Proceed with scheduling?`,
         action: executeEditClass,
       });
       setConfirmGradeDialogOpen(true);
@@ -698,6 +821,14 @@ export default function OwnerClassesPage() {
     }
   }
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(9);
+
+  // Reset page when search or grade filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedGrade]);
+
   const filteredClasses = classes.filter((c) => {
     if (selectedGrade !== "all" && c.grade !== selectedGrade) return false;
     if (search.trim()) {
@@ -708,6 +839,11 @@ export default function OwnerClassesPage() {
     }
     return true;
   });
+
+  const paginatedClasses = filteredClasses.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   return (
     <OwnerShell pageTitle={activeYear ? `Classes (${activeYear})` : "Classes"}>
@@ -785,50 +921,62 @@ export default function OwnerClassesPage() {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredClasses.map((cls) => {
-            const terms = cls.currentTerms || {
-              monthlyFee: 0,
-              teacherSharePerStudent: 0,
-              requiredSessionsPerMonth: 8,
-              effectiveFromMonth: "",
-            };
-            const classSlots = cls.slots || (cls.slot ? [cls.slot] : []);
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginatedClasses.map((cls) => {
+              const terms = cls.currentTerms || {
+                monthlyFee: 0,
+                teacherSharePerStudent: 0,
+                requiredSessionsPerMonth: 8,
+                effectiveFromMonth: "",
+              };
+              const classSlots = cls.slots || (cls.slot ? [cls.slot] : []);
+              const theme = getClassColor(cls);
 
-            return (
-              <Card key={cls.id} className="p-4 flex flex-col justify-between h-full bg-white border border-[#E4E1DA] rounded-[8px] hover:border-[#1F5C4D]/40 transition-colors shadow-2xs">
-                {/* Header */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <Link
-                      href={`/owner/classes/${cls.id}`}
-                      className="font-serif font-semibold text-base text-[#1C1F23] hover:text-[#1F5C4D] transition-colors truncate block"
-                    >
-                      {cls.name}
-                    </Link>
-                    <div className="flex items-center gap-1.5 text-xs text-[#5F6670] mt-0.5">
-                      <GraduationCap className="w-3.5 h-3.5 shrink-0 text-[#1F5C4D]" strokeWidth={1.75} />
-                      <span className="truncate">{cls.teacherName || "Unassigned Teacher"}</span>
+              return (
+                <Card
+                  key={cls.id}
+                  className="p-4 flex flex-col justify-between h-full bg-white border border-[#E4E1DA] rounded-[8px] hover:border-[#1F5C4D]/40 transition-colors shadow-2xs relative overflow-hidden"
+                  style={{ borderTop: `4px solid ${theme.accent}` }}
+                >
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                        <ClassBadge subject={cls.subject} color={cls.color} size="xs" />
+                        <span className="text-[10px] font-semibold text-[#5F6670] bg-[#FAF9F6] border border-[#E4E1DA] px-1.5 py-0.2 rounded">
+                          {cls.grade}
+                        </span>
+                      </div>
+                      <Link
+                        href={`/owner/classes/${cls.id}`}
+                        className="font-serif font-semibold text-base text-[#1C1F23] hover:text-[#1F5C4D] transition-colors truncate block"
+                      >
+                        {cls.name}
+                      </Link>
+                      <div className="flex items-center gap-1.5 text-xs text-[#5F6670] mt-0.5">
+                        <GraduationCap className="w-3.5 h-3.5 shrink-0 text-[#1F5C4D]" strokeWidth={1.75} />
+                        <span className="truncate">{cls.teacherName || "Unassigned Teacher"}</span>
+                      </div>
                     </div>
-                  </div>
 
                   {/* Actions: Edit & Delete */}
-                  <div className="flex items-center gap-0.5 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
                       onClick={() => openEditSheet(cls)}
-                      title="Edit class"
-                      aria-label="Edit class"
-                      className="p-1.5 text-[#5F6670] hover:text-[#1F5C4D] hover:bg-[#FAF9F6] rounded transition-colors"
+                      title={`Edit ${cls.name}`}
+                      aria-label={`Edit ${cls.name}`}
+                      className="w-7 h-7 rounded-md flex items-center justify-center text-[#5F6670] hover:text-[#1F5C4D] hover:bg-[#E6F0EC] border border-[#E4E1DA] hover:border-[#1F5C4D]/30 transition-colors cursor-pointer"
                     >
                       <Edit2 className="w-3.5 h-3.5" strokeWidth={1.75} />
                     </button>
                     <button
                       type="button"
                       onClick={() => openDeleteDialog(cls)}
-                      title="Delete class"
-                      aria-label="Delete class"
-                      className="p-1.5 text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7] rounded transition-colors"
+                      title={`Delete ${cls.name}`}
+                      aria-label={`Delete ${cls.name}`}
+                      className="w-7 h-7 rounded-md flex items-center justify-center text-[#5F6670] hover:text-[#A32A2A] hover:bg-[#FBE9E7] border border-[#E4E1DA] hover:border-[#A32A2A]/30 transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
                     </button>
@@ -923,6 +1071,17 @@ export default function OwnerClassesPage() {
               </Card>
             );
           })}
+          </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filteredClasses.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            pageSizeOptions={[9, 18, 27]}
+            onPageSizeChange={setPageSize}
+            itemLabel="classes"
+          />
         </div>
       )}
 
@@ -1019,6 +1178,25 @@ export default function OwnerClassesPage() {
                 </span>
               </div>
             )}
+
+            {formDuplicateClass && (
+              <div className="flex items-start gap-2.5 p-3 bg-[#FFF5F5] border border-[#A32A2A]/30 text-[#A32A2A] rounded-[6px] text-xs shadow-sm">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-[#A32A2A]" strokeWidth={2} />
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-semibold text-[#801F1F]">Class Already Created</span>
+                  <span className="leading-relaxed text-[#1C1F23]">
+                    {formDuplicateClass.message}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Class Theme Color */}
+            <ColorPicker
+              value={formColor}
+              onChange={setFormColor}
+              label="Class Theme Color"
+            />
           </div>
 
           {/* Weekly Timetable Sessions Card (Allows 1, 2, or multiple sessions; Monday 1st) */}
@@ -1127,7 +1305,7 @@ export default function OwnerClassesPage() {
                         <div className="flex items-start gap-1.5 p-2 bg-[#FFF8E1] text-[#8C6B00] rounded text-xs border border-[#B78103]/30">
                           <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#B78103]" strokeWidth={1.75} />
                           <div className="flex flex-col gap-0.5">
-                            <span className="font-semibold text-[#664D00]">Concurrent Grade Schedule Notice</span>
+                            <span className="font-semibold text-[#664D00]">Concurrent Notice</span>
                             <span className="leading-snug">{formGradeWarnings[idx]}</span>
                           </div>
                         </div>
@@ -1233,11 +1411,18 @@ export default function OwnerClassesPage() {
             <div className="flex items-start gap-2 p-2.5 bg-[#FFF8E1] text-[#8C6B00] rounded text-xs border border-[#B78103]/30">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-[#B78103]" strokeWidth={2} />
               <div className="flex flex-col gap-0.5">
-                <span className="font-semibold text-[#664D00]">Concurrent Grade Schedule Notice</span>
+                <span className="font-semibold text-[#664D00]">Concurrent Class Notice</span>
                 <span className="text-[11px] leading-relaxed">
-                  One or more sessions run at the same time as other classes for this grade. Creating this class will prompt for confirmation and dispatch an alert notification to the college owner.
+                  One or more sessions overlap with another class in this grade. Confirmation is required before saving.
                 </span>
               </div>
+            </div>
+          )}
+
+          {formDuplicateClass && (
+            <div className="flex items-center gap-1.5 p-2.5 bg-[#FFF5F5] text-[#A32A2A] rounded text-xs border border-[#A32A2A]/30">
+              <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={2} />
+              <span className="font-semibold">{formDuplicateClass.message}</span>
             </div>
           )}
 
@@ -1253,7 +1438,7 @@ export default function OwnerClassesPage() {
             <Button
               type="submit"
               variant="primary"
-              disabled={formSaving || isTeacherShareInvalid || hasFormClashes}
+              disabled={formSaving || isTeacherShareInvalid || hasFormClashes || Boolean(formDuplicateClass)}
               className="flex-1"
             >
               {formSaving ? "Creating..." : "Create Class"}
@@ -1359,6 +1544,25 @@ export default function OwnerClassesPage() {
                 </span>
               </div>
             )}
+
+            {editDuplicateClass && (
+              <div className="flex items-start gap-2.5 p-3 bg-[#FFF5F5] border border-[#A32A2A]/30 text-[#A32A2A] rounded-[6px] text-xs shadow-sm">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-[#A32A2A]" strokeWidth={2} />
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-semibold text-[#801F1F]">Class Already Created</span>
+                  <span className="leading-relaxed text-[#1C1F23]">
+                    {editDuplicateClass.message}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Class Theme Color */}
+            <ColorPicker
+              value={editColor}
+              onChange={setEditColor}
+              label="Class Theme Color"
+            />
           </div>
 
           {/* Weekly Timetable Sessions Card (Edit/Add/Remove multiple sessions) */}
@@ -1467,7 +1671,7 @@ export default function OwnerClassesPage() {
                         <div className="flex items-start gap-1.5 p-2 bg-[#FFF8E1] text-[#8C6B00] rounded text-xs border border-[#B78103]/30">
                           <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#B78103]" strokeWidth={1.75} />
                           <div className="flex flex-col gap-0.5">
-                            <span className="font-semibold text-[#664D00]">Concurrent Grade Schedule Notice</span>
+                            <span className="font-semibold text-[#664D00]">Concurrent Notice</span>
                             <span className="leading-snug">{editGradeWarnings[idx]}</span>
                           </div>
                         </div>
@@ -1572,11 +1776,18 @@ export default function OwnerClassesPage() {
             <div className="flex items-start gap-2 p-2.5 bg-[#FFF8E1] text-[#8C6B00] rounded text-xs border border-[#B78103]/30">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-[#B78103]" strokeWidth={2} />
               <div className="flex flex-col gap-0.5">
-                <span className="font-semibold text-[#664D00]">Concurrent Grade Schedule Notice</span>
+                <span className="font-semibold text-[#664D00]">Concurrent Class Notice</span>
                 <span className="text-[11px] leading-relaxed">
-                  One or more sessions run at the same time as other classes for this grade. Saving this class will prompt for confirmation and dispatch an alert notification to the college owner.
+                  One or more sessions overlap with another class in this grade. Confirmation is required before saving.
                 </span>
               </div>
+            </div>
+          )}
+
+          {editDuplicateClass && (
+            <div className="flex items-center gap-1.5 p-2.5 bg-[#FFF5F5] text-[#A32A2A] rounded text-xs border border-[#A32A2A]/30">
+              <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={2} />
+              <span className="font-semibold">{editDuplicateClass.message}</span>
             </div>
           )}
 
@@ -1592,7 +1803,7 @@ export default function OwnerClassesPage() {
             <Button
               type="submit"
               variant="primary"
-              disabled={editSaving || isEditTeacherShareInvalid || hasEditClashes}
+              disabled={editSaving || isEditTeacherShareInvalid || hasEditClashes || Boolean(editDuplicateClass)}
               className="flex-1"
             >
               {editSaving ? "Saving..." : "Save Changes"}

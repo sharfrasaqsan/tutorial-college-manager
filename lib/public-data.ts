@@ -33,16 +33,24 @@ export const DEFAULT_PUBLIC_SETTINGS: PublicSiteSettings = {
 
 let cachedPublicSiteData: PublicSiteData | null = null;
 let cachedPublicSiteDataExpiresAt = 0;
-const PUBLIC_DATA_CACHE_TTL_MS = 60 * 1000; // 60s fast in-memory cache
+// Cache TTL 0 ensures real-time instant synchronization with database updates
+const PUBLIC_DATA_CACHE_TTL_MS = 0;
 
 export function invalidatePublicSiteDataCache(): void {
   cachedPublicSiteData = null;
   cachedPublicSiteDataExpiresAt = 0;
+  try {
+    import("next/cache")
+      .then((mod) => mod.revalidatePath?.("/", "layout"))
+      .catch(() => {});
+  } catch {
+    // Gracefully ignore outside request contexts
+  }
 }
 
 export async function getPublicSiteData(): Promise<PublicSiteData> {
   const now = Date.now();
-  if (cachedPublicSiteData && now < cachedPublicSiteDataExpiresAt) {
+  if (PUBLIC_DATA_CACHE_TTL_MS > 0 && cachedPublicSiteData && now < cachedPublicSiteDataExpiresAt) {
     return cachedPublicSiteData;
   }
 
@@ -189,6 +197,8 @@ export async function getPublicSiteData(): Promise<PublicSiteData> {
         weekday: typeof data.weekday === "number" ? data.weekday : 1,
         startTime: data.startTime || "08:00",
         endTime: data.endTime || "09:00",
+        color: data.color || undefined,
+        isTemporary: Boolean(data.isTemporary),
       };
     });
 

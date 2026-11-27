@@ -101,6 +101,7 @@ export async function POST(request: NextRequest) {
       weekday: Number(weekday),
       startTime,
       endTime,
+      date: body.specificDate || body.date || undefined,
     };
 
     const clashResult = checkClash(candidate, existingIntervals);

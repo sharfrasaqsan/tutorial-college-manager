@@ -2,17 +2,23 @@ import React from "react";
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   as?: React.ElementType;
+  interactive?: boolean;
 }
 
 export function Card({
   as: Component = "div",
   className = "",
   children,
+  interactive = false,
   ...props
 }: CardProps) {
+  const interactiveStyles = interactive
+    ? "hover:border-[#1F5C4D] hover:shadow-xs transition-colors cursor-pointer"
+    : "";
+
   return (
     <Component
-      className={`bg-[#FFFFFF] border border-[#E4E1DA] rounded-[6px] p-4 text-[#1C1F23] ${className}`}
+      className={`bg-[#FFFFFF] border border-[#E4E1DA] rounded-[6px] p-4 text-[#1C1F23] ${interactiveStyles} ${className}`}
       {...props}
     >
       {children}

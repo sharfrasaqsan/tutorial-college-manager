@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Phone, MessageCircle, Menu, X, GraduationCap } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 interface PublicNavProps {
   collegeName: string;
@@ -83,8 +84,10 @@ export function PublicNav({
           })}
         </nav>
 
-        {/* Call to Actions (Phone / WhatsApp) */}
-        <div className="hidden sm:flex items-center gap-2">
+        {/* Call to Actions (Phone / WhatsApp) & Theme Toggle */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <ThemeToggle />
+
           {telUrl && (
             <a
               href={telUrl}
@@ -147,6 +150,7 @@ export function PublicNav({
           </nav>
 
           <div className="pt-3 border-t border-[#E4E1DA] flex flex-col gap-2">
+            <ThemeToggle variant="pill" className="w-full justify-center" />
             {telUrl && (
               <a
                 href={telUrl}

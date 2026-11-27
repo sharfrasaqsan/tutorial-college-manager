@@ -5,6 +5,7 @@ import { CreateTeacherSchema } from "@/lib/teachers";
 import { createTeacherAccount } from "@/lib/auth";
 import { sendTeacherWelcomeEmail } from "@/lib/email";
 import { YEAR_COOKIE_NAME } from "@/lib/academic-year";
+import { invalidatePublicSiteDataCache } from "@/lib/public-data";
 import type { Teacher } from "@/types";
 
 /**
@@ -129,6 +130,8 @@ export async function POST(request: NextRequest) {
       collegeName,
       loginUrl,
     });
+
+    invalidatePublicSiteDataCache();
 
     return NextResponse.json(
       {

@@ -20,7 +20,6 @@ const newsreader = Newsreader({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   themeColor: "#FAF9F6",
 };
 
@@ -45,6 +44,13 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${ibmPlexSans.variable} ${newsreader.variable} h-full antialiased`}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('tcm_theme');if(!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}if(t==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-[#FAF9F6] text-[#1C1F23] font-sans">
         {children}
       </body>
