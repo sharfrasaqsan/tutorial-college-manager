@@ -6,6 +6,7 @@ import {
   UpdateSlotSchema,
   generateSessionsForSlot,
   slotToTimeInterval,
+  validateSlotDatesNotInPast,
 } from "@/lib/timetable";
 import {
   notifyTeacherTimetableChange,
@@ -104,6 +105,18 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const sessionsCol = adminDb.collection("years").doc(yearId).collection("sessions");
     const now = new Date().toISOString();
     const todayStr = format(getColomboNow(), "yyyy-MM-dd");
+
+    const dateError = validateSlotDatesNotInPast({
+      isExtra: Boolean(isTemporary || slotType === "extra"),
+      specificDate,
+      validFrom,
+      validTo,
+      todayStr,
+      isEdit: true,
+    });
+    if (dateError) {
+      return NextResponse.json({ error: dateError }, { status: 400 });
+    }
 
     let teacherId = "";
     let className = "";

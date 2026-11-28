@@ -32,8 +32,26 @@ export async function recalculateClassSalary(
   if (!classDoc.exists) return null;
 
   const classData = classDoc.data()!;
-  const actualTeacherId = classData.teacherId || teacherId;
-  const teacherName = classData.teacherName || "Teacher";
+  let actualTeacherId = teacherId;
+  let teacherName = classData.teacherName || "Teacher";
+  let splitPercentage = 100;
+
+  if (classData.isMultiTeacher && Array.isArray(classData.teachers) && classData.teachers.length > 0) {
+    const match = classData.teachers.find((t: any) => t.teacherId === teacherId);
+    if (match) {
+      actualTeacherId = match.teacherId;
+      teacherName = match.teacherName || teacherName;
+      splitPercentage = typeof match.splitPercentage === "number" ? match.splitPercentage : Math.round(100 / classData.teachers.length);
+    } else {
+      const primary = classData.teachers.find((t: any) => t.role === "primary") || classData.teachers[0];
+      actualTeacherId = primary.teacherId;
+      teacherName = primary.teacherName || teacherName;
+      splitPercentage = typeof primary.splitPercentage === "number" ? primary.splitPercentage : 100;
+    }
+  } else {
+    actualTeacherId = classData.teacherId || teacherId;
+  }
+
   const className = classData.name || `${classData.grade} ${classData.subject}`;
   const grade = classData.grade || "";
   const subject = classData.subject || "";
@@ -79,7 +97,8 @@ export async function recalculateClassSalary(
     const f = doc.data() as FeeRecord;
     feeRecords.push({ teacherShare: f.teacherShare || 0 });
   });
-  const amount = calculateSalaryAmount(feeRecords);
+  const rawTotalTeacherShare = calculateSalaryAmount(feeRecords);
+  const amount = Math.round((rawTotalTeacherShare * splitPercentage) / 100);
 
   // Check existing salary record
   const docId = generateSalaryDocId(actualTeacherId, classId, month);
@@ -89,7 +108,9 @@ export async function recalculateClassSalary(
 
   const isPaid = existing?.isPaid === true || existing?.status === "paid";
   const status = isPaid ? "paid" : getSalaryStatus(heldSessions, requiredSessions, false);
-  const displayName = generateSalaryDisplayName(month, className);
+  const displayName = classData.isMultiTeacher
+    ? `${generateSalaryDisplayName(month, className)} (${teacherName} - ${splitPercentage}%)`
+    : generateSalaryDisplayName(month, className);
   const now = new Date().toISOString();
 
   const record: ClassSalaryRecord = {
@@ -156,7 +177,13 @@ export async function syncAllSalariesForMonth(
 
   classesSnap.forEach((doc) => {
     const data = doc.data();
-    if (data.teacherId) {
+    if (data.isMultiTeacher && Array.isArray(data.teachers) && data.teachers.length > 0) {
+      data.teachers.forEach((t: any) => {
+        if (t.teacherId) {
+          promises.push(recalculateClassSalary(yearId, t.teacherId, doc.id, month));
+        }
+      });
+    } else if (data.teacherId) {
       promises.push(recalculateClassSalary(yearId, data.teacherId, doc.id, month));
     }
   });

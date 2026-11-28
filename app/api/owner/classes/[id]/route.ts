@@ -157,6 +157,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       subject: data.subject,
       teacherId: data.teacherId,
       teacherName: data.teacherName,
+      isMultiTeacher: Boolean(data.isMultiTeacher),
+      teachers: data.teachers || [],
+      teacherIds: data.teacherIds || (data.teacherId ? [data.teacherId] : []),
       name: data.name,
       color: data.color || undefined,
       currentTerms: effectiveTerms,
@@ -221,7 +224,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const newGrade = parsed.data.grade ?? existingClass.grade;
     const newSubject = parsed.data.subject ?? existingClass.subject;
-    const newTeacherId = parsed.data.teacherId ?? existingClass.teacherId;
+    let newTeacherId = parsed.data.teacherId ?? existingClass.teacherId;
     let newTeacherName = existingClass.teacherName || "Unassigned";
 
     // 1. If grade or subject changed, verify uniqueness
@@ -248,14 +251,49 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // 2. If teacher changed, resolve new teacher name
-    if (newTeacherId !== existingClass.teacherId) {
+    // 2. Resolve teacher(s) and multi-teacher settings
+    let isMultiTeacher = existingClass.isMultiTeacher;
+    if (parsed.data.isMultiTeacher !== undefined) {
+      isMultiTeacher = parsed.data.isMultiTeacher;
+    }
+
+    let resolvedTeachers = existingClass.teachers || [];
+    let resolvedTeacherIds = existingClass.teacherIds || (existingClass.teacherId ? [existingClass.teacherId] : []);
+
+    if (isMultiTeacher && parsed.data.teachers && parsed.data.teachers.length >= 2) {
+      const teacherDocs = await Promise.all(
+        parsed.data.teachers.map((t) => adminDb.collection("teachers").doc(t.teacherId).get())
+      );
+      resolvedTeachers = parsed.data.teachers.map((t, idx) => {
+        const doc = teacherDocs[idx];
+        const tName = doc.exists ? doc.data()?.name || "Teacher" : t.teacherName || "Teacher";
+        return {
+          teacherId: t.teacherId,
+          teacherName: tName,
+          splitPercentage: t.splitPercentage,
+          role: idx === 0 || t.role === "primary" ? "primary" : "co_teacher",
+        };
+      });
+      resolvedTeacherIds = resolvedTeachers.map((t: any) => t.teacherId);
+      const primary = resolvedTeachers.find((t: any) => t.role === "primary") || resolvedTeachers[0];
+      newTeacherId = primary.teacherId;
+      newTeacherName = resolvedTeachers.map((t: any) => t.teacherName).join(" & ");
+    } else if (newTeacherId !== existingClass.teacherId || !isMultiTeacher) {
       if (newTeacherId) {
         const teacherDoc = await adminDb.collection("teachers").doc(newTeacherId).get();
         newTeacherName = teacherDoc.exists ? teacherDoc.data()?.name || "Teacher" : "Unassigned";
       } else {
         newTeacherName = "Unassigned";
       }
+      resolvedTeachers = [
+        {
+          teacherId: newTeacherId,
+          teacherName: newTeacherName,
+          splitPercentage: 100,
+          role: "primary",
+        },
+      ];
+      resolvedTeacherIds = [newTeacherId];
     }
 
     const newClassName = generateClassName(newGrade, newSubject);
@@ -295,6 +333,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       name: newClassName,
       teacherId: newTeacherId,
       teacherName: newTeacherName,
+      isMultiTeacher: Boolean(isMultiTeacher),
+      teachers: resolvedTeachers,
+      teacherIds: resolvedTeacherIds,
       updatedAt: now,
     };
 
@@ -396,13 +437,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       // Validate each proposed schedule
       for (const sch of rawSchedules) {
         const slotId = sch.id || slotsCol.doc().id;
+        const schTeacherId = sch.teacherId || newTeacherId;
+        const schTeacherIds = sch.teacherIds && sch.teacherIds.length > 0 ? sch.teacherIds : resolvedTeacherIds;
+
         const candidate: TimeInterval = {
           id: slotId,
           classId: id,
           className: newClassName,
           grade: newGrade,
-          teacherId: newTeacherId,
+          teacherId: schTeacherId,
           teacherName: newTeacherName,
+          teacherIds: schTeacherIds,
+          teachers: resolvedTeachers,
           color: updatedClassFields.color ?? existingClass.color ?? undefined,
           weekday: sch.weekday,
           startTime: sch.startTime,
@@ -442,6 +488,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         const slotId = existingSlot ? existingSlot.id : slotsCol.doc().id;
         keptSlotIds.add(slotId);
 
+        const schTeacherId = sch.teacherId || newTeacherId;
+        const schTeacherIds = sch.teacherIds && sch.teacherIds.length > 0 ? sch.teacherIds : resolvedTeacherIds;
+
         const slotRecord: TimetableSlot = {
           id: slotId,
           yearId,
@@ -449,8 +498,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           className: newClassName,
           grade: newGrade,
           subject: newSubject,
-          teacherId: newTeacherId,
+          teacherId: schTeacherId,
           teacherName: newTeacherName,
+          isMultiTeacher,
+          teachers: resolvedTeachers,
+          teacherIds: schTeacherIds,
           color: updatedClassFields.color ?? existingClass.color ?? undefined,
           weekday: sch.weekday,
           startTime: sch.startTime,
@@ -494,8 +546,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
                 className: newClassName,
                 grade: newGrade,
                 subject: newSubject,
-                teacherId: newTeacherId,
+                teacherId: schTeacherId,
                 teacherName: newTeacherName,
+                isMultiTeacher,
+                teachers: resolvedTeachers,
+                teacherIds: schTeacherIds,
                 weekday: sch.weekday,
                 startTime: sch.startTime,
                 endTime: sch.endTime,
@@ -522,8 +577,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
                 batch.update(sDoc.ref, {
                   startTime: sch.startTime,
                   endTime: sch.endTime,
-                  teacherId: newTeacherId,
+                  teacherId: schTeacherId,
                   teacherName: newTeacherName,
+                  isMultiTeacher,
+                  teachers: resolvedTeachers,
+                  teacherIds: schTeacherIds,
                   className: newClassName,
                   grade: newGrade,
                   subject: newSubject,
@@ -534,10 +592,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             await batch.commit();
           }
 
-          if (newTeacherId) {
+          for (const tId of schTeacherIds) {
             try {
               await notifyTeacherTimetableChange({
-                teacherId: newTeacherId,
+                teacherId: tId,
                 slotId,
                 action: "updated",
                 className: newClassName,
@@ -559,8 +617,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
               className: newClassName,
               grade: newGrade,
               subject: newSubject,
-              teacherId: newTeacherId,
+              teacherId: schTeacherId,
               teacherName: newTeacherName,
+              isMultiTeacher,
+              teachers: resolvedTeachers,
+              teacherIds: schTeacherIds,
               weekday: sch.weekday,
               startTime: sch.startTime,
               endTime: sch.endTime,
@@ -579,10 +640,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             }
           }
 
-          if (newTeacherId) {
+          for (const tId of schTeacherIds) {
             try {
               await notifyTeacherTimetableChange({
-                teacherId: newTeacherId,
+                teacherId: tId,
                 slotId,
                 action: "created",
                 className: newClassName,

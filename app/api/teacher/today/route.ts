@@ -28,17 +28,28 @@ export async function GET(request: NextRequest) {
     const teacherDoc = await adminDb.collection("teachers").doc(teacherId).get();
     const teacherName = teacherDoc.exists ? teacherDoc.data()?.name || "Teacher" : "Teacher";
 
-    // Query teacher sessions for the academic year
-    const sessionsSnap = await adminDb
-      .collection("years")
-      .doc(yearId)
-      .collection("sessions")
-      .where("teacherId", "==", teacherId)
-      .get();
+    // Query teacher sessions for the academic year (single and co-taught)
+    const [primarySessionsSnap, multiSessionsSnap] = await Promise.all([
+      adminDb
+        .collection("years")
+        .doc(yearId)
+        .collection("sessions")
+        .where("teacherId", "==", teacherId)
+        .get(),
+      adminDb
+        .collection("years")
+        .doc(yearId)
+        .collection("sessions")
+        .where("teacherIds", "array-contains", teacherId)
+        .get(),
+    ]);
 
+    const seenSessionIds = new Set<string>();
     const allTeacherSessions: (Session & { markingDetails?: any })[] = [];
 
-    sessionsSnap.forEach((doc) => {
+    const addSession = (doc: any) => {
+      if (seenSessionIds.has(doc.id)) return;
+      seenSessionIds.add(doc.id);
       const data = doc.data();
       allTeacherSessions.push({
         id: doc.id,
@@ -49,6 +60,8 @@ export async function GET(request: NextRequest) {
         yearId: data.yearId || yearId,
         teacherId: data.teacherId,
         teacherName: data.teacherName || teacherName,
+        isMultiTeacher: data.isMultiTeacher,
+        teachers: data.teachers,
         slotId: data.slotId,
         date: data.date,
         startTime: data.startTime,
@@ -60,7 +73,10 @@ export async function GET(request: NextRequest) {
         markedBy: data.markedBy,
         locked: data.locked || false,
       });
-    });
+    };
+
+    primarySessionsSnap.forEach(addSession);
+    multiSessionsSnap.forEach(addSession);
 
     // 1. Unmarked urgent sessions from the last 3 days
     // Appears first with days left warning

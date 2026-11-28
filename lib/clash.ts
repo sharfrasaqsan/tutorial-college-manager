@@ -65,6 +65,44 @@ function resolveWeekday(interval: TimeInterval): number | undefined {
  * Touching times (one ends when another starts) are allowed.
  * Errors are plain sentences that name the conflict.
  */
+/**
+ * Extract all assigned teacher IDs from a TimeInterval (supports single & co-teachers).
+ */
+function getTeacherIds(item: TimeInterval): string[] {
+  const ids = new Set<string>();
+  if (item.teacherId && item.teacherId.trim()) ids.add(item.teacherId.trim());
+  if (item.teacherIds && Array.isArray(item.teacherIds)) {
+    item.teacherIds.forEach((t) => {
+      if (t && t.trim()) ids.add(t.trim());
+    });
+  }
+  if (item.teachers && Array.isArray(item.teachers)) {
+    item.teachers.forEach((t) => {
+      if (t && t.teacherId && t.teacherId.trim()) ids.add(t.teacherId.trim());
+    });
+  }
+  return Array.from(ids);
+}
+
+/**
+ * Resolve teacher display name for a specific conflicting teacherId.
+ */
+function resolveTeacherName(teacherId: string, itemA: TimeInterval, itemB: TimeInterval): string {
+  if (itemA.teachers) {
+    const found = itemA.teachers.find((t) => t.teacherId === teacherId);
+    if (found?.teacherName) return found.teacherName;
+  }
+  if (itemA.teacherId === teacherId && itemA.teacherName) return itemA.teacherName;
+
+  if (itemB.teachers) {
+    const found = itemB.teachers.find((t) => t.teacherId === teacherId);
+    if (found?.teacherName) return found.teacherName;
+  }
+  if (itemB.teacherId === teacherId && itemB.teacherName) return itemB.teacherName;
+
+  return "The teacher";
+}
+
 export function checkClash(
   candidate: TimeInterval,
   existingIntervals: TimeInterval[]
@@ -99,19 +137,26 @@ export function checkClash(
     return true;
   });
 
-  const candTeacher = candidate.teacherId?.trim();
+  const candTeacherIds = getTeacherIds(candidate);
   const candClass = candidate.classId?.trim();
 
   // Rule 1: Teacher conflict & Same-Class conflict
   for (const existing of relevant) {
-    const existTeacher = existing.teacherId?.trim();
+    const existTeacherIds = getTeacherIds(existing);
     const existClass = existing.classId?.trim();
+
+    // Check if any candidate teacher overlaps with any existing teacher
+    let conflictingTeacherId: string | undefined = undefined;
+    for (const tid of candTeacherIds) {
+      if (existTeacherIds.includes(tid)) {
+        conflictingTeacherId = tid;
+        break;
+      }
+    }
 
     // Teacher conflict
     if (
-      candTeacher &&
-      existTeacher &&
-      candTeacher === existTeacher &&
+      conflictingTeacherId &&
       doIntervalsOverlap(
         candidate.startTime,
         candidate.endTime,
@@ -119,7 +164,7 @@ export function checkClash(
         existing.endTime
       )
     ) {
-      const teacherName = candidate.teacherName || existing.teacherName || "The teacher";
+      const teacherName = resolveTeacherName(conflictingTeacherId, candidate, existing);
       const existW = resolveWeekday(existing);
       const dayContext = existing.date
         ? `on ${formatDateDisplay(existing.date)} `

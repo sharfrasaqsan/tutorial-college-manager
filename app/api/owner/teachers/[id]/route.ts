@@ -74,11 +74,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const { name, phone, photoUrl, bio, subjects, showOnPublicSite } = parsed.data;
+    const currentData = teacherDoc.data();
+    const currentName = currentData?.name || "";
+    const nameChanged = name.trim() !== currentName.trim();
     const now = new Date().toISOString();
 
-    const updatedFields = {
-      name,
-      phone,
+    const updatedFields: Record<string, any> = {
+      name: name.trim(),
+      phone: phone.trim(),
       photoUrl: photoUrl || null,
       bio: bio || null,
       subjects,
@@ -90,10 +93,102 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // Update display name in Firebase Auth and users doc
     try {
-      await adminAuth.updateUser(id, { displayName: name });
-      await adminDb.collection("users").doc(id).set({ name, updatedAt: now }, { merge: true });
+      await adminAuth.updateUser(id, { displayName: name.trim() });
+      await adminDb.collection("users").doc(id).set({ name: name.trim(), updatedAt: now }, { merge: true });
     } catch {
       // Ignore if user auth update fails non-critically
+    }
+
+    // If teacher's name changed, propagate updated name to active academic year's classes, slots, and scheduled sessions
+    if (nameChanged) {
+      try {
+        const { searchParams } = new URL(request.url);
+        const cookieYear = request.cookies.get(YEAR_COOKIE_NAME)?.value;
+        const activeYear = searchParams.get("yearId") || cookieYear || new Date().getFullYear().toString();
+
+        const yearRef = adminDb.collection("years").doc(activeYear);
+
+        // 1. Classes where teacher is lead or co-teacher
+        const [singleClassesSnap, multiClassesSnap] = await Promise.all([
+          yearRef.collection("classes").where("teacherId", "==", id).get(),
+          yearRef.collection("classes").where("teacherIds", "array-contains", id).get(),
+        ]);
+
+        const classDocsMap = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+        singleClassesSnap.docs.forEach((doc) => classDocsMap.set(doc.id, doc));
+        multiClassesSnap.docs.forEach((doc) => classDocsMap.set(doc.id, doc));
+
+        if (classDocsMap.size > 0) {
+          const batch = adminDb.batch();
+          classDocsMap.forEach((doc) => {
+            const cdata = doc.data();
+            const updates: Record<string, any> = { updatedAt: now };
+
+            if (cdata.teacherId === id) {
+              updates.teacherName = name.trim();
+            }
+
+            if (Array.isArray(cdata.teachers)) {
+              updates.teachers = cdata.teachers.map((t: any) =>
+                t.teacherId === id ? { ...t, teacherName: name.trim() } : t
+              );
+            }
+
+            batch.update(doc.ref, updates);
+          });
+          await batch.commit();
+        }
+
+        // 2. Timetable slots
+        const [singleSlotsSnap, multiSlotsSnap] = await Promise.all([
+          yearRef.collection("slots").where("teacherId", "==", id).get(),
+          yearRef.collection("slots").where("teacherIds", "array-contains", id).get(),
+        ]);
+
+        const slotDocsMap = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+        singleSlotsSnap.docs.forEach((doc) => slotDocsMap.set(doc.id, doc));
+        multiSlotsSnap.docs.forEach((doc) => slotDocsMap.set(doc.id, doc));
+
+        if (slotDocsMap.size > 0) {
+          const batch = adminDb.batch();
+          slotDocsMap.forEach((doc) => {
+            const sdata = doc.data();
+            const updates: Record<string, any> = { updatedAt: now };
+
+            if (sdata.teacherId === id) {
+              updates.teacherName = name.trim();
+            }
+
+            if (Array.isArray(sdata.teachers)) {
+              updates.teachers = sdata.teachers.map((t: any) =>
+                t.teacherId === id ? { ...t, teacherName: name.trim() } : t
+              );
+            }
+
+            batch.update(doc.ref, updates);
+          });
+          await batch.commit();
+        }
+
+        // 3. Future scheduled sessions
+        const scheduledSessionsSnap = await yearRef
+          .collection("sessions")
+          .where("teacherId", "==", id)
+          .where("status", "==", "scheduled")
+          .get();
+
+        if (!scheduledSessionsSnap.empty) {
+          const batch = adminDb.batch();
+          scheduledSessionsSnap.docs.forEach((doc) => {
+            if (!doc.data().locked) {
+              batch.update(doc.ref, { teacherName: name.trim() });
+            }
+          });
+          await batch.commit();
+        }
+      } catch (propagateErr) {
+        console.warn("Failed to propagate updated teacher name to active classes/slots:", propagateErr);
+      }
     }
 
     const updatedDoc = await adminDb.collection("teachers").doc(id).get();
@@ -159,41 +254,146 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     // 1. Scoped unassignment: ONLY in active academic year (years/{activeYear}/classes)
     // Other academic years (e.g. 2025) are NEVER touched!
-    const activeClassesSnap = await adminDb
-      .collection("years")
-      .doc(activeYear)
-      .collection("classes")
-      .where("teacherId", "==", id)
-      .get();
+    const [singleClassesSnap, multiClassesSnap] = await Promise.all([
+      adminDb.collection("years").doc(activeYear).collection("classes").where("teacherId", "==", id).get(),
+      adminDb.collection("years").doc(activeYear).collection("classes").where("teacherIds", "array-contains", id).get(),
+    ]);
 
-    if (!activeClassesSnap.empty) {
+    const activeClassesMap = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+    singleClassesSnap.docs.forEach((doc) => activeClassesMap.set(doc.id, doc));
+    multiClassesSnap.docs.forEach((doc) => activeClassesMap.set(doc.id, doc));
+
+    if (activeClassesMap.size > 0) {
       const batch = adminDb.batch();
-      activeClassesSnap.docs.forEach((doc) => {
-        batch.update(doc.ref, {
-          teacherId: "",
-          teacherName: "Unassigned",
-          updatedAt: new Date().toISOString(),
-        });
+      activeClassesMap.forEach((doc) => {
+        const cdata = doc.data();
+        const isMulti = Boolean(cdata.isMultiTeacher);
+        const currentTeachers: any[] = Array.isArray(cdata.teachers) ? cdata.teachers : [];
+
+        if (isMulti && currentTeachers.length > 0) {
+          const remaining = currentTeachers.filter((t) => t.teacherId !== id);
+          if (remaining.length === 0) {
+            batch.update(doc.ref, {
+              teacherId: "",
+              teacherName: "Unassigned",
+              isMultiTeacher: false,
+              teachers: [],
+              teacherIds: [],
+              updatedAt: new Date().toISOString(),
+            });
+          } else if (remaining.length === 1) {
+            const sole = remaining[0];
+            batch.update(doc.ref, {
+              teacherId: sole.teacherId,
+              teacherName: sole.teacherName,
+              isMultiTeacher: false,
+              teachers: [{ ...sole, splitPercentage: 100, role: "primary" }],
+              teacherIds: [sole.teacherId],
+              updatedAt: new Date().toISOString(),
+            });
+          } else {
+            // Normalize splits across remaining teachers
+            const totalRemaining = remaining.reduce((s, t) => s + (t.splitPercentage || 0), 0) || 100;
+            const reallocated = remaining.map((t, idx) => ({
+              ...t,
+              splitPercentage: Math.round(((t.splitPercentage || 50) / totalRemaining) * 100),
+              role: idx === 0 ? "primary" : "co_teacher",
+            }));
+            const sumSplit = reallocated.reduce((s, t) => s + t.splitPercentage, 0);
+            if (sumSplit !== 100 && reallocated.length > 0) {
+              reallocated[0].splitPercentage += (100 - sumSplit);
+            }
+            batch.update(doc.ref, {
+              teacherId: reallocated[0].teacherId,
+              teacherName: reallocated[0].teacherName,
+              isMultiTeacher: true,
+              teachers: reallocated,
+              teacherIds: reallocated.map((t) => t.teacherId),
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        } else {
+          // Standard single teacher class
+          batch.update(doc.ref, {
+            teacherId: "",
+            teacherName: "Unassigned",
+            isMultiTeacher: false,
+            teachers: [],
+            teacherIds: [],
+            updatedAt: new Date().toISOString(),
+          });
+        }
       });
       await batch.commit();
     }
 
     // 2. Scoped slots unassignment: ONLY in active academic year
-    const activeSlotsSnap = await adminDb
-      .collection("years")
-      .doc(activeYear)
-      .collection("slots")
-      .where("teacherId", "==", id)
-      .get();
+    const [singleSlotsSnap, multiSlotsSnap] = await Promise.all([
+      adminDb.collection("years").doc(activeYear).collection("slots").where("teacherId", "==", id).get(),
+      adminDb.collection("years").doc(activeYear).collection("slots").where("teacherIds", "array-contains", id).get(),
+    ]);
 
-    if (!activeSlotsSnap.empty) {
+    const activeSlotsMap = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+    singleSlotsSnap.docs.forEach((doc) => activeSlotsMap.set(doc.id, doc));
+    multiSlotsSnap.docs.forEach((doc) => activeSlotsMap.set(doc.id, doc));
+
+    if (activeSlotsMap.size > 0) {
       const batch = adminDb.batch();
-      activeSlotsSnap.docs.forEach((doc) => {
-        batch.update(doc.ref, {
-          teacherId: "",
-          teacherName: "Unassigned",
-          updatedAt: new Date().toISOString(),
-        });
+      activeSlotsMap.forEach((doc) => {
+        const sdata = doc.data();
+        const currentTeachers: any[] = Array.isArray(sdata.teachers) ? sdata.teachers : [];
+
+        if (currentTeachers.length > 0) {
+          const remaining = currentTeachers.filter((t) => t.teacherId !== id);
+          if (remaining.length === 0) {
+            batch.update(doc.ref, {
+              teacherId: "",
+              teacherName: "Unassigned",
+              isMultiTeacher: false,
+              teachers: [],
+              teacherIds: [],
+              updatedAt: new Date().toISOString(),
+            });
+          } else if (remaining.length === 1) {
+            const sole = remaining[0];
+            batch.update(doc.ref, {
+              teacherId: sole.teacherId,
+              teacherName: sole.teacherName,
+              isMultiTeacher: false,
+              teachers: [{ ...sole, splitPercentage: 100, role: "primary" }],
+              teacherIds: [sole.teacherId],
+              updatedAt: new Date().toISOString(),
+            });
+          } else {
+            const totalRemaining = remaining.reduce((s, t) => s + (t.splitPercentage || 0), 0) || 100;
+            const reallocated = remaining.map((t, idx) => ({
+              ...t,
+              splitPercentage: Math.round(((t.splitPercentage || 50) / totalRemaining) * 100),
+              role: idx === 0 ? "primary" : "co_teacher",
+            }));
+            const sumSplit = reallocated.reduce((s, t) => s + t.splitPercentage, 0);
+            if (sumSplit !== 100 && reallocated.length > 0) {
+              reallocated[0].splitPercentage += (100 - sumSplit);
+            }
+            batch.update(doc.ref, {
+              teacherId: reallocated[0].teacherId,
+              teacherName: reallocated[0].teacherName,
+              isMultiTeacher: true,
+              teachers: reallocated,
+              teacherIds: reallocated.map((t) => t.teacherId),
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        } else {
+          batch.update(doc.ref, {
+            teacherId: "",
+            teacherName: "Unassigned",
+            isMultiTeacher: false,
+            teachers: [],
+            teacherIds: [],
+            updatedAt: new Date().toISOString(),
+          });
+        }
       });
       await batch.commit();
     }
@@ -226,12 +426,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     for (const yearDoc of yearsSnap.docs) {
       if (yearDoc.id !== activeYear) {
-        const pastClasses = await yearDoc.ref
-          .collection("classes")
-          .where("teacherId", "==", id)
-          .limit(1)
-          .get();
-        if (!pastClasses.empty) {
+        const [pastClassesSingle, pastClassesMulti] = await Promise.all([
+          yearDoc.ref.collection("classes").where("teacherId", "==", id).limit(1).get(),
+          yearDoc.ref.collection("classes").where("teacherIds", "array-contains", id).limit(1).get(),
+        ]);
+        if (!pastClassesSingle.empty || !pastClassesMulti.empty) {
           hasPastActivity = true;
           break;
         }
@@ -288,7 +487,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       success: true,
       message: `Teacher ${teacherName} was removed from academic year ${activeYear}. Past records remain safely preserved.`,
       yearId: activeYear,
-      unassignedClasses: activeClassesSnap.size,
+      unassignedClasses: activeClassesMap.size,
       historicalPreserved: hasPastActivity,
     });
   } catch (error: any) {

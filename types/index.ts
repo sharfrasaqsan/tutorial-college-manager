@@ -123,6 +123,14 @@ export interface YearRosterStudent {
   createdAt: string;
 }
 
+export interface TeacherAssignedClass {
+  id: string;
+  name: string;
+  grade: string;
+  subject: string;
+  isMultiTeacher?: boolean;
+}
+
 export interface Teacher {
   id: string;
   name: string;
@@ -138,6 +146,8 @@ export interface Teacher {
   deleted?: boolean;
   deletedAt?: string;
   deletedInYear?: string;
+  assignedClasses?: TeacherAssignedClass[];
+  assignedClassesCount?: number;
 }
 
 export type AdmissionFeeStatus = "unpaid" | "paid" | "notApplicable";
@@ -173,6 +183,13 @@ export interface Student {
   updatedAt?: string;
 }
 
+export interface ClassTeacherAssignment {
+  teacherId: string;
+  teacherName: string;
+  splitPercentage: number; // e.g. 50 (for 50%) or 60/40
+  role?: "primary" | "co_teacher";
+}
+
 export interface ClassItem {
   id: string;
   yearId: string;
@@ -180,6 +197,9 @@ export interface ClassItem {
   subject: string;
   teacherId: string;
   teacherName?: string;
+  isMultiTeacher?: boolean;
+  teachers?: ClassTeacherAssignment[];
+  teacherIds?: string[];
   name: string;
   color?: string;
   active: boolean;
@@ -225,6 +245,9 @@ export interface TimetableSlot {
   yearId: string;
   teacherId: string;
   teacherName?: string;
+  isMultiTeacher?: boolean;
+  teachers?: ClassTeacherAssignment[];
+  teacherIds?: string[];
   color?: string;
   weekday: number; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
   startTime: string; // "14:00"
@@ -252,6 +275,9 @@ export interface Session {
   yearId: string;
   teacherId: string;
   teacherName?: string;
+  isMultiTeacher?: boolean;
+  teachers?: ClassTeacherAssignment[];
+  teacherIds?: string[];
   slotId?: string;
   date: string;
   startTime: string;
@@ -380,6 +406,9 @@ export interface TimeInterval {
   label?: string;
   teacherId: string;
   teacherName?: string;
+  isMultiTeacher?: boolean;
+  teachers?: ClassTeacherAssignment[];
+  teacherIds?: string[];
   classId: string;
   className?: string;
   grade: string;

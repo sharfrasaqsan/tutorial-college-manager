@@ -24,17 +24,35 @@ export async function GET(request: NextRequest) {
     const currentMonth = formatColomboPattern(new Date(), "yyyy-MM");
     const month = searchParams.get("month") || currentMonth;
 
-    // 1. Recalculate this teacher's active classes for this month
-    const classesSnap = await adminDb
-      .collection("years")
-      .doc(yearId)
-      .collection("classes")
-      .where("teacherId", "==", teacherId)
-      .get();
+    // 1. Recalculate this teacher's active classes for this month (single and co-taught)
+    const [primaryClassesSnap, multiClassesSnap] = await Promise.all([
+      adminDb
+        .collection("years")
+        .doc(yearId)
+        .collection("classes")
+        .where("teacherId", "==", teacherId)
+        .get(),
+      adminDb
+        .collection("years")
+        .doc(yearId)
+        .collection("classes")
+        .where("teacherIds", "array-contains", teacherId)
+        .get(),
+    ]);
 
+    const seenRecalcIds = new Set<string>();
     const recalcPromises: Promise<ClassSalaryRecord | null>[] = [];
-    classesSnap.forEach((doc) => {
-      recalcPromises.push(recalculateClassSalary(yearId, teacherId, doc.id, month));
+    primaryClassesSnap.docs.forEach((doc) => {
+      if (!seenRecalcIds.has(doc.id)) {
+        seenRecalcIds.add(doc.id);
+        recalcPromises.push(recalculateClassSalary(yearId, teacherId, doc.id, month));
+      }
+    });
+    multiClassesSnap.docs.forEach((doc) => {
+      if (!seenRecalcIds.has(doc.id)) {
+        seenRecalcIds.add(doc.id);
+        recalcPromises.push(recalculateClassSalary(yearId, teacherId, doc.id, month));
+      }
     });
     await Promise.all(recalcPromises);
 

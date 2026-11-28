@@ -6,6 +6,7 @@ import {
   UpdateSlotSchema,
   generateSessionsForSlot,
   slotToTimeInterval,
+  validateSlotDatesNotInPast,
 } from "@/lib/timetable";
 import { YEAR_COOKIE_NAME } from "@/lib/academic-year";
 import { getColomboNow } from "@/lib/dates";
@@ -37,7 +38,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: firstIssue }, { status: 400 });
     }
 
-    const { weekday, startTime, endTime } = parsed.data;
+    const { weekday, startTime, endTime, isTemporary, slotType, specificDate } = parsed.data;
     const validFrom = parsed.data.validFrom || `${yearId}-01-01`;
     const validTo = parsed.data.validTo || `${yearId}-12-31`;
 
@@ -45,6 +46,18 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const sessionsCol = adminDb.collection("years").doc(yearId).collection("sessions");
     const now = new Date().toISOString();
     const todayStr = format(getColomboNow(), "yyyy-MM-dd");
+
+    const dateError = validateSlotDatesNotInPast({
+      isExtra: Boolean(isTemporary || slotType === "extra"),
+      specificDate,
+      validFrom,
+      validTo,
+      todayStr,
+      isEdit: true,
+    });
+    if (dateError) {
+      return NextResponse.json({ error: dateError }, { status: 400 });
+    }
 
     let updatedSlot: TimetableSlot | null = null;
 

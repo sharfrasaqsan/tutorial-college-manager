@@ -6,8 +6,11 @@ import {
   CreateSlotSchema,
   generateSessionsForSlot,
   slotToTimeInterval,
+  validateSlotDatesNotInPast,
 } from "@/lib/timetable";
 import { YEAR_COOKIE_NAME } from "@/lib/academic-year";
+import { getColomboNow } from "@/lib/dates";
+import { format } from "date-fns";
 import type { TimetableSlot, TimeInterval, Session } from "@/types";
 
 /**
@@ -114,9 +117,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: firstIssue }, { status: 400 });
     }
 
-    const { classId, weekday, startTime, endTime } = parsed.data;
+    const { classId, weekday, startTime, endTime, isTemporary, slotType, specificDate } = parsed.data;
     const validFrom = parsed.data.validFrom || `${yearId}-01-01`;
     const validTo = parsed.data.validTo || `${yearId}-12-31`;
+
+    const todayStr = format(getColomboNow(), "yyyy-MM-dd");
+    const dateError = validateSlotDatesNotInPast({
+      isExtra: Boolean(isTemporary || slotType === "extra"),
+      specificDate,
+      validFrom,
+      validTo,
+      todayStr,
+      isEdit: false,
+    });
+    if (dateError) {
+      return NextResponse.json({ error: dateError }, { status: 400 });
+    }
 
     // Verify class belongs to this teacher
     const classDoc = await adminDb

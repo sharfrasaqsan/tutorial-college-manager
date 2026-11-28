@@ -20,21 +20,44 @@ export async function GET(request: NextRequest) {
     const cookieYear = request.cookies.get(YEAR_COOKIE_NAME)?.value;
     const yearId = cookieYear || "2026";
 
-    // 1. Fetch classes where teacherId == authenticatedTeacherId
-    const classesSnap = await adminDb
-      .collection("years")
-      .doc(yearId)
-      .collection("classes")
-      .where("teacherId", "==", teacherId)
-      .get();
+    // 1. Fetch classes where teacherId == authenticatedTeacherId OR teacherIds contains authenticatedTeacherId
+    const [primarySnap, multiSnap] = await Promise.all([
+      adminDb
+        .collection("years")
+        .doc(yearId)
+        .collection("classes")
+        .where("teacherId", "==", teacherId)
+        .get(),
+      adminDb
+        .collection("years")
+        .doc(yearId)
+        .collection("classes")
+        .where("teacherIds", "array-contains", teacherId)
+        .get(),
+    ]);
+
+    const seenClassIds = new Set<string>();
+    const allClassesDocs: any[] = [];
+    primarySnap.docs.forEach((d) => {
+      if (!seenClassIds.has(d.id)) {
+        seenClassIds.add(d.id);
+        allClassesDocs.push(d);
+      }
+    });
+    multiSnap.docs.forEach((d) => {
+      if (!seenClassIds.has(d.id)) {
+        seenClassIds.add(d.id);
+        allClassesDocs.push(d);
+      }
+    });
 
     // 2. Fetch enrolled students for each class in parallel
     const classesList: any[] = await Promise.all(
-      classesSnap.docs.map(async (classDoc) => {
+      allClassesDocs.map(async (classDoc) => {
         const classData = classDoc.data();
         const enrolmentsSnap = await classDoc.ref.collection("enrolments").get();
 
-        const students = enrolmentsSnap.docs.map((enrolDoc) => {
+        const students = enrolmentsSnap.docs.map((enrolDoc: any) => {
           const enrolData = enrolDoc.data();
           const studentId = enrolData.studentId || enrolDoc.id;
           return {
@@ -49,7 +72,7 @@ export async function GET(request: NextRequest) {
         });
 
         // Sort students by name
-        students.sort((a, b) => a.name.localeCompare(b.name));
+        students.sort((a: any, b: any) => a.name.localeCompare(b.name));
 
         // Build safe class record: NO FEES!
         return {

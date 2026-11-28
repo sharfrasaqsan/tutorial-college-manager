@@ -60,15 +60,31 @@ export async function POST(request: NextRequest) {
 
     const classInfoMap = new Map<
       string,
-      { teacherId: string; teacherName: string; grade: string; name: string }
+      {
+        teacherId: string;
+        teacherName: string;
+        grade: string;
+        name: string;
+        isMultiTeacher?: boolean;
+        teacherIds?: string[];
+        teachers?: any[];
+      }
     >();
     classesSnap.forEach((doc) => {
       const d = doc.data();
+      const tIds: string[] = [];
+      if (d.teacherId) tIds.push(d.teacherId.trim());
+      if (Array.isArray(d.teacherIds)) d.teacherIds.forEach((t: string) => t && tIds.push(t.trim()));
+      if (Array.isArray(d.teachers)) d.teachers.forEach((t: any) => t.teacherId && tIds.push(t.teacherId.trim()));
+
       classInfoMap.set(doc.id, {
         teacherId: (d.teacherId || "").trim(),
         teacherName: d.teacherName || "",
         grade: d.grade || "",
         name: d.name || "",
+        isMultiTeacher: Boolean(d.isMultiTeacher),
+        teacherIds: Array.from(new Set(tIds)),
+        teachers: d.teachers || [],
       });
     });
 
@@ -76,6 +92,13 @@ export async function POST(request: NextRequest) {
     slotsSnap.forEach((doc) => {
       const data = doc.data() as TimetableSlot;
       const classInfo = classInfoMap.get(data.classId);
+      const slotTeacherIds = new Set<string>();
+      if (data.teacherId) slotTeacherIds.add(data.teacherId.trim());
+      if (data.teacherIds) data.teacherIds.forEach((t) => t && slotTeacherIds.add(t.trim()));
+      if (classInfo?.teacherIds && slotTeacherIds.size === 0) {
+        classInfo.teacherIds.forEach((t) => slotTeacherIds.add(t));
+      }
+
       existingIntervals.push(
         slotToTimeInterval({
           ...data,
@@ -84,6 +107,8 @@ export async function POST(request: NextRequest) {
           className: data.className || classInfo?.name || "",
           teacherId: data.teacherId?.trim() || classInfo?.teacherId || "",
           teacherName: data.teacherName || classInfo?.teacherName || "",
+          teacherIds: Array.from(slotTeacherIds),
+          teachers: classInfo?.teachers,
         })
       );
     });
@@ -91,13 +116,25 @@ export async function POST(request: NextRequest) {
     const targetGrade =
       body.grade || (classId ? classInfoMap.get(classId)?.grade : "") || "";
 
+    const candidateClassInfo = classId ? classInfoMap.get(classId) : undefined;
+    const candTeacherIds = new Set<string>();
+    if (body.teacherId) candTeacherIds.add(body.teacherId.trim());
+    if (body.teacherIds && Array.isArray(body.teacherIds)) {
+      body.teacherIds.forEach((t: string) => t && candTeacherIds.add(t.trim()));
+    }
+    if (candidateClassInfo?.teacherIds && candTeacherIds.size === 0) {
+      candidateClassInfo.teacherIds.forEach((t) => candTeacherIds.add(t));
+    }
+
     const candidate: TimeInterval = {
       id: slotId || "candidate",
       classId: classId || "",
-      className: className || (classId ? classInfoMap.get(classId)?.name : "") || "",
+      className: className || candidateClassInfo?.name || "",
       grade: targetGrade,
-      teacherId: teacherId || (classId ? classInfoMap.get(classId)?.teacherId : "") || "",
-      teacherName: teacherName || (classId ? classInfoMap.get(classId)?.teacherName : "") || "",
+      teacherId: teacherId || candidateClassInfo?.teacherId || "",
+      teacherName: teacherName || candidateClassInfo?.teacherName || "",
+      teacherIds: Array.from(candTeacherIds),
+      teachers: candidateClassInfo?.teachers,
       weekday: Number(weekday),
       startTime,
       endTime,

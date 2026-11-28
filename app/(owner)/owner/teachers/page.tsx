@@ -36,6 +36,9 @@ import {
   CheckCircle2,
   Trash2,
   AlertTriangle,
+  GraduationCap,
+  Filter,
+  X,
 } from "lucide-react";
 import type { Teacher, AcademicSubject } from "@/types";
 
@@ -44,6 +47,9 @@ export default function OwnerTeachersPage() {
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "deactivated">("all");
+  const [subjectFilter, setSubjectFilter] = useState<string>("all");
+  const [assignedFilter, setAssignedFilter] = useState<"all" | "assigned" | "unassigned">("all");
 
   // Toast
   const [toastMessage, setToastMessage] = useState("");
@@ -126,6 +132,9 @@ export default function OwnerTeachersPage() {
       const data = await res.json();
       if (res.ok) {
         setTeachers(data.teachers || []);
+        if (data.yearId && !yearOverride && !activeYear) {
+          setActiveYear(data.yearId);
+        }
       } else {
         showToast(data.error || "Failed to load teachers.", "danger");
       }
@@ -215,6 +224,7 @@ export default function OwnerTeachersPage() {
       showToast("Error uploading photo file.", "danger");
     } finally {
       setUploadingPhoto(false);
+      e.target.value = "";
     }
   }
 
@@ -222,16 +232,24 @@ export default function OwnerTeachersPage() {
     e.preventDefault();
     setFormError("");
 
-    if (!formName.trim()) {
-      setFormError("Full name is required.");
+    if (!formName.trim() || formName.trim().length < 2) {
+      setFormError("Full name must be at least 2 characters.");
       return;
     }
     if (!editingTeacher && !formEmail.trim()) {
       setFormError("Email address is required for teacher login.");
       return;
     }
-    if (!formPhone.trim()) {
-      setFormError("Contact phone number is required.");
+    if (!editingTeacher && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formEmail.trim())) {
+      setFormError("Please provide a valid email address.");
+      return;
+    }
+    if (!formPhone.trim() || formPhone.trim().length < 7) {
+      setFormError("Contact phone number must have at least 7 digits.");
+      return;
+    }
+    if (!editingTeacher && formPassword.trim() && formPassword.trim().length < 6) {
+      setFormError("Password must be at least 6 characters.");
       return;
     }
 
@@ -405,20 +423,47 @@ export default function OwnerTeachersPage() {
   }
 
   const filteredTeachers = teachers.filter((t) => {
+    // Status filter
+    if (statusFilter === "active" && !t.active) return false;
+    if (statusFilter === "deactivated" && t.active) return false;
+
+    // Subject filter
+    if (subjectFilter !== "all" && !t.subjects?.includes(subjectFilter)) return false;
+
+    // Assigned classes filter
+    if (assignedFilter === "assigned" && (!t.assignedClassesCount || t.assignedClassesCount === 0)) return false;
+    if (assignedFilter === "unassigned" && (t.assignedClassesCount && t.assignedClassesCount > 0)) return false;
+
+    // Search query
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     const nameMatch = t.name.toLowerCase().includes(q);
     const emailMatch = t.email.toLowerCase().includes(q);
     const phoneMatch = t.phone?.toLowerCase().includes(q);
     const subjMatch = t.subjects?.some((s) => s.toLowerCase().includes(q));
-    return nameMatch || emailMatch || phoneMatch || subjMatch;
+    const classMatch = t.assignedClasses?.some((c) => c.name.toLowerCase().includes(q));
+    return nameMatch || emailMatch || phoneMatch || subjMatch || classMatch;
   });
 
+  const hasActiveFilters =
+    search.trim() !== "" || statusFilter !== "all" || subjectFilter !== "all" || assignedFilter !== "all";
+
+  function clearAllFilters() {
+    setSearch("");
+    setStatusFilter("all");
+    setSubjectFilter("all");
+    setAssignedFilter("all");
+  }
+
   return (
-    <OwnerShell pageTitle="Teachers">
+    <OwnerShell pageTitle={activeYear ? `Teachers (${activeYear})` : "Teachers"}>
       <PageHeader
-        title="College Faculty"
-        subtitle="Manage permanent teacher records, subject assignments and login accounts"
+        title={activeYear ? `College Faculty (${activeYear})` : "College Faculty"}
+        subtitle={
+          activeYear
+            ? `Manage faculty records, class assignments, and login accounts for academic year ${activeYear}`
+            : "Manage permanent teacher records, subject assignments and login accounts"
+        }
         action={
           <Button variant="primary" onClick={openAddSheet} className="gap-1.5">
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -427,14 +472,91 @@ export default function OwnerTeachersPage() {
         }
       />
 
-      {/* Search Bar */}
-      <div className="mb-4">
-        <Input
-          type="search"
-          placeholder="Search by teacher name, email, phone or subject..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col gap-2.5 mb-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex-1">
+            <Input
+              type="search"
+              placeholder="Search faculty by name, email, phone, subject, or assigned class..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          {/* Status Filter */}
+          <div className="w-full sm:w-36">
+            <select
+              aria-label="Filter by Status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as "all" | "active" | "deactivated")}
+              className="w-full h-9 px-2.5 text-xs rounded border border-[#E4E1DA] bg-white text-[#1C1F23] focus:outline-none focus:ring-1 focus:ring-[#1F5C4D] focus:border-[#1F5C4D]"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active Only</option>
+              <option value="deactivated">Deactivated</option>
+            </select>
+          </div>
+
+          {/* Subject Filter */}
+          <div className="w-full sm:w-40">
+            <select
+              aria-label="Filter by Subject"
+              value={subjectFilter}
+              onChange={(e) => setSubjectFilter(e.target.value)}
+              className="w-full h-9 px-2.5 text-xs rounded border border-[#E4E1DA] bg-white text-[#1C1F23] focus:outline-none focus:ring-1 focus:ring-[#1F5C4D] focus:border-[#1F5C4D]"
+            >
+              <option value="all">All Subjects</option>
+              {availableSubjects.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Class Assignment Filter */}
+          <div className="w-full sm:w-44">
+            <select
+              aria-label="Filter by Class Assignment"
+              value={assignedFilter}
+              onChange={(e) => setAssignedFilter(e.target.value as "all" | "assigned" | "unassigned")}
+              className="w-full h-9 px-2.5 text-xs rounded border border-[#E4E1DA] bg-white text-[#1C1F23] focus:outline-none focus:ring-1 focus:ring-[#1F5C4D] focus:border-[#1F5C4D]"
+            >
+              <option value="all">All Faculty</option>
+              <option value="assigned">Assigned to Classes</option>
+              <option value="unassigned">No Classes Assigned</option>
+            </select>
+          </div>
+
+          {hasActiveFilters && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={clearAllFilters}
+              className="gap-1 shrink-0 h-9 text-xs"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Reset</span>
+            </Button>
+          )}
+        </div>
+
+        {hasActiveFilters && (
+          <div className="flex items-center justify-between text-xs text-[#5F6670] px-1">
+            <span>
+              Showing <strong>{filteredTeachers.length}</strong> of <strong>{teachers.length}</strong> faculty members
+            </span>
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="text-[#1F5C4D] hover:underline cursor-pointer"
+            >
+              Clear all filters
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Teachers List */}
@@ -498,6 +620,40 @@ export default function OwnerTeachersPage() {
                   )}
                 </div>
               ),
+            },
+            {
+              key: "classes",
+              header: "Assigned Classes",
+              render: (teacher) => {
+                const classes = teacher.assignedClasses || [];
+                if (classes.length === 0) {
+                  return <span className="text-xs text-[#5F6670] italic">None (Available)</span>;
+                }
+                return (
+                  <div className="flex flex-wrap items-center gap-1 max-w-xs">
+                    {classes.slice(0, 3).map((cls) => (
+                      <a
+                        key={cls.id}
+                        href={`/owner/classes/${cls.id}`}
+                        title={`View ${cls.name}`}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded bg-[#FAF9F6] border border-[#E4E1DA] text-[#1F5C4D] hover:border-[#1F5C4D] hover:bg-[#E6F0EC] transition-colors"
+                      >
+                        <span>{cls.name}</span>
+                        {cls.isMultiTeacher && (
+                          <span className="text-[9px] bg-[#E6F0EC] text-[#1F5C4D] px-1 py-0.2 rounded font-semibold">
+                            Co-taught
+                          </span>
+                        )}
+                      </a>
+                    ))}
+                    {classes.length > 3 && (
+                      <span className="text-[10px] text-[#5F6670] font-medium self-center">
+                        +{classes.length - 3} more
+                      </span>
+                    )}
+                  </div>
+                );
+              },
             },
             {
               key: "contact",
@@ -587,19 +743,23 @@ export default function OwnerTeachersPage() {
           ]}
           emptyState={
             <EmptyState
-              title={search ? "No matching teachers found" : "No teachers registered yet"}
+              title={hasActiveFilters ? "No matching teachers found" : "No teachers registered yet"}
               description={
-                search
-                  ? "Try adjusting your search query."
+                hasActiveFilters
+                  ? "Try adjusting your search or filters."
                   : "Add your first teacher account to begin assigning classes and schedules."
               }
               icon={<Users className="w-8 h-8" strokeWidth={1.75} />}
               action={
-                !search ? (
+                hasActiveFilters ? (
+                  <Button variant="secondary" onClick={clearAllFilters}>
+                    Clear Filters
+                  </Button>
+                ) : (
                   <Button variant="primary" onClick={openAddSheet}>
                     Add Teacher
                   </Button>
-                ) : undefined
+                )
               }
             />
           }
@@ -682,6 +842,33 @@ export default function OwnerTeachersPage() {
                   ))}
                 </div>
               )}
+
+              {/* Assigned Classes */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[#E4E1DA]">
+                <span className="text-[11px] font-medium text-[#5F6670] flex items-center gap-1 mr-1">
+                  <GraduationCap className="w-3.5 h-3.5 text-[#1F5C4D]" strokeWidth={1.75} />
+                  Assigned Classes:
+                </span>
+                {teacher.assignedClasses && teacher.assignedClasses.length > 0 ? (
+                  teacher.assignedClasses.map((cls) => (
+                    <a
+                      key={cls.id}
+                      href={`/owner/classes/${cls.id}`}
+                      title={`View ${cls.name}`}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded bg-[#FAF9F6] border border-[#E4E1DA] text-[#1F5C4D] hover:border-[#1F5C4D] hover:bg-[#E6F0EC] transition-colors"
+                    >
+                      <span>{cls.name}</span>
+                      {cls.isMultiTeacher && (
+                        <span className="text-[9px] bg-[#E6F0EC] text-[#1F5C4D] px-1 py-0.2 rounded font-semibold">
+                          Co-taught
+                        </span>
+                      )}
+                    </a>
+                  ))
+                ) : (
+                  <span className="text-xs text-[#5F6670] italic">None (Available for scheduling)</span>
+                )}
+              </div>
 
               {/* Action Buttons */}
               <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-[#E4E1DA]">
@@ -825,7 +1012,7 @@ export default function OwnerTeachersPage() {
                   <Upload className="w-5 h-5" strokeWidth={1.75} />
                 </div>
               )}
-              <div className="flex-1">
+              <div className="flex-1 flex flex-wrap items-center gap-2">
                 <input
                   type="file"
                   accept="image/*"
@@ -836,11 +1023,21 @@ export default function OwnerTeachersPage() {
                 />
                 <label
                   htmlFor="teacher-photo"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-[#E4E1DA] rounded bg-white text-[#1C1F23] cursor-pointer hover:bg-[#FAF9F6]"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-[#E4E1DA] rounded bg-white text-[#1C1F23] cursor-pointer hover:bg-[#FAF9F6] transition-colors"
                 >
                   <Upload className="w-3.5 h-3.5 text-[#1F5C4D]" strokeWidth={1.75} />
                   <span>{uploadingPhoto ? "Uploading..." : formPhotoUrl ? "Change Photo" : "Upload Photo"}</span>
                 </label>
+                {formPhotoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setFormPhotoUrl("")}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium border border-[#A32A2A]/20 rounded bg-white text-[#A32A2A] hover:bg-[#FBE9E7] transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    <span>Remove Photo</span>
+                  </button>
+                )}
               </div>
             </div>
           </Field>
@@ -1120,7 +1317,36 @@ export default function OwnerTeachersPage() {
           setDeleteStep2Teacher(target);
         }}
         title={`Delete Teacher from ${activeYear || "Academic Year"}: ${deleteStep1Teacher?.name || ""}?`}
-        description={`This will remove ${deleteStep1Teacher?.name || "this teacher"} from ${activeYear ? `Academic Year ${activeYear}` : "the current academic year"} and future activities. Their historical data in past academic years (e.g. 2025) and completed sessions will remain safely preserved and will NOT be modified. To proceed, confirm in the next step.`}
+        description={
+          deleteStep1Teacher ? (
+            <div className="space-y-2.5 text-xs text-[#5F6670]">
+              <p>
+                This will remove <strong>{deleteStep1Teacher.name}</strong> from{" "}
+                <strong>{activeYear ? `Academic Year ${activeYear}` : "the current academic year"}</strong> and future activities.
+              </p>
+              {deleteStep1Teacher.assignedClasses && deleteStep1Teacher.assignedClasses.length > 0 && (
+                <div className="p-2.5 rounded bg-[#FBE9E7] border border-[#A32A2A]/20 text-[#A32A2A]">
+                  <strong className="block mb-1 font-semibold">
+                    Warning: Currently assigned to {deleteStep1Teacher.assignedClasses.length} class(es):
+                  </strong>
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    {deleteStep1Teacher.assignedClasses.map((cls) => (
+                      <li key={cls.id}>
+                        {cls.name} {cls.isMultiTeacher ? "(Co-taught)" : ""}
+                      </li>
+                    ))}
+                  </ul>
+                  <span className="block mt-1 font-medium">
+                    Deleting will automatically unassign them from these classes.
+                  </span>
+                </div>
+              )}
+              <p>
+                Their historical data in past academic years (e.g. 2025) and completed sessions will remain safely preserved and will NOT be modified. To proceed, confirm in the next step.
+              </p>
+            </div>
+          ) : ""
+        }
         confirmLabel="Continue to Final Confirmation"
         cancelLabel="Cancel"
         variant="danger"

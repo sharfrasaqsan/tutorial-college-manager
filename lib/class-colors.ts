@@ -353,3 +353,71 @@ export function getClassColor(
 
   return CLASS_COLOR_PALETTE[0];
 }
+
+/**
+ * Returns the set of color IDs currently used by the given classes.
+ */
+export function getUsedClassColors(
+  classes: Array<{ color?: string; grade?: string; subject?: string; name?: string; id?: string }>,
+  excludeClassId?: string
+): Set<string> {
+  const used = new Set<string>();
+  for (const c of classes) {
+    if (excludeClassId && c.id === excludeClassId) continue;
+    const cId = c.color || getClassColor(c).id;
+    if (cId) used.add(cId.toLowerCase());
+  }
+  return used;
+}
+
+/**
+ * Automatically selects a non-repeating color for a new or updated class.
+ *
+ * Algorithm:
+ * 1. Checks what colors are already used by existing classes.
+ * 2. If a preferred grade and subject (or name) is provided:
+ *    - Looks up the natural combination or subject color.
+ *    - If that preferred color is NOT yet used, returns it.
+ * 3. Otherwise, finds the first unused color from CLASS_COLOR_PALETTE.
+ * 4. If all palette colors are used (e.g. >12 classes), selects the least frequently used color.
+ */
+export function getAvailableClassColor(
+  existingClasses: Array<{ color?: string; grade?: string; subject?: string; name?: string; id?: string }>,
+  preferred?: { grade?: string; subject?: string; name?: string; excludeClassId?: string }
+): string {
+  const usedColors = getUsedClassColors(existingClasses, preferred?.excludeClassId);
+
+  // 1. If preferred combination has a color that is not yet used, use it!
+  if (preferred?.grade || preferred?.subject || preferred?.name) {
+    const preferredTheme = getClassColor({
+      grade: preferred.grade,
+      subject: preferred.subject,
+      name: preferred.name,
+    });
+    if (preferredTheme?.id && !usedColors.has(preferredTheme.id.toLowerCase())) {
+      return preferredTheme.id;
+    }
+  }
+
+  // 2. Find the first color in CLASS_COLOR_PALETTE that is not yet used
+  const unused = CLASS_COLOR_PALETTE.find((c) => !usedColors.has(c.id.toLowerCase()));
+  if (unused) {
+    return unused.id;
+  }
+
+  // 3. Fallback if palette exhausted (> 12 classes): pick least frequently used
+  const counts: Record<string, number> = {};
+  for (const c of CLASS_COLOR_PALETTE) counts[c.id.toLowerCase()] = 0;
+  for (const c of existingClasses) {
+    if (preferred?.excludeClassId && c.id === preferred.excludeClassId) continue;
+    const cId = (c.color || getClassColor(c).id).toLowerCase();
+    if (counts[cId] !== undefined) {
+      counts[cId]++;
+    }
+  }
+
+  const sorted = [...CLASS_COLOR_PALETTE].sort(
+    (a, b) => counts[a.id.toLowerCase()] - counts[b.id.toLowerCase()]
+  );
+  return sorted[0]?.id || "blue";
+}

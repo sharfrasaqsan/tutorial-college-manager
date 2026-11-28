@@ -15,6 +15,16 @@ export const ClassTermsSchema = z
     path: ["teacherSharePerStudent"],
   });
 
+export const ClassTeacherAssignmentSchema = z.object({
+  teacherId: z.string().trim().min(1, "Teacher selection is required."),
+  teacherName: z.string().trim().optional(),
+  splitPercentage: z
+    .number()
+    .min(1, "Split percentage must be at least 1%.")
+    .max(100, "Split percentage cannot exceed 100%."),
+  role: z.enum(["primary", "co_teacher"]).optional(),
+});
+
 export const ClassScheduleSchema = z
   .object({
     id: z.string().optional(),
@@ -29,6 +39,8 @@ export const ClassScheduleSchema = z
     endTime: z
       .string()
       .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "End time must be HH:MM in 24h format."),
+    teacherId: z.string().optional(),
+    teacherIds: z.array(z.string()).optional(),
     validFrom: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Valid from must be in YYYY-MM-DD format.")
@@ -43,27 +55,113 @@ export const ClassScheduleSchema = z
     path: ["endTime"],
   });
 
-export const CreateClassSchema = z.object({
-  yearId: z.string().min(4, "Academic year is required."),
-  grade: z.string().trim().min(1, "Grade is required."),
-  subject: z.string().trim().min(1, "Subject is required."),
-  teacherId: z.string().trim().min(1, "Teacher assignment is required."),
-  color: z.string().trim().optional(),
-  terms: ClassTermsSchema,
-  schedule: ClassScheduleSchema.optional(),
-  schedules: z.array(ClassScheduleSchema).optional(),
-});
+export const CreateClassSchema = z
+  .object({
+    yearId: z.string().min(4, "Academic year is required."),
+    grade: z.string().trim().min(1, "Grade is required."),
+    subject: z.string().trim().min(1, "Subject is required."),
+    teacherId: z.string().trim().min(1, "Teacher assignment is required."),
+    isMultiTeacher: z.boolean().optional(),
+    teachers: z.array(ClassTeacherAssignmentSchema).optional(),
+    color: z.string().trim().optional(),
+    terms: ClassTermsSchema,
+    schedule: ClassScheduleSchema.optional(),
+    schedules: z.array(ClassScheduleSchema).optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.isMultiTeacher) {
+        if (!data.teachers || data.teachers.length < 2) return false;
+        if (data.teachers.length > 3) return false;
+      }
+      return true;
+    },
+    {
+      message: "Multiple teacher classes require 2 or 3 teachers.",
+      path: ["teachers"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.isMultiTeacher && data.teachers && data.teachers.length >= 2) {
+        const ids = data.teachers.map((t) => t.teacherId.trim());
+        const unique = new Set(ids);
+        return unique.size === ids.length;
+      }
+      return true;
+    },
+    {
+      message: "Cannot select the same teacher multiple times.",
+      path: ["teachers"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.isMultiTeacher && data.teachers && data.teachers.length >= 2) {
+        const sum = data.teachers.reduce((acc, t) => acc + (t.splitPercentage || 0), 0);
+        return Math.round(sum) === 100;
+      }
+      return true;
+    },
+    {
+      message: "Total split percentage across all teachers must equal 100%.",
+      path: ["teachers"],
+    }
+  );
 
-export const UpdateClassSchema = z.object({
-  grade: z.string().trim().min(1, "Grade is required.").optional(),
-  subject: z.string().trim().min(1, "Subject is required.").optional(),
-  teacherId: z.string().trim().min(1, "Teacher assignment is required.").optional(),
-  color: z.string().trim().optional(),
-  active: z.boolean().optional(),
-  terms: ClassTermsSchema.optional(),
-  schedule: ClassScheduleSchema.optional(),
-  schedules: z.array(ClassScheduleSchema).optional(),
-});
+export const UpdateClassSchema = z
+  .object({
+    grade: z.string().trim().min(1, "Grade is required.").optional(),
+    subject: z.string().trim().min(1, "Subject is required.").optional(),
+    teacherId: z.string().trim().min(1, "Teacher assignment is required.").optional(),
+    isMultiTeacher: z.boolean().optional(),
+    teachers: z.array(ClassTeacherAssignmentSchema).optional(),
+    color: z.string().trim().optional(),
+    active: z.boolean().optional(),
+    terms: ClassTermsSchema.optional(),
+    schedule: ClassScheduleSchema.optional(),
+    schedules: z.array(ClassScheduleSchema).optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.isMultiTeacher) {
+        if (!data.teachers || data.teachers.length < 2) return false;
+        if (data.teachers.length > 3) return false;
+      }
+      return true;
+    },
+    {
+      message: "Multiple teacher classes require 2 or 3 teachers.",
+      path: ["teachers"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.isMultiTeacher && data.teachers && data.teachers.length >= 2) {
+        const ids = data.teachers.map((t) => t.teacherId.trim());
+        const unique = new Set(ids);
+        return unique.size === ids.length;
+      }
+      return true;
+    },
+    {
+      message: "Cannot select the same teacher multiple times.",
+      path: ["teachers"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.isMultiTeacher && data.teachers && data.teachers.length >= 2) {
+        const sum = data.teachers.reduce((acc, t) => acc + (t.splitPercentage || 0), 0);
+        return Math.round(sum) === 100;
+      }
+      return true;
+    },
+    {
+      message: "Total split percentage across all teachers must equal 100%.",
+      path: ["teachers"],
+    }
+  );
 
 export const UpdateClassTermsSchema = z.object({
   monthlyFee: z.number().min(0, "Monthly fee must be 0 or greater."),

@@ -39,6 +39,7 @@ import { Button } from "@/components/ui/Button";
 import { Toast } from "@/components/ui/Toast";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { NotificationModal } from "@/components/notifications/NotificationModal";
 import type { AcademicYear } from "@/types";
 
 export interface OwnerShellProps {
@@ -611,19 +612,13 @@ export function OwnerShell({
               <ChevronDown className="w-3.5 h-3.5 text-[#5F6670]" strokeWidth={1.75} />
             </button>
 
-            {/* Notifications Bell */}
-            <Link
-              href="/owner/notifications"
-              className="min-h-[44px] min-w-[44px] relative flex items-center justify-center text-[#5F6670] hover:text-[#1C1F23] rounded-[6px] transition-colors"
-              aria-label={`Notifications (${unreadNotifCount} unread)`}
-            >
-              <Bell className="w-5 h-5" strokeWidth={1.75} />
-              {(unreadNotifCount > 0 || hasNotifications) && (
-                <span className="absolute top-2 right-2 min-w-[16px] h-4 px-1 text-[10px] font-bold bg-[#A32A2A] text-[#FFFFFF] rounded-full flex items-center justify-center leading-none">
-                  {unreadNotifCount > 9 ? "9+" : unreadNotifCount || "•"}
-                </span>
-              )}
-            </Link>
+            {/* Notifications Modal */}
+            <NotificationModal
+              role="owner"
+              unreadCount={unreadNotifCount}
+              hasNotifications={hasNotifications}
+              onUnreadCountChange={setUnreadNotifCount}
+            />
 
             {/* Owner Role Indicator Chip (Desktop & Tablet) */}
             <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E6F0EC] text-[#1F5C4D] text-xs font-medium">

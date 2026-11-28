@@ -19,6 +19,7 @@ import {
 } from "@/lib/notifications";
 import { YEAR_COOKIE_NAME } from "@/lib/academic-year";
 import { invalidatePublicSiteDataCache } from "@/lib/public-data";
+import { getAvailableClassColor, getUsedClassColors } from "@/lib/class-colors";
 import type { ClassItem, TimetableSlot, TimeInterval, Session } from "@/types";
 
 /**
@@ -88,6 +89,9 @@ export async function GET(request: NextRequest) {
           subject: data.subject || "",
           teacherId: data.teacherId || "",
           teacherName: data.teacherName || "Unassigned",
+          isMultiTeacher: Boolean(data.isMultiTeacher),
+          teachers: data.teachers || [],
+          teacherIds: data.teacherIds || (data.teacherId ? [data.teacherId] : []),
           name: data.name || `${data.grade} ${data.subject}`,
           color: data.color || undefined,
           currentTerms: {
@@ -166,6 +170,7 @@ export async function POST(request: NextRequest) {
       subject: d.data().subject as string,
       teacherId: d.data().teacherId as string,
       teacherName: d.data().teacherName as string,
+      color: d.data().color as string | undefined,
     }));
 
     const classTeacherMap = new Map<string, { teacherId: string; teacherName: string }>();
@@ -182,17 +187,57 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: dupCheck.error }, { status: 400 });
     }
 
-    // 3. Resolve teacher name
+    // 3. Resolve teacher names (handles both single teacher and multi-teacher co-teaching)
+    const isMultiTeacher = Boolean(parsed.data.isMultiTeacher && parsed.data.teachers && parsed.data.teachers.length >= 2);
     let teacherName = "Unassigned";
-    const teacherDoc = await adminDb.collection("teachers").doc(teacherId).get();
-    if (teacherDoc.exists) {
-      teacherName = teacherDoc.data()?.name || "Teacher";
+    let resolvedTeachers: Array<{ teacherId: string; teacherName: string; splitPercentage: number; role?: "primary" | "co_teacher" }> = [];
+    let resolvedTeacherIds: string[] = [];
+
+    if (isMultiTeacher && parsed.data.teachers) {
+      const teacherDocs = await Promise.all(
+        parsed.data.teachers.map((t) => adminDb.collection("teachers").doc(t.teacherId).get())
+      );
+      resolvedTeachers = parsed.data.teachers.map((t, idx) => {
+        const doc = teacherDocs[idx];
+        const tName = doc.exists ? doc.data()?.name || "Teacher" : t.teacherName || "Teacher";
+        return {
+          teacherId: t.teacherId,
+          teacherName: tName,
+          splitPercentage: t.splitPercentage,
+          role: idx === 0 || t.role === "primary" ? "primary" : "co_teacher",
+        };
+      });
+      resolvedTeacherIds = resolvedTeachers.map((t) => t.teacherId);
+      const primary = resolvedTeachers.find((t) => t.role === "primary") || resolvedTeachers[0];
+      teacherName = resolvedTeachers.map((t) => t.teacherName).join(" & ");
+    } else {
+      const teacherDoc = await adminDb.collection("teachers").doc(teacherId).get();
+      if (teacherDoc.exists) {
+        teacherName = teacherDoc.data()?.name || "Teacher";
+      }
+      resolvedTeachers = [
+        {
+          teacherId,
+          teacherName,
+          splitPercentage: 100,
+          role: "primary",
+        },
+      ];
+      resolvedTeacherIds = [teacherId];
     }
 
     // 4. Generate name and timestamps
     const name = generateClassName(grade, subject);
     const now = new Date().toISOString();
     const ownerShare = calculateOwnerShare(terms.monthlyFee, terms.teacherSharePerStudent);
+
+    // 4.1 Resolve non-repeating class color theme
+    const usedColors = getUsedClassColors(existingClasses);
+    let resolvedColor = (parsed.data.color || "").trim().toLowerCase();
+    // If color is not specified or already in use, auto-select the next available color
+    if (!resolvedColor || (usedColors.has(resolvedColor) && usedColors.size < 12)) {
+      resolvedColor = getAvailableClassColor(existingClasses, { grade, subject, name });
+    }
 
     const initialTerm = {
       monthlyFee: terms.monthlyFee,
@@ -265,13 +310,18 @@ export async function POST(request: NextRequest) {
       const validTo = sch.validTo || `${yearId}-12-31`;
       const slotRef = slotsCol.doc();
 
+      const schTeacherId = sch.teacherId || teacherId;
+      const schTeacherIds = sch.teacherIds && sch.teacherIds.length > 0 ? sch.teacherIds : resolvedTeacherIds;
+
       const candidate: TimeInterval = {
         id: slotRef.id,
         classId,
         className: name,
         grade,
-        teacherId,
+        teacherId: schTeacherId,
         teacherName,
+        teacherIds: schTeacherIds,
+        teachers: resolvedTeachers,
         color: parsed.data.color || undefined,
         weekday: sch.weekday,
         startTime: sch.startTime,
@@ -306,9 +356,12 @@ export async function POST(request: NextRequest) {
         className: name,
         grade,
         subject,
-        teacherId,
+        teacherId: schTeacherId,
         teacherName,
-        color: parsed.data.color || undefined,
+        isMultiTeacher,
+        teachers: resolvedTeachers,
+        teacherIds: schTeacherIds,
+        color: resolvedColor || undefined,
         weekday: sch.weekday,
         startTime: sch.startTime,
         endTime: sch.endTime,
@@ -327,9 +380,12 @@ export async function POST(request: NextRequest) {
         className: name,
         grade,
         subject,
-        teacherId,
+        teacherId: schTeacherId,
         teacherName,
-        color: parsed.data.color || undefined,
+        isMultiTeacher,
+        teachers: resolvedTeachers,
+        teacherIds: schTeacherIds,
+        color: resolvedColor || undefined,
         weekday: sch.weekday,
         startTime: sch.startTime,
         endTime: sch.endTime,
@@ -348,8 +404,11 @@ export async function POST(request: NextRequest) {
       subject,
       teacherId,
       teacherName,
+      isMultiTeacher,
+      teachers: resolvedTeachers,
+      teacherIds: resolvedTeacherIds,
       name,
-      color: parsed.data.color || undefined,
+      color: resolvedColor || undefined,
       currentTerms: initialTerm,
       termsHistory: [initialTerm],
       active: true,
@@ -377,21 +436,24 @@ export async function POST(request: NextRequest) {
         await batch.commit();
       }
 
-      // Notify teacher for each created slot
+      // Notify all assigned teachers for each created slot
       for (const slot of createdSlots) {
-        try {
-          await notifyTeacherTimetableChange({
-            teacherId,
-            slotId: slot.id,
-            action: "created",
-            className: name,
-            weekday: slot.weekday,
-            startTime: slot.startTime,
-            endTime: slot.endTime,
-            yearId,
-          });
-        } catch (err) {
-          console.error("Non-fatal teacher timetable notification error:", err);
+        const teachersToNotify = slot.teacherIds && slot.teacherIds.length > 0 ? slot.teacherIds : [slot.teacherId];
+        for (const tId of teachersToNotify) {
+          try {
+            await notifyTeacherTimetableChange({
+              teacherId: tId,
+              slotId: slot.id,
+              action: "created",
+              className: name,
+              weekday: slot.weekday,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              yearId,
+            });
+          } catch (err) {
+            console.error("Non-fatal teacher timetable notification error:", err);
+          }
         }
       }
 

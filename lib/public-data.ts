@@ -146,8 +146,23 @@ export async function getPublicSiteData(): Promise<PublicSiteData> {
         return teacherObj;
       });
 
-    // 4. Process Classes for Active Year
-    const classes: PublicSafeClass[] = classesSnap.docs.map((doc) => {
+    // 4. Process Classes for Active Year (exclude non-repeating extra/temporary classes)
+    const classes: PublicSafeClass[] = classesSnap.docs
+      .filter((doc) => {
+        const data = doc.data();
+        if (
+          data.isTemporary === true ||
+          data.isExtra === true ||
+          data.slotType === "extra" ||
+          data.type === "extra" ||
+          data.classType === "extra" ||
+          Boolean(data.specificDate)
+        ) {
+          return false;
+        }
+        return true;
+      })
+      .map((doc) => {
       const data = doc.data();
       let fee = 0;
       if (data.currentTerms && typeof data.currentTerms.monthlyFee === "number") {
@@ -170,7 +185,7 @@ export async function getPublicSiteData(): Promise<PublicSiteData> {
       };
     });
 
-    // 5. Process Timetable Slots for Active Year
+    // 5. Process Timetable Slots for Active Year (exclude non-repeating extra/temporary slots)
     let slotsSnap = slotsSnapPrimary;
     if (slotsSnap.empty) {
       slotsSnap = await adminDb
@@ -180,7 +195,21 @@ export async function getPublicSiteData(): Promise<PublicSiteData> {
         .get();
     }
 
-    const slots: PublicSafeSlot[] = slotsSnap.docs.map((doc) => {
+    const slots: PublicSafeSlot[] = slotsSnap.docs
+      .filter((doc) => {
+        const data = doc.data();
+        if (
+          data.isTemporary === true ||
+          data.isExtra === true ||
+          data.slotType === "extra" ||
+          data.type === "extra" ||
+          Boolean(data.specificDate)
+        ) {
+          return false;
+        }
+        return true;
+      })
+      .map((doc) => {
       const data = doc.data();
       const resolvedTeacherName =
         data.teacherName ||

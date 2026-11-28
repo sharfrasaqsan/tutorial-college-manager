@@ -6,11 +6,11 @@ import { createTeacherAccount } from "@/lib/auth";
 import { sendTeacherWelcomeEmail } from "@/lib/email";
 import { YEAR_COOKIE_NAME } from "@/lib/academic-year";
 import { invalidatePublicSiteDataCache } from "@/lib/public-data";
-import type { Teacher } from "@/types";
+import type { Teacher, TeacherAssignedClass } from "@/types";
 
 /**
  * GET /api/owner/teachers
- * Returns all active teachers for the specified academic year.
+ * Returns all active teachers for the specified academic year along with their assigned classes.
  * Preserves historical teacher records for prior academic years.
  */
 export async function GET(request: NextRequest) {
@@ -20,9 +20,54 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const cookieYear = request.cookies.get(YEAR_COOKIE_NAME)?.value;
-    const activeYear = searchParams.get("yearId") || cookieYear || "";
+    const activeYear = searchParams.get("yearId") || cookieYear || new Date().getFullYear().toString();
 
+    // 1. Fetch teachers snapshot
     const snapshot = await adminDb.collection("teachers").get();
+
+    // 2. Query classes in the active academic year to map class assignments
+    const classesMap: Record<string, TeacherAssignedClass[]> = {};
+    try {
+      const classesSnap = await adminDb
+        .collection("years")
+        .doc(activeYear)
+        .collection("classes")
+        .get();
+
+      classesSnap.forEach((doc) => {
+        const cdata = doc.data();
+        const classInfo: TeacherAssignedClass = {
+          id: doc.id,
+          name: `${cdata.grade || ""} ${cdata.subject || ""}`.trim() || doc.id,
+          grade: cdata.grade || "",
+          subject: cdata.subject || "",
+          isMultiTeacher: Boolean(cdata.isMultiTeacher),
+        };
+
+        // Lead / single teacher assignment
+        if (cdata.teacherId) {
+          if (!classesMap[cdata.teacherId]) classesMap[cdata.teacherId] = [];
+          if (!classesMap[cdata.teacherId].some((ci) => ci.id === doc.id)) {
+            classesMap[cdata.teacherId].push(classInfo);
+          }
+        }
+
+        // Multi-teacher assignments
+        if (Array.isArray(cdata.teachers)) {
+          cdata.teachers.forEach((t: any) => {
+            if (t.teacherId) {
+              if (!classesMap[t.teacherId]) classesMap[t.teacherId] = [];
+              if (!classesMap[t.teacherId].some((ci) => ci.id === doc.id)) {
+                classesMap[t.teacherId].push(classInfo);
+              }
+            }
+          });
+        }
+      });
+    } catch (classErr) {
+      console.warn("Could not fetch active year classes for teacher mapping:", classErr);
+    }
+
     const teachers: Teacher[] = [];
 
     snapshot.forEach((doc) => {
@@ -33,6 +78,8 @@ export async function GET(request: NextRequest) {
       if (data.deletedInYear && activeYear && activeYear >= data.deletedInYear) {
         return;
       }
+
+      const assigned = classesMap[doc.id] || [];
 
       teachers.push({
         id: doc.id,
@@ -49,13 +96,15 @@ export async function GET(request: NextRequest) {
         deleted: data.deleted || false,
         deletedAt: data.deletedAt || undefined,
         deletedInYear: data.deletedInYear || undefined,
+        assignedClasses: assigned,
+        assignedClassesCount: assigned.length,
       });
     });
 
     // Sort by name
     teachers.sort((a, b) => a.name.localeCompare(b.name));
 
-    return NextResponse.json({ teachers });
+    return NextResponse.json({ teachers, yearId: activeYear });
   } catch (error: any) {
     return NextResponse.json(
       { error: "Failed to fetch teachers: " + (error?.message || "Unknown error") },

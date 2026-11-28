@@ -31,4 +31,28 @@ describe("ColorPicker Component", () => {
     render(<ColorPicker label="Subject Accent" onChange={() => {}} />);
     expect(screen.getByText("Subject Accent")).toBeInTheDocument();
   });
+
+  it("shows in-use indicator and accessibility label for colors in usedColors", () => {
+    render(
+      <ColorPicker
+        value="emerald"
+        onChange={() => {}}
+        usedColors={["blue", "indigo"]}
+      />
+    );
+
+    // Blue should be marked as in use
+    const blueBtn = screen.getByRole("button", { name: /select royal blue color \(in use\)/i });
+    expect(blueBtn).toBeInTheDocument();
+    expect(blueBtn).toHaveAttribute("title", "Royal Blue (In use by another class)");
+
+    // Emerald is selected so it shouldn't say in use
+    const emeraldBtn = screen.getByRole("button", { name: /select emerald green color$/i });
+    expect(emeraldBtn).toBeInTheDocument();
+
+    // Helper text explaining used colors should appear
+    expect(
+      screen.getByText(/swatches with a center dot are already in use by other classes/i)
+    ).toBeInTheDocument();
+  });
 });

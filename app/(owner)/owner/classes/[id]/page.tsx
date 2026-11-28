@@ -18,7 +18,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Toast, type ToastVariant } from "@/components/ui/Toast";
 import { MoneyText } from "@/components/ui/MoneyText";
 import { Pagination } from "@/components/ui/Pagination";
-import { getClassColor } from "@/lib/class-colors";
+import { getClassColor, getUsedClassColors } from "@/lib/class-colors";
 import { ClassBadge } from "@/components/ui/ClassBadge";
 import { ColorPicker } from "@/components/ui/ColorPicker";
 import {
@@ -50,6 +50,7 @@ import type {
   Teacher,
   TimetableSlot,
   TimeInterval,
+  ClassTeacherAssignment,
 } from "@/types";
 import { calculateOwnerShare, generateClassName } from "@/lib/classes";
 import { checkClash, doIntervalsOverlap } from "@/lib/clash";
@@ -99,6 +100,11 @@ export default function OwnerClassDetailPage() {
   const [editGrade, setEditGrade] = useState("");
   const [editSubject, setEditSubject] = useState("");
   const [editTeacherId, setEditTeacherId] = useState("");
+  const [editIsMultiTeacher, setEditIsMultiTeacher] = useState(false);
+  const [editCoTeachers, setEditCoTeachers] = useState<Array<{ teacherId: string; splitPercentage: number }>>([
+    { teacherId: "", splitPercentage: 50 },
+    { teacherId: "", splitPercentage: 50 },
+  ]);
   const [editShowAllTeachers, setEditShowAllTeachers] = useState(false);
   const [editFee, setEditFee] = useState<string>("");
   const [editTeacherShare, setEditTeacherShare] = useState<string>("");
@@ -219,6 +225,21 @@ export default function OwnerClassDetailPage() {
     setEditGrade(classItem.grade);
     setEditSubject(classItem.subject);
     setEditTeacherId(classItem.teacherId);
+    if (classItem.isMultiTeacher && classItem.teachers && classItem.teachers.length > 0) {
+      setEditIsMultiTeacher(true);
+      setEditCoTeachers(
+        classItem.teachers.map((t) => ({
+          teacherId: t.teacherId,
+          splitPercentage: t.splitPercentage,
+        }))
+      );
+    } else {
+      setEditIsMultiTeacher(false);
+      setEditCoTeachers([
+        { teacherId: classItem.teacherId || "", splitPercentage: 50 },
+        { teacherId: "", splitPercentage: 50 },
+      ]);
+    }
     setEditShowAllTeachers(false);
 
     const currentTerms = classItem.currentTerms;
@@ -240,6 +261,48 @@ export default function OwnerClassDetailPage() {
     setEditColor(classItem.color || getClassColor(classItem).id);
     setEditError("");
     setEditClassOpen(true);
+  }
+
+  function handleEditEqualizeSplit(count: number) {
+    if (count === 2) {
+      setEditCoTeachers((prev) => [
+        { teacherId: prev[0]?.teacherId || "", splitPercentage: 50 },
+        { teacherId: prev[1]?.teacherId || "", splitPercentage: 50 },
+      ]);
+    } else if (count === 3) {
+      setEditCoTeachers((prev) => [
+        { teacherId: prev[0]?.teacherId || "", splitPercentage: 34 },
+        { teacherId: prev[1]?.teacherId || "", splitPercentage: 33 },
+        { teacherId: prev[2]?.teacherId || "", splitPercentage: 33 },
+      ]);
+    }
+  }
+
+  function handleEditAddTeacher() {
+    if (editCoTeachers.length >= 3) return;
+    const next = [...editCoTeachers, { teacherId: "", splitPercentage: 0 }];
+    if (next.length === 3) {
+      next[0].splitPercentage = 34;
+      next[1].splitPercentage = 33;
+      next[2].splitPercentage = 33;
+    }
+    setEditCoTeachers(next);
+  }
+
+  function handleEditRemoveTeacher(idx: number) {
+    if (editCoTeachers.length <= 2) return;
+    const next = editCoTeachers.filter((_, i) => i !== idx);
+    next[0].splitPercentage = 50;
+    next[1].splitPercentage = 50;
+    setEditCoTeachers(next);
+  }
+
+  function handleEditCoTeacherChange(idx: number, field: "teacherId" | "splitPercentage", value: any) {
+    setEditCoTeachers((prev) => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], [field]: value };
+      return updated;
+    });
   }
 
   function addEditScheduleSession() {
@@ -346,6 +409,9 @@ export default function OwnerClassDetailPage() {
           grade: c.grade,
           teacherId: (c.teacherId || s.teacherId || "").trim(),
           teacherName: c.teacherName || s.teacherName || "",
+          teacherIds: c.teacherIds || s.teacherIds || (c.teacherId ? [c.teacherId] : []),
+          teachers: c.teachers || s.teachers,
+          isMultiTeacher: c.isMultiTeacher || s.isMultiTeacher,
           weekday: Number(s.weekday),
           startTime: s.startTime,
           endTime: s.endTime,
@@ -380,6 +446,10 @@ export default function OwnerClassDetailPage() {
       }
     }
 
+    const activeTeacherIds = editIsMultiTeacher
+      ? editCoTeachers.map((t) => t.teacherId.trim()).filter(Boolean)
+      : (editTeacherId.trim() ? [editTeacherId.trim()] : []);
+
     // 2. Check collisions against other existing classes
     editSchedules.forEach((sch, idx) => {
       if (clashes[idx]) return;
@@ -388,15 +458,36 @@ export default function OwnerClassDetailPage() {
         clashes[idx] = "End time must be after start time.";
         return;
       }
-      if (!editTeacherId.trim()) return;
+      if (activeTeacherIds.length === 0) return;
+
+      const candidateTeachers: ClassTeacherAssignment[] = editIsMultiTeacher
+        ? editCoTeachers
+            .filter((t) => t.teacherId.trim())
+            .map((t, i) => ({
+              teacherId: t.teacherId.trim(),
+              teacherName: teachers.find((te) => te.id === t.teacherId.trim())?.name || "Teacher",
+              splitPercentage: Number(t.splitPercentage) || 0,
+              role: i === 0 ? "primary" : "co_teacher",
+            }))
+        : [
+            {
+              teacherId: editTeacherId.trim(),
+              teacherName: selectedTeacher?.name || "The teacher",
+              splitPercentage: 100,
+              role: "primary",
+            },
+          ];
 
       const candidate: TimeInterval = {
         id: sch.id || `edit-draft-${idx}`,
         classId,
         className: generateClassName(editGrade, editSubject) || (classItem?.name ?? "Class"),
         grade: editGrade,
-        teacherId: editTeacherId.trim(),
-        teacherName: selectedTeacher?.name || "The teacher",
+        teacherId: activeTeacherIds[0],
+        teacherName: candidateTeachers[0]?.teacherName || "The teacher",
+        teacherIds: activeTeacherIds,
+        teachers: candidateTeachers,
+        isMultiTeacher: editIsMultiTeacher,
         weekday: Number(sch.weekday),
         startTime: sch.startTime,
         endTime: sch.endTime,
@@ -409,7 +500,7 @@ export default function OwnerClassDetailPage() {
     });
 
     return clashes;
-  }, [editSchedules, editTeacherId, editGrade, editSubject, classId, classItem, teachers, existingIntervals]);
+  }, [editSchedules, editTeacherId, editIsMultiTeacher, editCoTeachers, editGrade, editSubject, classId, classItem, teachers, existingIntervals]);
 
   const hasEditClashes = Object.keys(editClashes).length > 0;
 
@@ -418,9 +509,36 @@ export default function OwnerClassDetailPage() {
     if (!classItem) return;
     setEditError("");
 
-    if (!editGrade.trim() || !editSubject.trim() || !editTeacherId.trim()) {
-      setEditError("Please select grade, subject, and teacher.");
+    if (!editGrade.trim() || !editSubject.trim()) {
+      setEditError("Please select grade and subject.");
       return;
+    }
+    if (editIsMultiTeacher) {
+      if (editCoTeachers.length < 2 || editCoTeachers.length > 3) {
+        setEditError("A co-taught class requires 2 or 3 teachers.");
+        return;
+      }
+      for (let i = 0; i < editCoTeachers.length; i++) {
+        if (!editCoTeachers[i].teacherId.trim()) {
+          setEditError(`Please select a teacher for Teacher #${i + 1}.`);
+          return;
+        }
+      }
+      const ids = editCoTeachers.map((t) => t.teacherId.trim());
+      if (new Set(ids).size !== ids.length) {
+        setEditError("Each assigned co-teacher must be unique.");
+        return;
+      }
+      const totalSplit = editCoTeachers.reduce((sum, t) => sum + (Number(t.splitPercentage) || 0), 0);
+      if (totalSplit !== 100) {
+        setEditError(`Co-teacher revenue splits must sum to exactly 100%. (Current sum: ${totalSplit}%)`);
+        return;
+      }
+    } else {
+      if (!editTeacherId.trim()) {
+        setEditError("Please assign a teacher.");
+        return;
+      }
     }
     if (editFee === "" || isNaN(Number(editFee))) {
       setEditError("Please enter a valid monthly student fee.");
@@ -459,7 +577,6 @@ export default function OwnerClassDetailPage() {
         yearId: classItem.yearId,
         grade: editGrade.trim(),
         subject: editSubject.trim(),
-        teacherId: editTeacherId.trim(),
         color: editColor,
         terms: {
           monthlyFee: numEditFee,
@@ -474,6 +591,22 @@ export default function OwnerClassDetailPage() {
           endTime: s.endTime,
         })),
       };
+
+      if (editIsMultiTeacher) {
+        payload.isMultiTeacher = true;
+        payload.teacherId = editCoTeachers[0].teacherId.trim();
+        payload.teachers = editCoTeachers.map((t, idx) => ({
+          teacherId: t.teacherId.trim(),
+          splitPercentage: Number(t.splitPercentage) || 0,
+          role: idx === 0 ? "primary" : "co_teacher",
+        }));
+        payload.teacherIds = editCoTeachers.map((t) => t.teacherId.trim());
+      } else {
+        payload.isMultiTeacher = false;
+        payload.teacherId = editTeacherId.trim();
+        payload.teachers = [];
+        payload.teacherIds = [editTeacherId.trim()];
+      }
 
       const res = await fetch(`/api/owner/classes/${classId}`, {
         method: "PATCH",
@@ -697,7 +830,11 @@ export default function OwnerClassDetailPage() {
 
       <PageHeader
         title={classItem.name}
-        subtitle={`${classItem.grade} • Teacher: ${classItem.teacherName || "Unassigned"} • Year ${classItem.yearId}`}
+        subtitle={`${classItem.grade} • Teacher: ${
+          classItem.isMultiTeacher && classItem.teachers && classItem.teachers.length > 0
+            ? classItem.teachers.map((t) => `${t.teacherName} (${t.splitPercentage}%)`).join(", ")
+            : classItem.teacherName || "Unassigned"
+        } • Year ${classItem.yearId}`}
         action={
           <div className="flex items-center gap-2">
             <Button
@@ -754,10 +891,27 @@ export default function OwnerClassDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
                 <span className="text-[#5F6670] block">Assigned Teacher</span>
-                <span className="font-medium text-[#1C1F23] flex items-center gap-1.5 mt-0.5">
-                  <GraduationCap className="w-3.5 h-3.5 text-[#1F5C4D]" strokeWidth={1.75} />
-                  {classItem.teacherName || "Unassigned"}
-                </span>
+                {classItem.isMultiTeacher && classItem.teachers && classItem.teachers.length > 0 ? (
+                  <div className="flex flex-col gap-1 mt-1">
+                    <span className="text-[10px] font-semibold bg-[#E6F0EC] text-[#1F5C4D] border border-[#1F5C4D]/30 px-1.5 py-0.2 rounded w-fit">
+                      Co-Taught ({classItem.teachers.length} Teachers)
+                    </span>
+                    {classItem.teachers.map((t) => (
+                      <span key={t.teacherId} className="font-medium text-[#1C1F23] flex items-center gap-1.5">
+                        <GraduationCap className="w-3.5 h-3.5 text-[#1F5C4D]" strokeWidth={1.75} />
+                        {t.teacherName} ({t.splitPercentage}%)
+                        {t.role === "primary" && (
+                          <span className="text-[10px] text-[#1F5C4D] bg-[#E6F0EC] px-1 rounded font-normal">Lead</span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="font-medium text-[#1C1F23] flex items-center gap-1.5 mt-0.5">
+                    <GraduationCap className="w-3.5 h-3.5 text-[#1F5C4D]" strokeWidth={1.75} />
+                    {classItem.teacherName || "Unassigned"}
+                  </span>
+                )}
               </div>
 
               <div>
@@ -858,6 +1012,26 @@ export default function OwnerClassDetailPage() {
                 </span>
               </div>
             </div>
+
+            {classItem.isMultiTeacher && classItem.teachers && classItem.teachers.length > 0 && terms.teacherSharePerStudent > 0 && (
+              <div className="pt-2 border-t border-[#E4E1DA]/60 flex flex-col gap-1 text-xs">
+                <span className="text-[10px] uppercase font-semibold text-[#5F6670] tracking-wider">
+                  Co-Teacher Share Breakdown (per student)
+                </span>
+                <div className="flex flex-col gap-1 bg-[#FAF9F6] p-2 rounded border border-[#E4E1DA]/80">
+                  {classItem.teachers.map((t) => (
+                    <div key={t.teacherId} className="flex items-center justify-between text-xs">
+                      <span className="text-[#5F6670]">
+                        {t.teacherName} ({t.splitPercentage}%):
+                      </span>
+                      <strong className="text-[#1C1F23] tabular-nums">
+                        <MoneyText amount={Math.round((terms.teacherSharePerStudent * t.splitPercentage) / 100)} />
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Terms History Section */}
             {classItem.termsHistory && classItem.termsHistory.length > 1 && (
@@ -1058,85 +1232,213 @@ export default function OwnerClassDetailPage() {
           )}
 
           {/* Teacher Selection */}
-          <div className="flex flex-col gap-1.5">
-            <Field
-              id="detail-edit-teacher"
-              label="Assigned Teacher"
-              hint={
-                !editSubject
-                  ? "Select a subject above to view qualified teachers."
-                  : editMatchingTeachers.length > 0 && !editShowAllTeachers
-                  ? `Showing ${editMatchingTeachers.length} teacher(s) who teach ${editSubject}.`
-                  : editMatchingTeachers.length === 0 && !editShowAllTeachers
-                  ? `No active teachers currently teach ${editSubject}.`
-                  : `Showing all active teachers (${teachers.length}).`
-              }
-              required
-            >
-              <Select
-                id="detail-edit-teacher"
-                value={editTeacherId}
-                onChange={(e) => setEditTeacherId(e.target.value)}
-                required
-                disabled={!editSubject}
-              >
-                {!editSubject ? (
-                  <option value="">-- Choose a subject first --</option>
-                ) : editDisplayedTeachers.length === 0 ? (
-                  <option value="">-- No teachers registered for {editSubject} --</option>
-                ) : (
-                  <>
-                    <option value="">-- Choose a teacher --</option>
-                    {editDisplayedTeachers.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}{" "}
-                        {t.subjects && t.subjects.length > 0 ? `(${t.subjects.join(", ")})` : ""}
-                      </option>
-                    ))}
-                  </>
-                )}
-              </Select>
-            </Field>
+          <div className="flex flex-col gap-2 p-3 bg-[#FAF9F6] border border-[#E4E1DA] rounded-[8px]">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-[#1C1F23] flex items-center gap-1.5">
+                <GraduationCap className="w-4 h-4 text-[#1F5C4D]" strokeWidth={1.75} />
+                Teacher Assignment
+              </label>
 
-            {editSubject && editMatchingTeachers.length === 0 && !editShowAllTeachers && (
-              <div className="flex items-center justify-between text-xs text-[#A32A2A] bg-[#FAF9F6] p-2 rounded border border-[#E4E1DA]">
-                <span>No registered teachers teach {editSubject}.</span>
-                <button
-                  type="button"
-                  onClick={() => setEditShowAllTeachers(true)}
-                  className="text-[#1F5C4D] font-medium hover:underline shrink-0 ml-2"
+              {/* Multiple Teachers Tickbox */}
+              <label className="flex items-center gap-1.5 text-xs text-[#1C1F23] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  id="detail-edit-multi-teacher-check"
+                  checked={editIsMultiTeacher}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setEditIsMultiTeacher(checked);
+                    if (checked && editTeacherId && !editCoTeachers[0].teacherId) {
+                      setEditCoTeachers([
+                        { teacherId: editTeacherId, splitPercentage: 50 },
+                        { teacherId: "", splitPercentage: 50 },
+                      ]);
+                    }
+                  }}
+                  className="rounded border-[#E4E1DA] text-[#1F5C4D] focus:ring-[#1F5C4D] w-3.5 h-3.5"
+                />
+                <span className="font-medium text-[#1F5C4D]">Multiple Teachers (Co-Teaching)</span>
+              </label>
+            </div>
+
+            {!editIsMultiTeacher ? (
+              <>
+                <Field
+                  id="detail-edit-teacher"
+                  label="Assigned Teacher"
+                  hint={
+                    !editSubject
+                      ? "Select a subject above to view qualified teachers."
+                      : editMatchingTeachers.length > 0 && !editShowAllTeachers
+                      ? `Showing ${editMatchingTeachers.length} teacher(s) who teach ${editSubject}.`
+                      : editMatchingTeachers.length === 0 && !editShowAllTeachers
+                      ? `No active teachers currently teach ${editSubject}.`
+                      : `Showing all active teachers (${teachers.length}).`
+                  }
+                  required
                 >
-                  Show all teachers
-                </button>
+                  <Select
+                    id="detail-edit-teacher"
+                    value={editTeacherId}
+                    onChange={(e) => setEditTeacherId(e.target.value)}
+                    required
+                    disabled={!editSubject}
+                  >
+                    {!editSubject ? (
+                      <option value="">-- Choose a subject first --</option>
+                    ) : editDisplayedTeachers.length === 0 ? (
+                      <option value="">-- No teachers registered for {editSubject} --</option>
+                    ) : (
+                      <>
+                        <option value="">-- Choose a teacher --</option>
+                        {editDisplayedTeachers.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}{" "}
+                            {t.subjects && t.subjects.length > 0 ? `(${t.subjects.join(", ")})` : ""}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </Select>
+                </Field>
+
+                {editSubject && editMatchingTeachers.length === 0 && !editShowAllTeachers && (
+                  <div className="flex items-center justify-between text-xs text-[#A32A2A] bg-[#FAF9F6] p-2 rounded border border-[#E4E1DA]">
+                    <span>No registered teachers teach {editSubject}.</span>
+                    <button
+                      type="button"
+                      onClick={() => setEditShowAllTeachers(true)}
+                      className="text-[#1F5C4D] font-medium hover:underline shrink-0 ml-2"
+                    >
+                      Show all teachers
+                    </button>
+                  </div>
+                )}
+
+                {editSubject && editMatchingTeachers.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setEditShowAllTeachers(!editShowAllTeachers)}
+                    className="text-left text-[11px] text-[#1F5C4D] hover:underline self-start -mt-0.5"
+                  >
+                    {editShowAllTeachers
+                      ? `Filter to teachers who teach ${editSubject} (${editMatchingTeachers.length})`
+                      : `Show all active teachers (${teachers.length})`}
+                  </button>
+                )}
+
+                {editSubject && editMatchingTeachers.length === 0 && editShowAllTeachers && (
+                  <button
+                    type="button"
+                    onClick={() => setEditShowAllTeachers(false)}
+                    className="text-left text-[11px] text-[#1F5C4D] hover:underline self-start -mt-0.5"
+                  >
+                    Filter back to {editSubject} only
+                  </button>
+                )}
+              </>
+            ) : (
+              /* Co-Teaching Configuration */
+              <div className="flex flex-col gap-2.5 mt-1">
+                <div className="flex items-center justify-between text-xs text-[#5F6670] bg-white p-2 rounded border border-[#E4E1DA]">
+                  <span>Assign 2 or 3 teachers with fixed percentage split.</span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
+                        editCoTeachers.reduce((s, t) => s + (Number(t.splitPercentage) || 0), 0) === 100
+                          ? "bg-[#E6F0EC] text-[#1F5C4D] border border-[#1F5C4D]/30"
+                          : "bg-[#FFF5F5] text-[#A32A2A] border border-[#A32A2A]/30"
+                      }`}
+                    >
+                      Total Split: {editCoTeachers.reduce((s, t) => s + (Number(t.splitPercentage) || 0), 0)}%
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleEditEqualizeSplit(editCoTeachers.length)}
+                      className="text-[11px] text-[#1F5C4D] hover:underline font-medium cursor-pointer"
+                    >
+                      Equal Split
+                    </button>
+                  </div>
+                </div>
+
+                {editCoTeachers.map((co, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2.5 bg-white border border-[#E4E1DA] rounded-[6px] flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
+                  >
+                    <div className="flex-1">
+                      <label className="text-[11px] font-semibold text-[#5F6670] block mb-1">
+                        {idx === 0 ? "Teacher 1 (Lead)" : `Teacher ${idx + 1} (Co-Teacher)`}
+                      </label>
+                      <Select
+                        value={co.teacherId}
+                        onChange={(e) => handleEditCoTeacherChange(idx, "teacherId", e.target.value)}
+                        disabled={!editSubject}
+                        className="text-xs"
+                      >
+                        <option value="">-- Choose teacher --</option>
+                        {editDisplayedTeachers.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+
+                    <div className="w-full sm:w-28">
+                      <label className="text-[11px] font-semibold text-[#5F6670] block mb-1">
+                        Split %
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min={1}
+                          max={99}
+                          value={co.splitPercentage}
+                          onChange={(e) =>
+                            handleEditCoTeacherChange(idx, "splitPercentage", Number(e.target.value))
+                          }
+                          className="w-full text-xs h-8 px-2 pr-6 border border-[#E4E1DA] rounded bg-white text-[#1C1F23] focus:border-[#1F5C4D] focus:outline-none"
+                        />
+                        <span className="absolute right-2 top-2 text-xs text-[#5F6670]">%</span>
+                      </div>
+                    </div>
+
+                    {editCoTeachers.length > 2 && idx === editCoTeachers.length - 1 && (
+                      <div className="sm:self-end pb-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleEditRemoveTeacher(idx)}
+                          title="Remove Teacher"
+                          className="h-8 px-2 text-xs text-[#A32A2A] hover:bg-[#FFF5F5] border border-[#A32A2A]/30 rounded transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {editCoTeachers.length < 3 && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleEditAddTeacher}
+                    className="text-xs h-7 self-start gap-1 text-[#1F5C4D]"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add 3rd Teacher</span>
+                  </Button>
+                )}
               </div>
-            )}
-
-            {editSubject && editMatchingTeachers.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setEditShowAllTeachers(!editShowAllTeachers)}
-                className="text-left text-[11px] text-[#1F5C4D] hover:underline self-start -mt-0.5"
-              >
-                {editShowAllTeachers
-                  ? `Filter to teachers who teach ${editSubject} (${editMatchingTeachers.length})`
-                  : `Show all active teachers (${teachers.length})`}
-              </button>
-            )}
-
-            {editSubject && editMatchingTeachers.length === 0 && editShowAllTeachers && (
-              <button
-                type="button"
-                onClick={() => setEditShowAllTeachers(false)}
-                className="text-left text-[11px] text-[#1F5C4D] hover:underline self-start -mt-0.5"
-              >
-                Filter back to {editSubject} only
-              </button>
             )}
 
             {/* Class Theme Color */}
             <ColorPicker
               value={editColor}
               onChange={setEditColor}
+              usedColors={Array.from(getUsedClassColors(allClasses, classItem?.id))}
               label="Class Theme Color"
             />
           </div>

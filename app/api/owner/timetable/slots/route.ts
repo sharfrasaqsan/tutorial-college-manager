@@ -6,7 +6,10 @@ import {
   CreateSlotSchema,
   generateSessionsForSlot,
   slotToTimeInterval,
+  validateSlotDatesNotInPast,
 } from "@/lib/timetable";
+import { getColomboNow } from "@/lib/dates";
+import { format } from "date-fns";
 import {
   notifyTeacherTimetableChange,
   notifyOwnerConcurrentGradeSchedule,
@@ -168,6 +171,19 @@ export async function POST(request: NextRequest) {
           countsForMonth = specificDate.substring(0, 7);
         }
       }
+    }
+
+    const todayStr = format(getColomboNow(), "yyyy-MM-dd");
+    const dateError = validateSlotDatesNotInPast({
+      isExtra: Boolean(isTemporary || slotType === "extra"),
+      specificDate,
+      validFrom,
+      validTo,
+      todayStr,
+      isEdit: false,
+    });
+    if (dateError) {
+      return NextResponse.json({ error: dateError }, { status: 400 });
     }
 
     // 2. Fetch Class Details
